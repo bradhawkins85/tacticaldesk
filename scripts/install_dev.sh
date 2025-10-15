@@ -19,6 +19,38 @@ if [[ -f "${ENV_FILE}" ]]; then
   set +a
 fi
 
+ensure_python_dependencies() {
+  if command -v "${PYTHON_BIN}" >/dev/null 2>&1 && "${PYTHON_BIN}" -m venv -h >/dev/null 2>&1; then
+    return
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update -y
+    sudo apt-get install -y python3 python3-venv python3-pip
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y python3 python3-pip
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y python3 python3-pip
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm python python-pip
+  else
+    echo "Unsupported package manager. Install python3 with venv support before continuing." >&2
+    exit 1
+  fi
+
+  if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+    echo "Python interpreter '${PYTHON_BIN}' not found after attempting installation." >&2
+    exit 1
+  fi
+
+  if ! "${PYTHON_BIN}" -m venv -h >/dev/null 2>&1; then
+    echo "The python venv module is unavailable. Please install the python venv package for your distribution." >&2
+    exit 1
+  fi
+}
+
+ensure_python_dependencies
+
 REPO_URL="${TACTICAL_DESK_REPO_URL:-https://github.com/example/tacticaldesk.git}"
 GIT_USERNAME="${TACTICAL_DESK_GIT_USERNAME:-}"
 GIT_TOKEN="${TACTICAL_DESK_GIT_TOKEN:-}"
