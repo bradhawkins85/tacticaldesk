@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block header_actions %}
+<button class="primary-button" type="button" data-action="new-ticket">New Ticket</button>
+<button class="secondary-button" type="button" data-action="refresh">Refresh</button>
+{% endblock %}
+{% block content %}
+<section class="content-section">
+  <header class="section-header">
+    <h2>Open Tickets</h2>
+    <p class="subtitle">Monitor current workload across all channels and automation queues.</p>
+  </header>
+  <div class="table-toolbar">
+    <label class="filter">
+      <span>Filter</span>
+      <input type="search" placeholder="Search tickets" data-role="table-filter" aria-controls="ticket-table" />
+    </label>
+  </div>
+  <div class="table-wrapper">
+    <table id="ticket-table" class="data-table" data-role="sortable-table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="id">Ticket</th>
+          <th scope="col" data-sort-key="subject">Subject</th>
+          <th scope="col" data-sort-key="status">Status</th>
+          <th scope="col" data-sort-key="priority">Priority</th>
+          <th scope="col" data-sort-key="updated_at">Last updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ticket in tickets %}
+        <tr>
+          <td data-label="Ticket">#{{ '%05d'|format(ticket.id) }}</td>
+          <td data-label="Subject">{{ ticket.subject }}</td>
+          <td data-label="Status"><span class="badge status-{{ ticket.status | lower }}">{{ ticket.status }}</span></td>
+          <td data-label="Priority"><span class="badge priority-{{ ticket.priority | lower }}">{{ ticket.priority }}</span></td>
+          <td data-label="Last updated" data-sort-value="{{ ticket.updated_at_iso }}">{{ ticket.updated_at_display }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="content-section">
+  <header class="section-header">
+    <h2>Webhook Delivery Monitoring</h2>
+    <p class="subtitle">Track outbound integration health and configure automatic retries.</p>
+  </header>
+  <div class="monitoring-card">
+    <div class="monitoring-metric">
+      <span class="metric-label">Active webhooks</span>
+      <span class="metric-value">{{ webhook_metrics.active }}</span>
+    </div>
+    <div class="monitoring-metric">
+      <span class="metric-label">Pending retries</span>
+      <span class="metric-value">{{ webhook_metrics.pending_retries }}</span>
+    </div>
+    <div class="monitoring-metric">
+      <span class="metric-label">Last failure</span>
+      <span class="metric-value" data-sort-value="{{ webhook_metrics.last_failure }}">{{ webhook_metrics.last_failure }}</span>
+    </div>
+    <button class="secondary-button" type="button" data-action="view-webhook-admin">Open webhook admin</button>
+  </div>
+</section>
+{% endblock %}

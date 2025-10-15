@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block header_actions %}
+  <span class="status-pill {% if installers_enabled %}status-pill--success{% else %}status-pill--warning{% endif %}">
+    {% if installers_enabled %}Installers enabled{% else %}Installers locked{% endif %}
+  </span>
+{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <header class="panel__header">
+      <div>
+        <h2>Deployment orchestrator</h2>
+        <p>Execute provisioning workflows directly from Tactical Desk. A valid maintenance token is required for every action.</p>
+      </div>
+      <div class="token-field">
+        <label for="maintenance-token">Maintenance token</label>
+        <input id="maintenance-token" name="maintenance_token" type="password" placeholder="Enter maintenance token" autocomplete="off" />
+      </div>
+    </header>
+    <div class="panel__body">
+      <div class="table-actions">
+        <input type="search" placeholder="Filter scripts" data-role="table-filter" aria-label="Filter deployment scripts" />
+      </div>
+      <div class="table-wrapper">
+        <table data-role="sortable-table" class="data-table" aria-describedby="deployment-help">
+          <thead>
+            <tr>
+              <th scope="col" data-sort-key="name">Script</th>
+              <th scope="col" data-sort-key="description">Description</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for script in maintenance_scripts %}
+            <tr>
+              <td data-sort-value="{{ script.name }}">{{ script.name }}</td>
+              <td>{{ script.description }}</td>
+              <td>
+                <button class="button" type="button" data-action="maintenance-run" data-endpoint="/maintenance/{{ script.slug }}" {% if not installers_enabled %}disabled{% endif %}>
+                  Run
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="log-console" aria-live="polite">
+        <h3>Latest execution</h3>
+        <pre data-role="maintenance-output">Awaiting execution…</pre>
+      </div>
+    </div>
+    <footer class="panel__footer" id="deployment-help">
+      <p>
+        When installers are locked, outbound commands are blocked even if a token is provided. Toggle <code>TACTICAL_DESK_ENABLE_INSTALLERS</code> in your environment file to permit remote execution.
+      </p>
+    </footer>
+  </section>
+
+  <section class="panel">
+    <header class="panel__header">
+      <div>
+        <h2>Webhook retry monitor</h2>
+        <p>Track failed outbound notifications and confirm that automatic retries are scheduled.</p>
+      </div>
+    </header>
+    <div class="panel__body">
+      <div class="table-actions">
+        <input type="search" placeholder="Filter webhooks" data-role="table-filter" aria-label="Filter webhook events" />
+      </div>
+      <div class="table-wrapper">
+        <table data-role="sortable-table" class="data-table">
+          <thead>
+            <tr>
+              <th scope="col" data-sort-key="id">Webhook ID</th>
+              <th scope="col" data-sort-key="endpoint">Endpoint</th>
+              <th scope="col" data-sort-key="status">Status</th>
+              <th scope="col" data-sort-key="last_attempt">Last attempt</th>
+              <th scope="col" data-sort-key="next_retry">Next retry</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in webhook_failures %}
+            <tr>
+              <td data-sort-value="{{ event.id }}">{{ event.id }}</td>
+              <td>{{ event.endpoint }}</td>
+              <td>{{ event.status|title }}</td>
+              <td data-sort-value="{{ event.last_attempt }}">{{ event.last_attempt }}</td>
+              <td data-sort-value="{{ event.next_retry }}">{{ event.next_retry }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endblock %}

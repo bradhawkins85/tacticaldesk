@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth-card">
+  <h2>Create the Super Admin</h2>
+  <p class="subtitle">
+    Tactical Desk requires one super administrator account. Store the credentials securely and rotate the password regularly.
+  </p>
+  <form id="register-form" class="auth-form" autocomplete="off" novalidate>
+    <div class="form-field">
+      <label for="register-email">Email</label>
+      <input id="register-email" name="email" type="email" required autocomplete="username" />
+    </div>
+    <div class="form-field">
+      <label for="register-password">Password</label>
+      <input id="register-password" name="password" type="password" required autocomplete="new-password" minlength="12" />
+    </div>
+    <div class="form-field">
+      <label for="register-password-confirm">Confirm password</label>
+      <input id="register-password-confirm" name="password_confirm" type="password" required autocomplete="new-password" minlength="12" />
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="primary-button">Create super admin</button>
+      <a href="{{ url_for('root_route') }}" class="secondary-link">Back to sign in</a>
+    </div>
+    <p class="form-feedback" data-role="form-message" aria-live="polite"></p>
+  </form>
+</section>
+{% endblock %}

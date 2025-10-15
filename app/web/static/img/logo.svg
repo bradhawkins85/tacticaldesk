@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title>Tactical Desk</title>
+  <desc>Shield and chat bubble combined into a logo</desc>
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+  </defs>
+  <path fill="url(#grad)" d="M32 4l24 10v16c0 12.15-7.95 23.78-20.57 29.42a6 6 0 0 1-4.86 0C17.95 53.78 10 42.15 10 30V14z" />
+  <path fill="#0f172a" fill-opacity="0.12" d="M32 10l-16 6v12c0 8.7 5.7 17.02 14.72 20.98a2 2 0 0 0 1.56 0C41.3 45.02 47 36.7 47 28V16z" />
+  <path fill="#ffffff" d="M21 22h22a2 2 0 0 1 2 2v10.5a2 2 0 0 1-2 2H33l-5 5-1.5-5H21a2 2 0 0 1-2-2V24a2 2 0 0 1 2-2z" />
+</svg>
