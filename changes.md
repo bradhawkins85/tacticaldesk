@@ -19,3 +19,5 @@
 - 2025-10-16T03:15:00Z Fix: Corrected ticket table row alignment so selection controls and ID values line up consistently.
 - 2025-10-16T02:55:00Z Feature: Added secure lifecycle automation controls so operators can trigger app updates directly from the Automation Control Tower.
 - 2025-10-16T03:15:00Z Feature: Removed maintenance token requirement while keeping installer lock enforcement for deployment actions in API and UI.
+- 2025-10-16T03:45:00Z Fix: Realigned ticket selection column borders so row dividers line up with the ID column separators.
+

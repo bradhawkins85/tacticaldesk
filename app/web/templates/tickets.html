@@ -88,11 +88,13 @@
         <tbody>
           {% for ticket in tickets %}
           <tr data-filter-keys="{{ ticket.filter_tokens | join(' ') }}">
-            <td data-label="Select" class="ticket-table__select">
-              <input type="checkbox" aria-label="Select ticket {{ ticket.id }}" />
-              {% if ticket.is_starred %}
-              <span class="ticket-table__star" aria-label="Starred ticket">★</span>
-              {% endif %}
+            <td data-label="Select">
+              <div class="ticket-table__select">
+                <input type="checkbox" aria-label="Select ticket {{ ticket.id }}" />
+                {% if ticket.is_starred %}
+                <span class="ticket-table__star" aria-label="Starred ticket">★</span>
+                {% endif %}
+              </div>
             </td>
             <td data-label="ID">
               <a href="#" class="ticket-id">{{ ticket.id }}</a>
