@@ -27,6 +27,7 @@ from app.api.routers import maintenance as maintenance_router
 from app.api.routers import organizations as organizations_router
 from app.api.routers import webhooks as webhooks_router
 from app.core.automations import (
+    EVENT_AUTOMATION_ACTIONS,
     EVENT_AUTOMATION_ACTION_CHOICES,
     EVENT_TRIGGER_OPTIONS,
     TRIGGER_OPERATOR_OPTIONS,
