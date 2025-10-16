@@ -55,12 +55,20 @@
               <span>Automation</span>
             </a>
             <a
-              class="nav-sublink{% if current_admin == 'integrations' %} is-active{% endif %}"
-              href="{{ url_for('integrations_index') }}"
-              {% if current_admin == 'integrations' %}aria-current="page"{% endif %}
+              class="nav-sublink{% if current_admin == 'maintenance' %} is-active{% endif %}"
+              href="{{ url_for('maintenance') }}"
+              {% if current_admin == 'maintenance' %}aria-current="page"{% endif %}
             >
-              <span class="nav-icon" aria-hidden="true">🔌</span>
-              <span>Integrations</span>
+              <span class="nav-icon" aria-hidden="true">🛠️</span>
+              <span>Maintenance</span>
+            </a>
+            <a
+              class="nav-sublink{% if current_admin == 'webhooks' %} is-active{% endif %}"
+              href="{{ url_for('admin_webhooks') }}"
+              {% if current_admin == 'webhooks' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">🔁</span>
+              <span>Webhooks</span>
             </a>
             {% set current_integration = active_integration | default('', true) %}
             <div
@@ -76,6 +84,14 @@
                 <span class="nav-icon" aria-hidden="true">🌐</span>
                 <span>Integration modules</span>
               </p>
+              <a
+                class="nav-sublink nav-sublink--nested{% if current_admin == 'integrations' and not current_integration %} is-active{% endif %}"
+                href="{{ url_for('integrations_index') }}"
+                {% if current_admin == 'integrations' and not current_integration %}aria-current="page"{% endif %}
+              >
+                <span class="nav-icon" aria-hidden="true">🔌</span>
+                <span>Manage</span>
+              </a>
               {% if integration_nav %}
               {% for integration in integration_nav %}
               <a
@@ -92,22 +108,6 @@
               <p class="nav-empty nav-empty--nested">No integrations enabled</p>
               {% endif %}
             </div>
-            <a
-              class="nav-sublink{% if current_admin == 'maintenance' %} is-active{% endif %}"
-              href="{{ url_for('maintenance') }}"
-              {% if current_admin == 'maintenance' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">🛠️</span>
-              <span>Maintenance</span>
-            </a>
-            <a
-              class="nav-sublink{% if current_admin == 'webhooks' %} is-active{% endif %}"
-              href="{{ url_for('admin_webhooks') }}"
-              {% if current_admin == 'webhooks' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">🔁</span>
-              <span>Webhooks</span>
-            </a>
           </div>
         </nav>
         <footer class="sidebar-footer">
