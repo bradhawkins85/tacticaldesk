@@ -4,7 +4,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, constr
+
+TicketShortText = constr(strip_whitespace=True, min_length=1, max_length=255)
+TicketSummaryText = constr(strip_whitespace=True, min_length=1, max_length=2048)
 
 
 class UserBase(BaseModel):
@@ -140,6 +143,22 @@ class AutomationRead(BaseModel):
     action_label: Optional[str]
     action_endpoint: Optional[str]
     action_output_selector: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+
+class TicketUpdate(BaseModel):
+    subject: TicketShortText
+    customer: TicketShortText
+    customer_email: EmailStr
+    status: TicketShortText
+    priority: TicketShortText
+    team: TicketShortText
+    assignment: TicketShortText
+    queue: TicketShortText
+    category: TicketShortText
+    summary: TicketSummaryText
 class ContactBase(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     job_title: Optional[str] = Field(default=None, max_length=255)

@@ -41,3 +41,4 @@
 - 2025-10-16T09:45:00Z Feature: Added automation editing API, modal workspace controls, and regression tests for scheduled and event automations.
 - 2025-10-16T06:07:10Z Feature: Moved organisation creation workflow into a modal dialog with backdrop controls and keyboard support.
 - 2025-10-16T08:55:00Z Feature: Introduced organisation contact management APIs and admin workspace with sortable, filterable directory and CRUD tooling.
+- 2025-10-16T07:07:52Z Fix: Enabled ticket detail form submissions with validation feedback, persisted overrides, and regression coverage for ticket updates.
