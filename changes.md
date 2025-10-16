@@ -55,3 +55,9 @@
 - 2025-10-16T12:45:00Z Feature: Added icon-based automation controls with manual run and delete APIs plus UI feedback updates.
 - 2025-10-16T13:30:00Z Feature: Expanded trigger condition catalog and enabled scheduled automation condition builder with backend validation.
 - 2025-10-16T14:45:00Z Feature: Added ticket creation modal, backend endpoint, and automation dispatching for new tickets.
+
+- 2025-10-16T14:15:00Z Feature: Added ticket event dispatcher to evaluate automation filters and record trigger activity.
+- 2025-10-16T13:45:00Z Feature: Documented event automation action catalog with filterable UI reference and contextual identifiers.
+- 2025-10-16T14:30:00Z Feature: Added playbook management API, admin UI, and regression tests with automation linkage safeguards.
+- 2025-10-16T14:15:00Z Feature: Added embedded CURD Swagger documentation workspace with admin navigation link and OpenAPI export tools.
+- 2025-10-16T11:22:28Z Fix: Renamed CURD API Docs references to API Docs for accurate terminology.

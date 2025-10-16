@@ -55,12 +55,28 @@
               <span>Automation</span>
             </a>
             <a
+              class="nav-sublink{% if current_admin == 'playbooks' %} is-active{% endif %}"
+              href="{{ url_for('admin_playbooks') }}"
+              {% if current_admin == 'playbooks' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">📚</span>
+              <span>Playbooks</span>
+            </a>
+            <a
               class="nav-sublink{% if current_admin == 'maintenance' %} is-active{% endif %}"
               href="{{ url_for('maintenance') }}"
               {% if current_admin == 'maintenance' %}aria-current="page"{% endif %}
             >
               <span class="nav-icon" aria-hidden="true">🛠️</span>
               <span>Maintenance</span>
+            </a>
+            <a
+              class="nav-sublink{% if current_admin == 'api_docs' %} is-active{% endif %}"
+              href="{{ url_for('admin_api_docs') }}"
+              {% if current_admin == 'api_docs' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">📘</span>
+              <span>API Docs</span>
             </a>
             <a
               class="nav-sublink{% if current_admin == 'organisations' %} is-active{% endif %}"
