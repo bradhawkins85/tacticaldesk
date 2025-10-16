@@ -72,7 +72,7 @@ if [[ -f "${SERVICE_FILE}" ]]; then
     sudo sed -i "/ExecStart=/i Environment=\"PYTHONPATH=${APP_DIR}\"" "${SERVICE_FILE}"
   fi
 
-  if ! grep -q '--app-dir' "${SERVICE_FILE}"; then
+  if ! grep -q -- '--app-dir' "${SERVICE_FILE}"; then
     sudo sed -i "s|app.main:app|app.main:app --app-dir ${APP_DIR}|" "${SERVICE_FILE}"
   fi
 
