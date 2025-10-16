@@ -1,7 +1,11 @@
+import asyncio
+from datetime import datetime
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.core.tickets import ticket_store
 from app.main import app
 
 
@@ -13,6 +17,20 @@ def automation_db(tmp_path, monkeypatch):
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_ticket_overrides():
+    asyncio.run(ticket_store.reset())
+    yield
+    asyncio.run(ticket_store.reset())
+
+
+def _parse_iso8601(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    return datetime.fromisoformat(normalized)
 
 
 def test_seeded_automations_visible_in_api_and_ui():
@@ -197,6 +215,7 @@ def test_update_event_automation_trigger_filters():
         assert update.status_code == 200
         body = update.json()
         assert body["trigger_filters"]["match"] == "all"
+
         def _normalize_conditions(raw_conditions):
             normalized = []
             for condition in raw_conditions:
@@ -216,6 +235,63 @@ def test_update_event_automation_trigger_filters():
         assert "Ticket Status Changed From" in html
         assert "Equals" in html
         assert "Open" in html
+
+
+def test_ticket_update_triggers_event_automation():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        event_items = events.json()
+        target = next(
+            item for item in event_items if item["name"] == "Incident escalation"
+        )
+        automation_id = target["id"]
+        original_last_trigger = target.get("last_trigger_at")
+
+        configure_response = client.patch(
+            f"/api/automations/{automation_id}",
+            json={
+                "trigger_filters": {
+                    "match": "all",
+                    "conditions": [
+                        {"type": "Ticket Updated by Technician"},
+                    ],
+                }
+            },
+        )
+        assert configure_response.status_code == 200
+
+        form_payload = {
+            "subject": "Query for Opensource Project - follow up",
+            "customer": "Quest Logistics",
+            "customer_email": "quest.labs@example.com",
+            "status": "Open",
+            "priority": "High",
+            "team": "Tier 1",
+            "assignment": "Unassigned",
+            "queue": "Critical response",
+            "category": "Support",
+            "summary": "Technician posted updated troubleshooting notes.",
+        }
+
+        ticket_response = client.post(
+            "/tickets/TD-4821",
+            data=form_payload,
+            follow_redirects=False,
+        )
+        assert ticket_response.status_code == 303
+
+        refreshed = client.get("/api/automations", params={"kind": "event"})
+        assert refreshed.status_code == 200
+        updated = next(item for item in refreshed.json() if item["id"] == automation_id)
+        assert updated["last_trigger_at"] is not None
+        assert updated["last_trigger_at"] != original_last_trigger
+
+        parsed_original = _parse_iso8601(original_last_trigger)
+        parsed_updated = _parse_iso8601(updated["last_trigger_at"])
+        assert parsed_updated is not None
+        if parsed_original is not None:
+            assert parsed_updated > parsed_original
 
 
 def test_manual_run_endpoint_updates_last_run():
