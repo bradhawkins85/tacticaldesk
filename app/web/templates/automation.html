@@ -84,19 +84,6 @@
     </div>
   </header>
   <div class="panel__body">
-    <div class="form-field maintenance-token-field">
-      <label for="maintenance-token">Execution token</label>
-      <input
-        type="password"
-        id="maintenance-token"
-        name="maintenance_token"
-        placeholder="Enter maintenance token"
-        autocomplete="off"
-        inputmode="text"
-        spellcheck="false"
-      />
-      <p class="maintenance-token-help">Required before triggering lifecycle automation.</p>
-    </div>
     <div class="automation-update__actions">
       <button
         class="primary-button"
@@ -104,7 +91,6 @@
         data-action="maintenance-run"
         data-endpoint="/maintenance/update"
         data-output="#automation-update-output"
-        data-token-field="#maintenance-token"
       >
         Run secure update
       </button>
