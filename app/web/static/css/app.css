@@ -642,9 +642,10 @@ body {
 
 .ticket-table__select {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
   min-width: 56px;
+  height: 100%;
 }
 
 .ticket-table__star {
