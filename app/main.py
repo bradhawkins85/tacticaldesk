@@ -36,6 +36,7 @@ from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
 from app.core.automation_dispatcher import automation_dispatcher
 from app.core.tickets import ticket_store
+from app.core.template_variables import AUTOMATION_TEMPLATE_VARIABLES
 from app.models import (
     Automation,
     Contact,
@@ -1653,6 +1654,7 @@ async def automation_edit_event_view(
         event_trigger_options=EVENT_TRIGGER_OPTIONS,
         trigger_operator_options=TRIGGER_OPERATOR_OPTIONS,
         value_required_trigger_options=sorted(VALUE_REQUIRED_TRIGGER_OPTIONS),
+        automation_template_variables=AUTOMATION_TEMPLATE_VARIABLES,
         automation_actions=[
             {"name": action, "slug": slugify(action)}
             for action in EVENT_AUTOMATION_ACTIONS
