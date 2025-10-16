@@ -86,8 +86,18 @@
               <td data-sort-value="{{ event.id }}">{{ event.id }}</td>
               <td>{{ event.endpoint }}</td>
               <td>{{ event.status|title }}</td>
-              <td data-sort-value="{{ event.last_attempt }}">{{ event.last_attempt }}</td>
-              <td data-sort-value="{{ event.next_retry }}">{{ event.next_retry }}</td>
+              <td
+                data-sort-value="{{ event.last_attempt }}"
+                data-format="datetime"
+              >
+                {{ event.last_attempt }}
+              </td>
+              <td
+                data-sort-value="{{ event.next_retry }}"
+                data-format="datetime"
+              >
+                {{ event.next_retry }}
+              </td>
             </tr>
             {% endfor %}
           </tbody>

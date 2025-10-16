@@ -116,7 +116,13 @@
                 <a class="ticket-customer__email" href="mailto:{{ ticket.customer_email }}">{{ ticket.customer_email }}</a>
               </div>
             </td>
-            <td data-label="Timestamp" data-sort-value="{{ ticket.last_reply_iso }}">{{ ticket.last_reply_iso }}</td>
+            <td
+              data-label="Timestamp"
+              data-sort-value="{{ ticket.last_reply_iso }}"
+              data-format="datetime"
+            >
+              {{ ticket.last_reply_iso }}
+            </td>
             <td data-label="Age" data-sort-value="{{ ticket.last_reply_iso }}">{{ ticket.age_display }}</td>
             <td data-label="Team">{{ ticket.team }}</td>
             <td data-label="Category">{{ ticket.category }}</td>

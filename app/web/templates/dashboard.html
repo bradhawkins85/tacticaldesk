@@ -33,7 +33,13 @@
           <td data-label="Subject">{{ ticket.subject }}</td>
           <td data-label="Status"><span class="badge status-{{ ticket.status | lower }}">{{ ticket.status }}</span></td>
           <td data-label="Priority"><span class="badge priority-{{ ticket.priority | lower }}">{{ ticket.priority }}</span></td>
-          <td data-label="Last updated" data-sort-value="{{ ticket.updated_at_iso }}">{{ ticket.updated_at_display }}</td>
+          <td
+            data-label="Last updated"
+            data-sort-value="{{ ticket.updated_at_iso }}"
+            data-format="datetime"
+          >
+            {{ ticket.updated_at_display }}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -56,7 +62,13 @@
     </div>
     <div class="monitoring-metric">
       <span class="metric-label">Last failure</span>
-      <span class="metric-value" data-sort-value="{{ webhook_metrics.last_failure }}">{{ webhook_metrics.last_failure }}</span>
+      <span
+        class="metric-value"
+        data-sort-value="{{ webhook_metrics.last_failure }}"
+        data-format="datetime"
+      >
+        {{ webhook_metrics.last_failure }}
+      </span>
     </div>
     <button class="secondary-button" type="button" data-action="view-webhook-admin">Open webhook admin</button>
   </div>

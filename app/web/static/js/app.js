@@ -158,14 +158,14 @@
     });
   });
 
-  document.querySelectorAll('[data-sort-value]').forEach((cell) => {
-    const value = cell.dataset.sortValue;
+  document.querySelectorAll('[data-format="datetime"]').forEach((element) => {
+    const value = element.dataset.sortValue || element.textContent?.trim();
     if (!value) {
       return;
     }
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) {
-      cell.textContent = parsed.toLocaleString();
+      element.textContent = parsed.toLocaleString();
     }
   });
 

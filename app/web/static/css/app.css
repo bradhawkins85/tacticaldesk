@@ -635,10 +635,16 @@ body {
   min-width: 960px;
 }
 
+.ticket-table th,
+.ticket-table td {
+  vertical-align: top;
+}
+
 .ticket-table__select {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
+  min-width: 56px;
 }
 
 .ticket-table__star {
