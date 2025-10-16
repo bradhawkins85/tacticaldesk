@@ -111,6 +111,42 @@ class OrganizationRead(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class AutomationUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255, min_length=1)
+    description: Optional[str] = Field(default=None, max_length=2048)
+    playbook: Optional[str] = Field(default=None, max_length=255, min_length=1)
+    cadence: Optional[str] = Field(default=None, max_length=255)
+    trigger: Optional[str] = Field(default=None, max_length=255)
+    status: Optional[str] = Field(default=None, max_length=64)
+    next_run_at: Optional[datetime] = None
+    last_run_at: Optional[datetime] = None
+    last_trigger_at: Optional[datetime] = None
+
+
+class AutomationRead(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    playbook: str
+    kind: str
+    cadence: Optional[str]
+    trigger: Optional[str]
+    status: Optional[str]
+    next_run_at: Optional[datetime]
+    last_run_at: Optional[datetime]
+    last_trigger_at: Optional[datetime]
+    action_label: Optional[str]
+    action_endpoint: Optional[str]
+    action_output_selector: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
 class WebhookStatus(str, Enum):
     RETRYING = "retrying"
     PAUSED = "paused"

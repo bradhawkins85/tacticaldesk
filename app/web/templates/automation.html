@@ -36,22 +36,35 @@
         </thead>
         <tbody>
           {% for automation in scheduled_automations %}
-          <tr>
+          <tr
+            data-automation-row="true"
+            data-automation-id="{{ automation.id }}"
+            data-automation-kind="{{ automation.kind }}"
+            data-automation='{{ automation | tojson | safe }}'
+          >
             <th scope="row">
               <div class="automation-name">
                 <span class="automation-name__title">{{ automation.name }}</span>
                 <p class="automation-name__description">{{ automation.description }}</p>
               </div>
             </th>
-            <td data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
-            <td data-sort-value="{{ automation.cadence }}">{{ automation.cadence }}</td>
-            <td data-sort-value="{{ automation.next_run_iso }}">
+            <td data-cell="playbook" data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
+            <td data-cell="cadence" data-sort-value="{{ automation.cadence or '' }}">{{ automation.cadence or '—' }}</td>
+            <td data-cell="next_run" data-sort-value="{{ automation.next_run_iso or '' }}">
+              {% if automation.next_run_iso %}
               <time data-role="local-datetime" datetime="{{ automation.next_run_iso }}">{{ automation.next_run_iso }}</time>
+              {% else %}
+              <span class="automation-placeholder">—</span>
+              {% endif %}
             </td>
-            <td data-sort-value="{{ automation.last_run_iso }}">
+            <td data-cell="last_run" data-sort-value="{{ automation.last_run_iso or '' }}">
+              {% if automation.last_run_iso %}
               <time data-role="local-datetime" datetime="{{ automation.last_run_iso }}">{{ automation.last_run_iso }}</time>
+              {% else %}
+              <span class="automation-placeholder">—</span>
+              {% endif %}
             </td>
-            <td class="automation-actions">
+            <td class="automation-actions" data-cell="actions">
               {% if automation.action %}
               <button
                 class="primary-button"
@@ -65,6 +78,14 @@
               {% else %}
               <span class="automation-status-tag">Monitored</span>
               {% endif %}
+              <button
+                class="secondary-button"
+                type="button"
+                data-action="automation-edit"
+                data-automation-id="{{ automation.id }}"
+              >
+                Edit
+              </button>
             </td>
           </tr>
           {% endfor %}
@@ -105,24 +126,48 @@
             <th scope="col" data-sort-key="trigger">Trigger</th>
             <th scope="col" data-sort-key="last_trigger">Last triggered</th>
             <th scope="col" data-sort-key="status">Status</th>
+            <th scope="col">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for automation in event_automations %}
-          <tr>
+          <tr
+            data-automation-row="true"
+            data-automation-id="{{ automation.id }}"
+            data-automation-kind="{{ automation.kind }}"
+            data-automation='{{ automation | tojson | safe }}'
+          >
             <th scope="row">
               <div class="automation-name">
                 <span class="automation-name__title">{{ automation.name }}</span>
                 <p class="automation-name__description">{{ automation.description }}</p>
               </div>
             </th>
-            <td data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
-            <td data-sort-value="{{ automation.trigger }}">{{ automation.trigger }}</td>
-            <td data-sort-value="{{ automation.last_trigger_iso }}">
+            <td data-cell="playbook" data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
+            <td data-cell="trigger" data-sort-value="{{ automation.trigger or '' }}">{{ automation.trigger or '—' }}</td>
+            <td data-cell="last_trigger" data-sort-value="{{ automation.last_trigger_iso or '' }}">
+              {% if automation.last_trigger_iso %}
               <time data-role="local-datetime" datetime="{{ automation.last_trigger_iso }}">{{ automation.last_trigger_iso }}</time>
+              {% else %}
+              <span class="automation-placeholder">—</span>
+              {% endif %}
             </td>
-            <td data-sort-value="{{ automation.status }}">
+            <td data-cell="status" data-sort-value="{{ automation.status or '' }}">
+              {% if automation.status %}
               <span class="automation-status-tag">{{ automation.status }}</span>
+              {% else %}
+              <span class="automation-placeholder">—</span>
+              {% endif %}
+            </td>
+            <td class="automation-actions" data-cell="actions">
+              <button
+                class="secondary-button"
+                type="button"
+                data-action="automation-edit"
+                data-automation-id="{{ automation.id }}"
+              >
+                Edit
+              </button>
             </td>
           </tr>
           {% endfor %}
@@ -131,4 +176,73 @@
     </div>
   </div>
 </section>
+
+<div class="modal" data-role="automation-modal" aria-hidden="true">
+  <div class="modal__backdrop" data-action="automation-close"></div>
+  <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="automation-modal-title">
+    <header class="modal__header">
+      <div>
+        <p class="modal__eyebrow" data-role="automation-kind-label">Automation</p>
+        <h2 id="automation-modal-title">Edit automation</h2>
+      </div>
+      <button
+        type="button"
+        class="modal__close"
+        data-action="automation-close"
+        aria-label="Close automation editor"
+      >
+        ×
+      </button>
+    </header>
+    <form data-role="automation-form">
+      <input type="hidden" name="automation_id" data-role="automation-id" />
+      <div class="modal__body">
+        <p class="modal__hint">Timestamps are saved in UTC and rendered in your local timezone.</p>
+        <div class="modal__grid">
+          <div class="form-field">
+            <label for="automation-name">Name</label>
+            <input id="automation-name" name="name" type="text" maxlength="255" required autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="automation-playbook">Playbook</label>
+            <input id="automation-playbook" name="playbook" type="text" maxlength="255" required autocomplete="off" />
+          </div>
+          <div class="form-field modal__grid-item--full">
+            <label for="automation-description">Description</label>
+            <textarea id="automation-description" name="description" rows="3" maxlength="2048"></textarea>
+          </div>
+          <div class="form-field" data-automation-section="scheduled">
+            <label for="automation-cadence">Cadence</label>
+            <input id="automation-cadence" name="cadence" type="text" maxlength="255" autocomplete="off" />
+          </div>
+          <div class="form-field" data-automation-section="event">
+            <label for="automation-trigger">Trigger</label>
+            <input id="automation-trigger" name="trigger" type="text" maxlength="255" autocomplete="off" />
+          </div>
+          <div class="form-field" data-automation-section="event">
+            <label for="automation-status">Status</label>
+            <input id="automation-status" name="status" type="text" maxlength="64" autocomplete="off" />
+          </div>
+          <div class="form-field" data-automation-section="scheduled">
+            <label for="automation-next-run">Next run</label>
+            <input id="automation-next-run" name="next_run_at" type="datetime-local" step="60" />
+          </div>
+          <div class="form-field" data-automation-section="scheduled">
+            <label for="automation-last-run">Last run</label>
+            <input id="automation-last-run" name="last_run_at" type="datetime-local" step="60" />
+          </div>
+          <div class="form-field" data-automation-section="event">
+            <label for="automation-last-trigger">Last triggered</label>
+            <input id="automation-last-trigger" name="last_trigger_at" type="datetime-local" step="60" />
+          </div>
+        </div>
+        <div class="modal__message" data-role="automation-message" role="status" aria-live="polite"></div>
+      </div>
+      <footer class="modal__footer">
+        <button class="secondary-button" type="button" data-action="automation-close">Cancel</button>
+        <button class="primary-button" type="submit" data-role="automation-submit">Save changes</button>
+      </footer>
+    </form>
+  </div>
+</div>
 {% endblock %}

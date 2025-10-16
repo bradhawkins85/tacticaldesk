@@ -14,16 +14,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routers import auth as auth_router
+from app.api.routers import automations as automations_router
 from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
 from app.api.routers import organizations as organizations_router
-from app.core.config import get_settings
-from app.core.db import dispose_engine, get_engine, get_session
-from app.models import IntegrationModule, Organization, User
 from app.api.routers import webhooks as webhooks_router
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
-from app.models import IntegrationModule, User, WebhookDelivery, utcnow
+from app.models import Automation, IntegrationModule, Organization, User, WebhookDelivery, utcnow
 from app.schemas import WebhookStatus
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -43,6 +41,7 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 app.include_router(auth_router.router)
+app.include_router(automations_router.router)
 app.include_router(integrations_router.router)
 app.include_router(maintenance_router.router)
 app.include_router(organizations_router.router)
@@ -52,6 +51,47 @@ app.include_router(webhooks_router.router)
 def slugify(value: str) -> str:
     tokens = re.findall(r"[a-z0-9]+", value.lower())
     return "-".join(tokens) or "general"
+
+
+DEFAULT_AUTOMATION_OUTPUT_SELECTOR = "#automation-update-output"
+
+
+def _automation_datetime_to_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _automation_to_view_model(automation: Automation) -> dict[str, object]:
+    action = None
+    if automation.action_label and automation.action_endpoint:
+        action = {
+            "label": automation.action_label,
+            "endpoint": automation.action_endpoint,
+            "output_selector": automation.action_output_selector
+            or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
+        }
+
+    return {
+        "id": automation.id,
+        "name": automation.name,
+        "description": automation.description or "",
+        "playbook": automation.playbook,
+        "kind": automation.kind,
+        "cadence": automation.cadence,
+        "trigger": automation.trigger,
+        "status": automation.status,
+        "next_run_iso": _automation_datetime_to_iso(automation.next_run_at),
+        "last_run_iso": _automation_datetime_to_iso(automation.last_run_at),
+        "last_trigger_iso": _automation_datetime_to_iso(automation.last_trigger_at),
+        "action": action,
+        "action_label": automation.action_label,
+        "action_endpoint": automation.action_endpoint,
+        "action_output_selector": automation.action_output_selector
+        or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
+    }
 
 
 def describe_age(delta: timedelta) -> str:
@@ -760,67 +800,23 @@ async def analytics_view(
 async def automation_view(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
-    now_utc = datetime.now(timezone.utc)
-    scheduled_automations = [
-        {
-            "name": "Lifecycle automation",
-            "playbook": "Run secure update",
-            "cadence": "Daily at 02:00 UTC",
-            "next_run_iso": (now_utc + timedelta(hours=6)).isoformat().replace("+00:00", "Z"),
-            "last_run_iso": (now_utc - timedelta(days=1, hours=1)).isoformat().replace("+00:00", "Z"),
-            "description": "Executes the hardened update pipeline, including dependency checks and migrations.",
-            "action": {
-                "label": "Run secure update",
-                "endpoint": "/maintenance/update",
-                "output_selector": "#automation-update-output",
-            },
-        },
-        {
-            "name": "Patch window compliance",
-            "playbook": "Quarterly patch audit",
-            "cadence": "1st business day of quarter",
-            "next_run_iso": (now_utc + timedelta(days=15)).isoformat().replace("+00:00", "Z"),
-            "last_run_iso": (now_utc - timedelta(days=76)).isoformat().replace("+00:00", "Z"),
-            "description": "Generates compliance evidence and sends reports to security and audit subscribers.",
-            "action": None,
-        },
-        {
-            "name": "Backup integrity",
-            "playbook": "Nightly restore validation",
-            "cadence": "Every night at 00:30 UTC",
-            "next_run_iso": (now_utc + timedelta(hours=4, minutes=30)).isoformat().replace("+00:00", "Z"),
-            "last_run_iso": (now_utc - timedelta(hours=19, minutes=30)).isoformat().replace("+00:00", "Z"),
-            "description": "Performs checksum validation and restores a random sample to the sandbox cluster.",
-            "action": None,
-        },
-    ]
+    result = await session.execute(
+        select(Automation).order_by(Automation.name.asc())
+    )
+    automations = result.scalars().all()
 
-    event_automations = [
-        {
-            "name": "Critical CVE intake",
-            "playbook": "Emergency patch roll-out",
-            "trigger": "National vulnerability feed",
-            "last_trigger_iso": (now_utc - timedelta(hours=5, minutes=10)).isoformat().replace("+00:00", "Z"),
-            "description": "Auto-creates response tickets and dispatches patch playbooks to affected fleets.",
-            "status": "Monitoring",
-        },
-        {
-            "name": "Incident escalation",
-            "playbook": "SOC handoff",
-            "trigger": "Security SIEM priority 1 alert",
-            "last_trigger_iso": (now_utc - timedelta(days=3, hours=4)).isoformat().replace("+00:00", "Z"),
-            "description": "Notifies duty officer, syncs context to TacticalRMM, and opens on-call bridge.",
-            "status": "Idle",
-        },
-        {
-            "name": "Customer onboarding",
-            "playbook": "Client provisioning",
-            "trigger": "New account webhook",
-            "last_trigger_iso": (now_utc - timedelta(days=7, hours=6)).isoformat().replace("+00:00", "Z"),
-            "description": "Sets up portals, applies policy baselines, and delivers welcome communications.",
-            "status": "Healthy",
-        },
-    ]
+    scheduled_automations: list[dict[str, object]] = []
+    event_automations: list[dict[str, object]] = []
+
+    for automation in automations:
+        view_model = _automation_to_view_model(automation)
+        if automation.kind == "scheduled":
+            scheduled_automations.append(view_model)
+        elif automation.kind == "event":
+            event_automations.append(view_model)
+
+    scheduled_automations.sort(key=lambda item: item["name"].lower())
+    event_automations.sort(key=lambda item: item["name"].lower())
 
     context = await _template_context(
         request=request,
