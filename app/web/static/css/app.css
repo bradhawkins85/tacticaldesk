@@ -1072,27 +1072,6 @@ body {
     gap: 1rem;
 }
 
-.token-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    min-width: 220px;
-}
-
-.token-field input {
-    padding: 0.6rem 0.75rem;
-    border: 1px solid rgba(108, 117, 125, 0.35);
-    border-radius: 0.75rem;
-    background-color: rgba(255, 255, 255, 0.05);
-    color: inherit;
-}
-
-.token-field input:focus {
-    outline: none;
-    border-color: var(--color-primary, #4c6ef5);
-    box-shadow: 0 0 0 3px rgba(76, 110, 245, 0.2);
-}
-
 .log-console {
     margin-top: 1.5rem;
     background: rgba(108, 117, 125, 0.08);

@@ -18,3 +18,4 @@
 - 2025-10-16T02:55:00Z Fix: Scoped client-side datetime formatting so ticket age and other relative values remain aligned with their headers.
 - 2025-10-16T03:15:00Z Fix: Corrected ticket table row alignment so selection controls and ID values line up consistently.
 - 2025-10-16T02:55:00Z Feature: Added secure lifecycle automation controls so operators can trigger app updates directly from the Automation Control Tower.
+- 2025-10-16T03:15:00Z Feature: Removed maintenance token requirement while keeping installer lock enforcement for deployment actions in API and UI.

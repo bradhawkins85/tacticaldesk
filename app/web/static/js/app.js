@@ -324,21 +324,13 @@
 
   maintenanceButtons.forEach((button) => {
     button.addEventListener("click", async () => {
-      const tokenFieldSelector = button.dataset.tokenField || "#maintenance-token";
       const outputSelector = button.dataset.output || "[data-role='maintenance-output']";
-      const maintenanceTokenField = document.querySelector(tokenFieldSelector);
       const maintenanceOutput = document.querySelector(outputSelector);
 
-      if (!maintenanceTokenField || !maintenanceOutput) {
-        console.warn("Maintenance action missing token field or output element", {
-          tokenFieldSelector,
+      if (!maintenanceOutput) {
+        console.warn("Maintenance action missing output element", {
           outputSelector,
         });
-        return;
-      }
-      const token = maintenanceTokenField.value.trim();
-      if (!token) {
-        maintenanceOutput.textContent = "Enter the maintenance token before running a script.";
         return;
       }
 
@@ -355,7 +347,6 @@
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {
-            "X-Maintenance-Token": token,
             "Accept": "application/json",
           },
         });

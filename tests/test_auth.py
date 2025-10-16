@@ -10,7 +10,6 @@ def reset_state(tmp_path, monkeypatch):
     db_path = tmp_path / "test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{db_path}")
     monkeypatch.setenv("TACTICAL_DESK_ENABLE_INSTALLERS", "0")
-    monkeypatch.setenv("TACTICAL_DESK_MAINTENANCE_TOKEN", "test-token")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

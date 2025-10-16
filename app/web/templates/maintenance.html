@@ -11,11 +11,8 @@
     <header class="panel__header">
       <div>
         <h2>Deployment orchestrator</h2>
-        <p>Execute provisioning workflows directly from Tactical Desk. A valid maintenance token is required for every action.</p>
-      </div>
-      <div class="token-field">
-        <label for="maintenance-token">Maintenance token</label>
-        <input id="maintenance-token" name="maintenance_token" type="password" placeholder="Enter maintenance token" autocomplete="off" />
+        <p>Execute provisioning workflows directly from Tactical Desk. Actions remain gated by the installer lock to prevent
+          unauthorized execution.</p>
       </div>
     </header>
     <div class="panel__body">
@@ -53,7 +50,8 @@
     </div>
     <footer class="panel__footer" id="deployment-help">
       <p>
-        When installers are locked, outbound commands are blocked even if a token is provided. Toggle <code>TACTICAL_DESK_ENABLE_INSTALLERS</code> in your environment file to permit remote execution.
+        When installers are locked, outbound commands are blocked. Toggle <code>TACTICAL_DESK_ENABLE_INSTALLERS</code> in your
+        environment file to permit remote execution.
       </p>
     </footer>
   </section>

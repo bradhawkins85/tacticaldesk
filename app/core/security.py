@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-from secrets import compare_digest
-from typing import Annotated
-
 import bcrypt
-from fastapi import Header, HTTPException, status
-
-from app.core.config import get_settings
 
 BCRYPT_MAX_PASSWORD_BYTES = 72
 
@@ -37,19 +31,3 @@ def verify_password(password: str, hashed_password: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
     except ValueError:
         return False
-
-
-async def require_maintenance_token(
-    maintenance_token: Annotated[str, Header(alias="X-Maintenance-Token")],
-) -> None:
-    settings = get_settings()
-    if not settings.maintenance_token:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Maintenance token is not configured",
-        )
-
-    if not compare_digest(maintenance_token, settings.maintenance_token):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid maintenance token")
-
-    return None
