@@ -63,14 +63,6 @@
               <span>Playbooks</span>
             </a>
             <a
-              class="nav-sublink{% if current_admin == 'maintenance' %} is-active{% endif %}"
-              href="{{ url_for('maintenance') }}"
-              {% if current_admin == 'maintenance' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">🛠️</span>
-              <span>Maintenance</span>
-            </a>
-            <a
               class="nav-sublink{% if current_admin == 'api_docs' %} is-active{% endif %}"
               href="{{ url_for('admin_api_docs') }}"
               {% if current_admin == 'api_docs' %}aria-current="page"{% endif %}
