@@ -267,6 +267,172 @@
     return parsed.toLocaleString();
   }
 
+  const webhookMessageTarget = document.querySelector("[data-role='webhook-message']");
+
+  function formatWebhookStatusLabel(status) {
+    if (!status) {
+      return "";
+    }
+    return status
+      .toString()
+      .replace(/[_\-]+/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function findWebhookRow(webhookId) {
+    if (!webhookId) {
+      return null;
+    }
+    return document.querySelector(`[data-webhook-row='${webhookId}']`);
+  }
+
+  function ensureWebhookEmptyState(table) {
+    if (!table || !table.tBodies.length) {
+      return;
+    }
+    const tbody = table.tBodies[0];
+    const hasRows = Boolean(tbody.querySelector("tr[data-webhook-row]"));
+    const emptyRow = tbody.querySelector("[data-role='webhook-empty']");
+    if (hasRows) {
+      if (emptyRow) {
+        emptyRow.remove();
+      }
+      return;
+    }
+    if (!emptyRow) {
+      const row = document.createElement("tr");
+      row.dataset.role = "webhook-empty";
+      const cell = document.createElement("td");
+      cell.colSpan = 6;
+      cell.textContent = "All outbound webhooks are healthy.";
+      row.appendChild(cell);
+      tbody.appendChild(row);
+    }
+  }
+
+  function updateWebhookRowFromPayload(row, payload) {
+    if (!row || !payload) {
+      return;
+    }
+    const statusCell = row.querySelector("[data-cell='status']");
+    if (statusCell && payload.status) {
+      statusCell.dataset.sortValue = payload.status;
+      statusCell.textContent = formatWebhookStatusLabel(payload.status);
+    }
+    const lastAttemptCell = row.querySelector("[data-cell='last_attempt']");
+    if (lastAttemptCell) {
+      if (payload.last_attempt_at) {
+        lastAttemptCell.dataset.sortValue = payload.last_attempt_at;
+        lastAttemptCell.dataset.format = "datetime";
+        lastAttemptCell.textContent = toLocalDatetime(payload.last_attempt_at);
+      } else {
+        lastAttemptCell.dataset.sortValue = "";
+        delete lastAttemptCell.dataset.format;
+        lastAttemptCell.textContent = "—";
+      }
+    }
+    const nextRetryCell = row.querySelector("[data-cell='next_retry']");
+    if (nextRetryCell) {
+      if (payload.next_retry_at) {
+        nextRetryCell.dataset.sortValue = payload.next_retry_at;
+        nextRetryCell.dataset.format = "datetime";
+        nextRetryCell.textContent = toLocalDatetime(payload.next_retry_at);
+      } else {
+        nextRetryCell.dataset.sortValue = "";
+        delete nextRetryCell.dataset.format;
+        nextRetryCell.textContent = "Paused";
+      }
+    }
+    const pauseButton = row.querySelector("[data-action='webhook-pause']");
+    const resumeButton = row.querySelector("[data-action='webhook-resume']");
+    if (pauseButton) {
+      pauseButton.hidden = payload.status === "paused";
+    }
+    if (resumeButton) {
+      resumeButton.hidden = payload.status !== "paused";
+    }
+  }
+
+  async function performWebhookAction(action, webhookId, trigger) {
+    if (!webhookId) {
+      return;
+    }
+    if (trigger) {
+      trigger.disabled = true;
+    }
+    const messageMap = {
+      pause: `Pausing webhook ${webhookId}…`,
+      resume: `Resuming webhook ${webhookId}…`,
+      delete: `Deleting webhook ${webhookId}…`,
+    };
+    setStatusMessage(webhookMessageTarget, messageMap[action] || "Processing…");
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const targetUrl = `/api/webhooks/${encodeURIComponent(webhookId)}/${
+        action === "delete" ? "" : `${action}`
+      }`.replace(/\/$/, "");
+      const init = {
+        method: action === "delete" ? "DELETE" : "POST",
+        headers: {
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+        signal: controller.signal,
+      };
+      const response = await fetch(targetUrl, init);
+      if (!response.ok) {
+        let errorDetail = "Request failed";
+        try {
+          const payload = await response.json();
+          errorDetail = payload?.detail || errorDetail;
+        } catch (error) {
+          // Ignore JSON parse errors for non-JSON responses.
+        }
+        throw new Error(errorDetail);
+      }
+
+      if (action === "delete") {
+        const row = findWebhookRow(webhookId);
+        const table = row ? row.closest("table") : null;
+        if (row) {
+          row.remove();
+        }
+        if (table) {
+          ensureWebhookEmptyState(table);
+        }
+        setStatusMessage(
+          webhookMessageTarget,
+          `Webhook ${webhookId} deleted.`,
+          "success"
+        );
+        return;
+      }
+
+      const data = await response.json();
+      const row = findWebhookRow(webhookId);
+      updateWebhookRowFromPayload(row, data);
+      setStatusMessage(
+        webhookMessageTarget,
+        `Webhook ${webhookId} ${action === "pause" ? "paused" : "resumed"}.`,
+        "success"
+      );
+    } catch (error) {
+      setStatusMessage(
+        webhookMessageTarget,
+        error?.message || "Unable to complete webhook request.",
+        "error"
+      );
+    } finally {
+      clearTimeout(timeout);
+      if (trigger) {
+        trigger.disabled = false;
+      }
+    }
+  }
+
   function syncIntegrationNav(moduleData) {
     const navGroup = document.querySelector("[data-role='integration-nav']");
     if (!navGroup) {
@@ -471,6 +637,41 @@
     const webhookRefreshButton = event.target.closest("[data-action='webhook-refresh']");
     if (webhookRefreshButton) {
       window.location.reload();
+      return;
+    }
+
+    const webhookPauseButton = event.target.closest("[data-action='webhook-pause']");
+    if (webhookPauseButton) {
+      event.preventDefault();
+      const webhookId = webhookPauseButton.dataset.webhookId;
+      if (webhookId) {
+        performWebhookAction("pause", webhookId, webhookPauseButton);
+      }
+      return;
+    }
+
+    const webhookResumeButton = event.target.closest("[data-action='webhook-resume']");
+    if (webhookResumeButton) {
+      event.preventDefault();
+      const webhookId = webhookResumeButton.dataset.webhookId;
+      if (webhookId) {
+        performWebhookAction("resume", webhookId, webhookResumeButton);
+      }
+      return;
+    }
+
+    const webhookDeleteButton = event.target.closest("[data-action='webhook-delete']");
+    if (webhookDeleteButton) {
+      event.preventDefault();
+      const webhookId = webhookDeleteButton.dataset.webhookId;
+      if (webhookId) {
+        const confirmed = window.confirm(
+          `Delete webhook ${webhookId}? Pending retries will be cleared.`
+        );
+        if (confirmed) {
+          performWebhookAction("delete", webhookId, webhookDeleteButton);
+        }
+      }
       return;
     }
 
