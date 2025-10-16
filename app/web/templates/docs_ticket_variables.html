@@ -7,6 +7,8 @@
       <h2 class="panel__title">Ticket template variables</h2>
       <p class="panel__subtitle">
         Reference these placeholders to personalise ticket actions with live event context and ticket metadata.
+        Insert a variable by wrapping its key in double curly braces inside automation subjects, message bodies,
+        or webhook payloads (for example <code>{{ '{{ ticket.subject }}' }}</code>).
       </p>
     </div>
   </header>
@@ -18,7 +20,9 @@
             Available template variables
           </h3>
           <p class="automation-action-catalog__description">
-            Filter, sort, and reuse these fields inside automation ticket actions to merge accurate ticket data into outbound updates.
+            Filter, sort, and reuse these fields inside automation ticket actions to merge accurate ticket data into outbound
+            updates. Variables resolve when automation runs, so preview message content within the automation builder to
+            confirm they render as expected.
           </p>
         </div>
         <div class="automation-action-catalog__filter">
