@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="swagger-container">
+  <div class="swagger-toolbar">
+    <div class="toolbar-copy">
+      <p class="subtitle">
+        Review every create, update, read, and delete endpoint exposed by Tactical Desk.
+      </p>
+    </div>
+    <div class="button-group" role="group" aria-label="API documentation actions">
+      <a href="{{ swagger_url }}" target="_blank" rel="noopener">
+        <span aria-hidden="true">🗂️</span>
+        <span>Open Swagger UI</span>
+      </a>
+      <a href="{{ schema_url }}" target="_blank" rel="noopener">
+        <span aria-hidden="true">⬇️</span>
+        <span>Download OpenAPI JSON</span>
+      </a>
+    </div>
+  </div>
+  <div class="swagger-frame">
+    <iframe
+      src="{{ swagger_url }}"
+      title="Tactical Desk CURD API Documentation"
+      loading="lazy"
+      referrerpolicy="no-referrer"
+      sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+    ></iframe>
+  </div>
+</div>
+{% endblock %}

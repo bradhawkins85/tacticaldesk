@@ -8,6 +8,10 @@ from urllib.parse import parse_qs
 import re
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.openapi.docs import (
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -62,7 +66,12 @@ async def lifespan(app: FastAPI):
 
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app = FastAPI(
+    title=settings.app_name,
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 app.include_router(auth_router.router)
@@ -71,6 +80,25 @@ app.include_router(integrations_router.router)
 app.include_router(maintenance_router.router)
 app.include_router(organizations_router.router)
 app.include_router(webhooks_router.router)
+
+
+@app.get("/api/docs", include_in_schema=False, name="api_docs_swagger_ui")
+async def api_docs_swagger_ui(request: Request) -> HTMLResponse:
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{settings.app_name} CURD API Docs",
+        oauth2_redirect_url=request.url_for("swagger_ui_redirect"),
+        swagger_favicon_url=str(request.url_for("static", path="img/favicon.svg")),
+    )
+
+
+@app.get(
+    "/api/docs/oauth2-redirect",
+    include_in_schema=False,
+    name="swagger_ui_redirect",
+)
+async def swagger_ui_redirect() -> HTMLResponse:
+    return get_swagger_ui_oauth2_redirect_html()
 
 
 def slugify(value: str) -> str:
@@ -1494,6 +1522,26 @@ async def maintenance(
         active_admin="maintenance",
     )
     return templates.TemplateResponse("maintenance.html", context)
+
+
+@app.get("/admin/api-docs", response_class=HTMLResponse, name="admin_api_docs")
+async def admin_api_docs(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    swagger_url = request.url_for("api_docs_swagger_ui")
+    schema_url = request.url_for("openapi")
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="CURD API Documentation",
+        page_subtitle="Explore authenticated endpoints and sample payloads for Tactical Desk.",
+        active_nav="admin",
+        active_admin="api_docs",
+        swagger_url=swagger_url,
+        schema_url=schema_url,
+    )
+    return templates.TemplateResponse("api_docs.html", context)
 
 
 @app.get(
