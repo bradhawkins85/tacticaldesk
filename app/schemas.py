@@ -140,6 +140,9 @@ class AutomationRead(BaseModel):
     action_label: Optional[str]
     action_endpoint: Optional[str]
     action_output_selector: Optional[str]
+
+    class Config:
+        orm_mode = True
 class ContactBase(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     job_title: Optional[str] = Field(default=None, max_length=255)

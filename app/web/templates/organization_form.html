@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block header_actions %}
+<a class="button button--ghost" href="{{ url_for('admin_organisations') }}">
+  ← Back to organisations
+</a>
+{% endblock %}
+
+{% block content %}
+<section class="panel organization-form-panel">
+  <div class="panel__header">
+    <div class="panel__intro">
+      <h2 class="panel__title">{{ form_title }}</h2>
+      <p class="panel__subtitle">{{ form_subtitle }}</p>
+    </div>
+  </div>
+  {% if form_errors %}
+  <div class="form-feedback error" role="alert">
+    <p>We couldn't save your changes:</p>
+    <ul>
+      {% for error in form_errors %}
+      <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  <form
+    id="organization-form"
+    method="post"
+    autocomplete="off"
+    data-mode="{{ form_mode }}"
+    novalidate
+  >
+    <div class="form-field">
+      <label for="organization-name">Name</label>
+      <input
+        id="organization-name"
+        name="name"
+        type="text"
+        maxlength="255"
+        required
+        value="{{ form_values.name | default('') }}"
+        autocomplete="off"
+      />
+    </div>
+    <div class="form-field">
+      <label for="organization-slug">Slug</label>
+      <input
+        id="organization-slug"
+        name="slug"
+        type="text"
+        maxlength="255"
+        required
+        pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        value="{{ form_values.slug | default('') }}"
+        autocomplete="off"
+      />
+      <small class="form-field__hint">Lowercase letters, numbers, and hyphens only.</small>
+    </div>
+    <div class="form-field">
+      <label for="organization-contact">Primary contact email</label>
+      <input
+        id="organization-contact"
+        name="contact_email"
+        type="email"
+        maxlength="255"
+        value="{{ form_values.contact_email | default('') }}"
+        autocomplete="off"
+      />
+    </div>
+    <div class="form-field">
+      <label for="organization-description">Description</label>
+      <textarea
+        id="organization-description"
+        name="description"
+        rows="4"
+        maxlength="2048"
+      >{{ form_values.description | default('') }}</textarea>
+    </div>
+    <div class="form-actions">
+      <button class="button" type="submit" data-role="organization-submit-label">
+        {{ submit_label }}
+      </button>
+      <a class="button button--ghost" href="{{ url_for('admin_organisations') }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

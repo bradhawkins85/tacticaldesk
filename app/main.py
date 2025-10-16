@@ -7,11 +7,12 @@ from pathlib import Path
 import re
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from app.api.routers import auth as auth_router
 from app.api.routers import automations as automations_router
@@ -30,7 +31,8 @@ from app.models import (
     WebhookDelivery,
     utcnow,
 )
-from app.schemas import WebhookStatus
+from app.schemas import OrganizationCreate, OrganizationUpdate, WebhookStatus
+from pydantic import ValidationError
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = BASE_DIR / "web" / "templates"
@@ -455,6 +457,64 @@ def _serialize_organization(organization: Organization) -> dict[str, object]:
         "created_at_iso": _format_iso(organization.created_at),
         "updated_at_iso": _format_iso(organization.updated_at),
     }
+
+
+async def _get_organization_or_404(
+    session: AsyncSession, organization_id: int
+) -> Organization:
+    result = await session.execute(
+        select(Organization).where(Organization.id == organization_id)
+    )
+    organization = result.scalar_one_or_none()
+    if organization is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return organization
+
+
+async def _organization_form_response(
+    *,
+    request: Request,
+    session: AsyncSession,
+    mode: str,
+    form_values: dict[str, str],
+    form_errors: list[str] | None = None,
+    organization_name: str | None = None,
+) -> HTMLResponse:
+    normalized_values = {
+        "name": form_values.get("name", ""),
+        "slug": form_values.get("slug", ""),
+        "contact_email": form_values.get("contact_email", ""),
+        "description": form_values.get("description", ""),
+    }
+    is_edit = mode == "edit"
+    base_name = organization_name or normalized_values["name"]
+    if is_edit and base_name:
+        page_title = f"Edit {base_name}"
+    elif is_edit:
+        page_title = "Edit organisation"
+    else:
+        page_title = "Create organisation"
+    page_subtitle = (
+        "Update tenant metadata, lifecycle state, and contact details before syncing across the platform."
+        if is_edit
+        else "Capture the organisation name, assign a slug for API usage, and optionally record the operations contact."
+    )
+    submit_label = "Save changes" if is_edit else "Create organisation"
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title=page_title,
+        page_subtitle=page_subtitle,
+        form_mode=mode,
+        form_title=page_title,
+        form_subtitle=page_subtitle,
+        form_values=normalized_values,
+        form_errors=form_errors or [],
+        submit_label=submit_label,
+        active_nav="admin",
+        active_admin="organisations",
+    )
+    return templates.TemplateResponse("organization_form.html", context)
 
 
 def _serialize_contact(contact: Contact) -> dict[str, object]:
@@ -980,6 +1040,159 @@ async def admin_organisations(
 
 
 @app.get(
+    "/admin/organisations/new",
+    response_class=HTMLResponse,
+    name="admin_organization_create",
+)
+async def admin_organization_create(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
+    form_values = {"name": "", "slug": "", "contact_email": "", "description": ""}
+    return await _organization_form_response(
+        request=request,
+        session=session,
+        mode="create",
+        form_values=form_values,
+    )
+
+
+@app.post(
+    "/admin/organisations/new",
+    response_class=HTMLResponse,
+    name="admin_organization_create_submit",
+)
+async def admin_organization_create_submit(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    form = await request.form()
+    form_values = {
+        "name": (form.get("name") or "").strip(),
+        "slug": (form.get("slug") or "").strip().lower(),
+        "contact_email": (form.get("contact_email") or "").strip(),
+        "description": (form.get("description") or "").strip(),
+    }
+    try:
+        payload = OrganizationCreate(
+            name=form_values["name"],
+            slug=form_values["slug"],
+            contact_email=form_values["contact_email"] or None,
+            description=form_values["description"] or None,
+        )
+    except ValidationError as exc:
+        errors = [error["msg"] for error in exc.errors()]
+        return await _organization_form_response(
+            request=request,
+            session=session,
+            mode="create",
+            form_values=form_values,
+            form_errors=errors,
+        )
+
+    try:
+        await organizations_router.create_organization(payload, session)
+    except HTTPException as exc:
+        if exc.status_code in {status.HTTP_409_CONFLICT, status.HTTP_422_UNPROCESSABLE_ENTITY}:
+            detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+            return await _organization_form_response(
+                request=request,
+                session=session,
+                mode="create",
+                form_values=form_values,
+                form_errors=[detail],
+            )
+        raise
+
+    return RedirectResponse(
+        request.url_for("admin_organisations"),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@app.get(
+    "/admin/organisations/{organization_id}/edit",
+    response_class=HTMLResponse,
+    name="admin_organization_edit",
+)
+async def admin_organization_edit(
+    request: Request,
+    organization_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    organization = await _get_organization_or_404(session, organization_id)
+    form_values = {
+        "name": organization.name,
+        "slug": organization.slug,
+        "contact_email": organization.contact_email or "",
+        "description": organization.description or "",
+    }
+    return await _organization_form_response(
+        request=request,
+        session=session,
+        mode="edit",
+        form_values=form_values,
+        organization_name=organization.name,
+    )
+
+
+@app.post(
+    "/admin/organisations/{organization_id}/edit",
+    response_class=HTMLResponse,
+    name="admin_organization_update",
+)
+async def admin_organization_update(
+    request: Request,
+    organization_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    organization = await _get_organization_or_404(session, organization_id)
+    form = await request.form()
+    form_values = {
+        "name": (form.get("name") or "").strip(),
+        "slug": (form.get("slug") or "").strip().lower(),
+        "contact_email": (form.get("contact_email") or "").strip(),
+        "description": (form.get("description") or "").strip(),
+    }
+    try:
+        payload = OrganizationUpdate(
+            name=form_values["name"],
+            slug=form_values["slug"],
+            contact_email=form_values["contact_email"] or None,
+            description=form_values["description"] or None,
+        )
+    except ValidationError as exc:
+        errors = [error["msg"] for error in exc.errors()]
+        return await _organization_form_response(
+            request=request,
+            session=session,
+            mode="edit",
+            form_values=form_values,
+            form_errors=errors,
+            organization_name=form_values["name"] or organization.name,
+        )
+
+    try:
+        await organizations_router.update_organization(organization_id, payload, session)
+    except HTTPException as exc:
+        if exc.status_code in {status.HTTP_409_CONFLICT, status.HTTP_422_UNPROCESSABLE_ENTITY}:
+            detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+            return await _organization_form_response(
+                request=request,
+                session=session,
+                mode="edit",
+                form_values=form_values,
+                form_errors=[detail],
+                organization_name=form_values["name"] or organization.name,
+            )
+        raise
+
+    return RedirectResponse(
+        request.url_for("admin_organisations"),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@app.get(
     "/admin/organisations/{organization_id}/contacts",
     response_class=HTMLResponse,
     name="admin_organization_contacts",
@@ -989,13 +1202,7 @@ async def admin_organization_contacts(
     organization_id: int,
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
-    result = await session.execute(
-        select(Organization).where(Organization.id == organization_id)
-    )
-    organization = result.scalar_one_or_none()
-    if organization is None:
-        raise HTTPException(status_code=404, detail="Organization not found")
-
+    organization = await _get_organization_or_404(session, organization_id)
     contacts = await _list_contacts_for_organization(session, organization_id)
     organization_payload = _serialize_organization(organization)
     context = await _template_context(
