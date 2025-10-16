@@ -50,6 +50,25 @@ git -C "${APP_DIR}" reset --hard "origin/${BRANCH}"
 
 "${APP_DIR}/.venv/bin/pip" install --no-cache-dir -r "${APP_DIR}/requirements.txt"
 
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+if [[ -f "${SERVICE_FILE}" ]]; then
+  if grep -q 'EnvironmentFile=' "${SERVICE_FILE}"; then
+    if grep -q 'PYTHONPATH=' "${SERVICE_FILE}"; then
+      sudo sed -i "s|Environment=\"PYTHONPATH=.*\"|Environment=\"PYTHONPATH=${APP_DIR}\"|" "${SERVICE_FILE}"
+    else
+      sudo sed -i "/EnvironmentFile=/a Environment=\"PYTHONPATH=${APP_DIR}\"" "${SERVICE_FILE}"
+    fi
+  elif ! grep -q 'PYTHONPATH=' "${SERVICE_FILE}"; then
+    sudo sed -i "/ExecStart=/i Environment=\"PYTHONPATH=${APP_DIR}\"" "${SERVICE_FILE}"
+  fi
+
+  if ! grep -q '--app-dir' "${SERVICE_FILE}"; then
+    sudo sed -i "s|app.main:app|app.main:app --app-dir ${APP_DIR}|" "${SERVICE_FILE}"
+  fi
+
+  sudo systemctl daemon-reload
+fi
+
 sudo systemctl restart "${SERVICE_NAME}.service"
 sudo systemctl status "${SERVICE_NAME}.service" --no-pager
 
