@@ -48,11 +48,14 @@
       });
 
       const data = await response.json().catch(() => ({}));
+      const detailMessage = Array.isArray(data.detail)
+        ? data.detail.join(" ")
+        : data.detail;
       if (!response.ok) {
-        throw new Error(data.detail || "Request failed");
+        throw new Error(detailMessage || "Request failed");
       }
       if (messageEl) {
-        messageEl.textContent = "Success";
+        messageEl.textContent = detailMessage || "Success";
         messageEl.classList.add("success");
       }
       return data;
@@ -108,6 +111,77 @@
 
   const sortableTables = Array.from(document.querySelectorAll("[data-role='sortable-table']"));
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+  const ticketCreateModal = document.querySelector("[data-role='ticket-create-modal']");
+  const ticketCreateForm = ticketCreateModal?.querySelector("[data-role='ticket-create-form']");
+  const ticketCreateMessage = ticketCreateForm?.querySelector("[data-role='form-message']");
+  let ticketCreateLastFocus = null;
+
+  function resetTicketCreateForm() {
+    if (!ticketCreateForm) {
+      return;
+    }
+    ticketCreateForm.reset();
+    if (ticketCreateMessage) {
+      ticketCreateMessage.textContent = "";
+      ticketCreateMessage.classList.remove("error", "success");
+    }
+  }
+
+  function openTicketCreateModal() {
+    if (!ticketCreateModal) {
+      window.location.href = "/tickets?new=1";
+      return;
+    }
+    ticketCreateLastFocus = document.activeElement;
+    ticketCreateModal.classList.add("is-open");
+    ticketCreateModal.setAttribute("aria-hidden", "false");
+    const subjectInput = ticketCreateForm?.querySelector("input[name='subject']");
+    if (subjectInput) {
+      subjectInput.focus();
+    }
+  }
+
+  function closeTicketCreateModal() {
+    if (!ticketCreateModal) {
+      return;
+    }
+    ticketCreateModal.classList.remove("is-open");
+    ticketCreateModal.setAttribute("aria-hidden", "true");
+    resetTicketCreateForm();
+    if (ticketCreateLastFocus && typeof ticketCreateLastFocus.focus === "function") {
+      ticketCreateLastFocus.focus();
+    }
+  }
+
+  if (ticketCreateModal && ticketCreateModal.dataset.open === "true") {
+    openTicketCreateModal();
+    ticketCreateModal.dataset.open = "false";
+  }
+
+  if (ticketCreateForm) {
+    ticketCreateForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitButton = ticketCreateForm.querySelector("button[type='submit']");
+      if (submitButton) {
+        submitButton.disabled = true;
+      }
+      const targetUrl = ticketCreateForm.getAttribute("action") || "/tickets";
+      const result = await submitJsonForm(ticketCreateForm, targetUrl);
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
+      if (result) {
+        closeTicketCreateModal();
+        if (result.redirect_url) {
+          window.open(result.redirect_url, "_blank", "noopener,noreferrer");
+        }
+        setTimeout(() => {
+          window.location.reload();
+        }, 400);
+      }
+    });
+  }
 
   function updateTableRowVisibility(row) {
     if (!row) {
@@ -166,6 +240,13 @@
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) {
       element.textContent = parsed.toLocaleString();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && ticketCreateModal?.classList.contains("is-open")) {
+      event.preventDefault();
+      closeTicketCreateModal();
     }
   });
 
@@ -627,6 +708,31 @@
   }
 
   document.addEventListener("click", (event) => {
+    const dashboardNewTicket = event.target.closest("[data-action='new-ticket']");
+    if (dashboardNewTicket) {
+      event.preventDefault();
+      if (ticketCreateModal) {
+        openTicketCreateModal();
+      } else {
+        window.location.href = "/tickets?new=1";
+      }
+      return;
+    }
+
+    const ticketCreateOpenButton = event.target.closest("[data-action='ticket-create-open']");
+    if (ticketCreateOpenButton) {
+      event.preventDefault();
+      openTicketCreateModal();
+      return;
+    }
+
+    const ticketCreateCloseButton = event.target.closest("[data-action='ticket-create-close']");
+    if (ticketCreateCloseButton) {
+      event.preventDefault();
+      closeTicketCreateModal();
+      return;
+    }
+
     const webhookAdminButton = event.target.closest("[data-action='view-webhook-admin']");
     if (webhookAdminButton) {
       const targetUrl = webhookAdminButton.getAttribute("data-href") || "/admin/webhooks";

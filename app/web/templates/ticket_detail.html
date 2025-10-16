@@ -24,6 +24,9 @@
         {% endif %}
       </div>
     </header>
+    {% if ticket_created %}
+    <div class="alert alert--success" role="status">Ticket created successfully.</div>
+    {% endif %}
     {% if form_saved %}
     <div class="alert alert--success" role="status">Ticket changes saved successfully.</div>
     {% endif %}
