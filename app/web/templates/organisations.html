@@ -23,7 +23,7 @@
           <span class="form-field__label">Status</span>
           <select id="organization-status-filter" data-role="organization-status-filter">
             <option value="all">All</option>
-            <option value="active">Active</option>
+            <option value="active" selected>Active</option>
             <option value="archived">Archived</option>
           </select>
         </label>
@@ -90,6 +90,15 @@
                   data-is-archived="{{ 'true' if org.is_archived else 'false' }}"
                 >
                   {{ 'Restore' if org.is_archived else 'Archive' }}
+                </button>
+                <button
+                  type="button"
+                  class="button button--ghost button--danger"
+                  data-action="delete-organization"
+                  data-organization-id="{{ org.id }}"
+                  data-organization-name="{{ org.name }}"
+                >
+                  🗑️ Delete
                 </button>
               </div>
             </td>
