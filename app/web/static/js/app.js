@@ -492,6 +492,476 @@
     }
   });
 
+  const organizationTableBody = document.querySelector(
+    "[data-role='organization-table-body']"
+  );
+  const organizationStatusFilter = document.querySelector(
+    "[data-role='organization-status-filter']"
+  );
+
+  if (organizationTableBody) {
+    const initialRows = Array.from(
+      organizationTableBody.querySelectorAll("tr[data-organization-row]")
+    );
+    initialRows.forEach(ensureVisibilityFlags);
+  }
+
+  if (organizationStatusFilter && organizationTableBody) {
+    const getOrganizationRows = () =>
+      Array.from(organizationTableBody.querySelectorAll("tr[data-organization-row]"));
+
+    organizationStatusFilter.addEventListener("change", () => {
+      const desiredStatus = organizationStatusFilter.value;
+      getOrganizationRows().forEach((row) => {
+        const status = row.dataset.status || "active";
+        const matches =
+          desiredStatus === "all" || desiredStatus === "" || status === desiredStatus;
+        row.dataset.filterVisible = matches ? "true" : "false";
+        updateTableRowVisibility(row);
+      });
+    });
+
+    organizationStatusFilter.dispatchEvent(new Event("change"));
+  }
+
+  const organizationForm = document.getElementById("organization-form");
+  if (organizationForm && organizationTableBody) {
+    const organizationPanel = organizationTableBody.closest(".panel");
+    const organizationSearchInput = organizationPanel
+      ? organizationPanel.querySelector("[data-role='table-filter']")
+      : null;
+    const messageTarget = organizationForm.querySelector(
+      "[data-role='organization-message']"
+    );
+    const submitButton = organizationForm.querySelector(
+      "[data-role='organization-submit-label']"
+    );
+    const titleTarget = organizationForm
+      .closest(".organization-form")
+      ?.querySelector("[data-role='organization-form-title']");
+    const subtitleTarget = organizationForm
+      .closest(".organization-form")
+      ?.querySelector("[data-role='organization-form-subtitle']");
+    const nameInput = organizationForm.querySelector("#organization-name");
+    const slugInput = organizationForm.querySelector("#organization-slug");
+    const contactInput = organizationForm.querySelector("#organization-contact");
+    const descriptionInput = organizationForm.querySelector(
+      "#organization-description"
+    );
+    const newButton = document.querySelector("[data-action='organization-new']");
+    const resetButton = organizationForm.querySelector("[data-action='organization-reset']");
+    let slugManuallyEdited = false;
+
+    function slugifyOrganization(value) {
+      return value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .replace(/-{2,}/g, "-");
+    }
+
+    function normalizeOrganizationPayload(payload) {
+      return {
+        id: payload.id,
+        name: payload.name,
+        slug: payload.slug,
+        description: payload.description || "",
+        contact_email: payload.contact_email || "",
+        is_archived: Boolean(payload.is_archived),
+        created_at_iso: payload.created_at || "",
+        updated_at_iso: payload.updated_at || payload.created_at || "",
+      };
+    }
+
+    function removeEmptyState() {
+      const emptyRow = organizationTableBody.querySelector(".organization-empty");
+      if (emptyRow) {
+        emptyRow.remove();
+      }
+    }
+
+    function renderOrganizationRow(data) {
+      const row = document.createElement("tr");
+      row.dataset.organizationRow = "true";
+      row.dataset.organizationId = String(data.id);
+      row.dataset.organization = JSON.stringify(data);
+      row.dataset.status = data.is_archived ? "archived" : "active";
+      row.dataset.filterVisible = row.dataset.filterVisible || "true";
+      row.dataset.searchVisible = row.dataset.searchVisible || "true";
+
+      const nameCell = document.createElement("td");
+      nameCell.dataset.sortValue = data.name.toLowerCase();
+      const nameLabel = document.createElement("div");
+      nameLabel.className = "organization-name";
+      nameLabel.textContent = data.name;
+      const slugLabel = document.createElement("div");
+      slugLabel.className = "organization-slug";
+      slugLabel.textContent = data.slug;
+      nameCell.appendChild(nameLabel);
+      nameCell.appendChild(slugLabel);
+      if (data.description) {
+        const descriptionLabel = document.createElement("div");
+        descriptionLabel.className = "organization-description";
+        descriptionLabel.textContent = data.description;
+        nameCell.appendChild(descriptionLabel);
+      }
+      row.appendChild(nameCell);
+
+      const contactCell = document.createElement("td");
+      contactCell.dataset.sortValue = data.contact_email || "";
+      if (data.contact_email) {
+        const contactLink = document.createElement("a");
+        contactLink.className = "organization-contact";
+        contactLink.href = `mailto:${data.contact_email}`;
+        contactLink.textContent = data.contact_email;
+        contactCell.appendChild(contactLink);
+      } else {
+        const placeholder = document.createElement("span");
+        placeholder.className = "organization-contact organization-contact--empty";
+        placeholder.textContent = "Not provided";
+        contactCell.appendChild(placeholder);
+      }
+      row.appendChild(contactCell);
+
+      const statusCell = document.createElement("td");
+      statusCell.dataset.sortValue = data.is_archived ? "archived" : "active";
+      const statusBadge = document.createElement("span");
+      statusBadge.className = `status-pill ${
+        data.is_archived ? "status-pill--archived" : "status-pill--success"
+      }`;
+      statusBadge.setAttribute("data-role", "organization-status-label");
+      statusBadge.textContent = data.is_archived ? "Archived" : "Active";
+      statusCell.appendChild(statusBadge);
+      row.appendChild(statusCell);
+
+      const createdCell = document.createElement("td");
+      createdCell.dataset.sortValue = data.created_at_iso || "";
+      if (data.created_at_iso) {
+        createdCell.dataset.format = "datetime";
+        createdCell.textContent = toLocalDatetime(data.created_at_iso);
+      } else {
+        createdCell.textContent = "—";
+      }
+      row.appendChild(createdCell);
+
+      const updatedCell = document.createElement("td");
+      updatedCell.dataset.sortValue = data.updated_at_iso || "";
+      if (data.updated_at_iso) {
+        updatedCell.dataset.format = "datetime";
+        updatedCell.textContent = toLocalDatetime(data.updated_at_iso);
+      } else {
+        updatedCell.textContent = "—";
+      }
+      row.appendChild(updatedCell);
+
+      const actionsCell = document.createElement("td");
+      actionsCell.className = "table-actions";
+      const actionGroup = document.createElement("div");
+      actionGroup.className = "organization-actions";
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "button button--ghost";
+      editButton.dataset.action = "edit-organization";
+      editButton.dataset.organizationId = String(data.id);
+      editButton.textContent = "✏️ Edit";
+      const archiveButton = document.createElement("button");
+      archiveButton.type = "button";
+      archiveButton.className = "button button--ghost";
+      archiveButton.dataset.action = "toggle-organization-archive";
+      archiveButton.dataset.organizationId = String(data.id);
+      archiveButton.textContent = data.is_archived ? "Restore" : "Archive";
+      actionGroup.appendChild(editButton);
+      actionGroup.appendChild(archiveButton);
+      actionsCell.appendChild(actionGroup);
+      row.appendChild(actionsCell);
+
+      return row;
+    }
+
+    function insertOrganizationRow(row) {
+      removeEmptyState();
+      const rows = Array.from(
+        organizationTableBody.querySelectorAll("tr[data-organization-row]")
+      );
+      const sortValue = row.querySelector("td")?.dataset.sortValue || "";
+      let inserted = false;
+      for (const existing of rows) {
+        const existingValue = existing.querySelector("td")?.dataset.sortValue || "";
+        if (collator.compare(sortValue, existingValue) < 0) {
+          organizationTableBody.insertBefore(row, existing);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) {
+        organizationTableBody.appendChild(row);
+      }
+      ensureVisibilityFlags(row);
+      updateTableRowVisibility(row);
+    }
+
+    function getOrganizationRowById(id) {
+      return organizationTableBody.querySelector(
+        `tr[data-organization-row][data-organization-id='${id}']`
+      );
+    }
+
+    function applyActiveFilters() {
+      if (organizationStatusFilter) {
+        organizationStatusFilter.dispatchEvent(new Event("change"));
+      }
+      if (organizationSearchInput) {
+        organizationSearchInput.dispatchEvent(new Event("input"));
+      }
+    }
+
+    function setFormMode(mode, data) {
+      organizationForm.dataset.mode = mode;
+      if (mode === "edit" && data) {
+        organizationForm.dataset.organizationId = String(data.id);
+        nameInput.value = data.name;
+        slugInput.value = data.slug;
+        contactInput.value = data.contact_email || "";
+        descriptionInput.value = data.description || "";
+        if (submitButton) {
+          submitButton.textContent = "Save changes";
+        }
+        if (titleTarget) {
+          titleTarget.textContent = `Edit ${data.name}`;
+        }
+        if (subtitleTarget) {
+          subtitleTarget.textContent =
+            "Update organisation profile, rotate contacts, or archive when operations cease.";
+        }
+        slugManuallyEdited = true;
+      } else {
+        delete organizationForm.dataset.organizationId;
+        organizationForm.reset();
+        if (submitButton) {
+          submitButton.textContent = "Create organisation";
+        }
+        if (titleTarget) {
+          titleTarget.textContent = "Create new organisation";
+        }
+        if (subtitleTarget) {
+          subtitleTarget.textContent =
+            "Capture the organisation name, assign a slug for API usage, and optionally record the operations contact.";
+        }
+        slugManuallyEdited = false;
+      }
+      if (messageTarget) {
+        setStatusMessage(messageTarget, "");
+      }
+      if (nameInput) {
+        nameInput.focus();
+      }
+    }
+
+    function handleOrganizationSuccess(payload, mode) {
+      const normalized = normalizeOrganizationPayload(payload);
+      const existingRow = getOrganizationRowById(normalized.id);
+      const newRow = renderOrganizationRow(normalized);
+      if (existingRow) {
+        const previousFilterVisible = existingRow.dataset.filterVisible;
+        const previousSearchVisible = existingRow.dataset.searchVisible;
+        organizationTableBody.removeChild(existingRow);
+        if (previousFilterVisible) {
+          newRow.dataset.filterVisible = previousFilterVisible;
+        }
+        if (previousSearchVisible) {
+          newRow.dataset.searchVisible = previousSearchVisible;
+        }
+      }
+      insertOrganizationRow(newRow);
+      applyActiveFilters();
+      if (mode === "create") {
+        setFormMode("create");
+      } else {
+        setFormMode("edit", normalized);
+      }
+    }
+
+    async function submitOrganization(payload, method, url) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(payload),
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.detail || "Unable to save organization");
+        }
+        return data;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    if (newButton) {
+      newButton.addEventListener("click", () => {
+        setFormMode("create");
+      });
+    }
+
+    if (resetButton) {
+      resetButton.addEventListener("click", () => {
+        setFormMode("create");
+      });
+    }
+
+    organizationForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!nameInput || !slugInput || !submitButton) {
+        return;
+      }
+      const mode = organizationForm.dataset.mode === "edit" ? "edit" : "create";
+      const formPayload = {
+        name: nameInput.value.trim(),
+        slug: slugInput.value.trim(),
+        contact_email: contactInput?.value.trim() || null,
+        description: descriptionInput?.value.trim() || null,
+      };
+      if (formPayload.contact_email === "") {
+        formPayload.contact_email = null;
+      }
+      if (formPayload.description === "") {
+        formPayload.description = null;
+      }
+
+      if (!formPayload.slug) {
+        formPayload.slug = slugifyOrganization(formPayload.name);
+        slugInput.value = formPayload.slug;
+      }
+
+      if (messageTarget) {
+        setStatusMessage(
+          messageTarget,
+          mode === "edit" ? "Saving changes…" : "Creating organisation…"
+        );
+      }
+
+      submitButton.disabled = true;
+      try {
+        const organizationId = organizationForm.dataset.organizationId;
+        const url =
+          mode === "edit"
+            ? `/api/organizations/${encodeURIComponent(organizationId)}`
+            : "/api/organizations";
+        const method = mode === "edit" ? "PATCH" : "POST";
+        const payload = await submitOrganization(formPayload, method, url);
+        handleOrganizationSuccess(payload, mode);
+        if (messageTarget) {
+          setStatusMessage(
+            messageTarget,
+            mode === "edit"
+              ? `${payload.name} updated successfully.`
+              : `${payload.name} created successfully.`,
+            "success"
+          );
+        }
+      } catch (error) {
+        if (messageTarget) {
+          setStatusMessage(
+            messageTarget,
+            error.message || "Unable to save organisation",
+            "error"
+          );
+        }
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    organizationTableBody.addEventListener("click", async (event) => {
+      const editTrigger = event.target.closest("[data-action='edit-organization']");
+      if (editTrigger) {
+        const organizationId = editTrigger.dataset.organizationId;
+        const row = getOrganizationRowById(organizationId);
+        if (!row) {
+          return;
+        }
+        try {
+          const data = JSON.parse(row.dataset.organization || "{}");
+          setFormMode("edit", data);
+        } catch (error) {
+          console.error("Unable to parse organization dataset", error);
+        }
+        return;
+      }
+
+      const archiveTrigger = event.target.closest(
+        "[data-action='toggle-organization-archive']"
+      );
+      if (archiveTrigger) {
+        const organizationId = archiveTrigger.dataset.organizationId;
+        const row = getOrganizationRowById(organizationId);
+        if (!row) {
+          return;
+        }
+        let rowData;
+        try {
+          rowData = JSON.parse(row.dataset.organization || "{}");
+        } catch (error) {
+          console.error("Unable to parse organization dataset", error);
+          return;
+        }
+        const desiredState = !rowData.is_archived;
+        archiveTrigger.disabled = true;
+        if (messageTarget) {
+          setStatusMessage(
+            messageTarget,
+            desiredState ? "Archiving organisation…" : "Restoring organisation…"
+          );
+        }
+        try {
+          const payload = await submitOrganization(
+            { is_archived: desiredState },
+            "PATCH",
+            `/api/organizations/${encodeURIComponent(organizationId)}`
+          );
+          handleOrganizationSuccess(payload, "edit");
+          if (messageTarget) {
+            setStatusMessage(
+              messageTarget,
+              desiredState ? "Organisation archived." : "Organisation restored.",
+              "success"
+            );
+          }
+        } catch (error) {
+          if (messageTarget) {
+            setStatusMessage(
+              messageTarget,
+              error.message || "Unable to update organisation",
+              "error"
+            );
+          }
+        } finally {
+          archiveTrigger.disabled = false;
+        }
+      }
+    });
+
+    if (nameInput && slugInput) {
+      nameInput.addEventListener("input", () => {
+        if (!slugManuallyEdited && organizationForm.dataset.mode !== "edit") {
+          slugInput.value = slugifyOrganization(nameInput.value);
+        }
+      });
+      slugInput.addEventListener("input", () => {
+        slugManuallyEdited = slugInput.value.trim().length > 0;
+      });
+    }
+  }
+
   const maintenanceButtons = document.querySelectorAll("[data-action='maintenance-run']");
 
   function resolveMaintenanceOutput(button) {

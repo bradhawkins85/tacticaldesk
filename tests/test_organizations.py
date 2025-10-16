@@ -1,0 +1,87 @@
+import pytest
+from fastapi.testclient import TestClient
+
+from app.core.config import get_settings
+from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def organization_db(tmp_path, monkeypatch):
+    db_path = tmp_path / "organizations.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{db_path}")
+    monkeypatch.setenv("TACTICAL_DESK_ENABLE_INSTALLERS", "0")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+def test_seeded_organizations_present_in_api_and_ui():
+    with TestClient(app) as client:
+        response = client.get("/api/organizations")
+        assert response.status_code == 200
+        payload = response.json()
+        names = {item["name"] for item in payload}
+        assert "Quest Logistics" in names
+        assert "Northwind Retail" in names
+
+        html_response = client.get("/admin/organisations")
+        assert html_response.status_code == 200
+        html = html_response.text
+        assert "Organisation registry" in html
+        assert "Quest Logistics" in html
+        assert "Northwind Retail" in html
+
+
+def test_create_update_and_archive_organization():
+    with TestClient(app) as client:
+        create_payload = {
+            "name": "Acme Global",
+            "slug": "acme-global",
+            "contact_email": "ops@acme.example",
+            "description": "Tiered managed services customer.",
+        }
+        create_response = client.post("/api/organizations", json=create_payload)
+        assert create_response.status_code == 201
+        created = create_response.json()
+        organization_id = created["id"]
+        assert created["slug"] == "acme-global"
+
+        update_payload = {
+            "name": "Acme Global Holdings",
+            "description": "Updated descriptor for Acme.",
+        }
+        update_response = client.patch(
+            f"/api/organizations/{organization_id}", json=update_payload
+        )
+        assert update_response.status_code == 200
+        updated = update_response.json()
+        assert updated["name"] == "Acme Global Holdings"
+        assert updated["description"] == "Updated descriptor for Acme."
+
+        archive_response = client.patch(
+            f"/api/organizations/{organization_id}", json={"is_archived": True}
+        )
+        assert archive_response.status_code == 200
+        archived = archive_response.json()
+        assert archived["is_archived"] is True
+
+        html_response = client.get("/admin/organisations")
+        assert html_response.status_code == 200
+        html = html_response.text
+        assert "Acme Global Holdings" in html
+        assert "data-status=\"archived\"" in html
+        assert "Restore" in html
+
+
+def test_duplicate_slug_conflict():
+    with TestClient(app) as client:
+        payload = {
+            "name": "Contoso Services",
+            "slug": "contoso-services",
+        }
+        first = client.post("/api/organizations", json=payload)
+        assert first.status_code == 201
+
+        second = client.post("/api/organizations", json=payload)
+        assert second.status_code == 409
+        assert "already exists" in second.json()["detail"]
