@@ -16,6 +16,19 @@
       </div>
     </header>
     <div class="panel__body">
+      <div class="form-field maintenance-token-field">
+        <label for="maintenance-token">Execution token</label>
+        <input
+          type="password"
+          id="maintenance-token"
+          name="maintenance_token"
+          placeholder="Enter maintenance token"
+          autocomplete="off"
+          inputmode="text"
+          spellcheck="false"
+        />
+        <p class="maintenance-token-help">Provide the shared secret to authorize maintenance automation.</p>
+      </div>
       <div class="table-actions">
         <input type="search" placeholder="Filter scripts" data-role="table-filter" aria-label="Filter deployment scripts" />
       </div>
@@ -34,7 +47,14 @@
               <td data-sort-value="{{ script.name }}">{{ script.name }}</td>
               <td>{{ script.description }}</td>
               <td>
-                <button class="button" type="button" data-action="maintenance-run" data-endpoint="/maintenance/{{ script.slug }}" {% if not installers_enabled %}disabled{% endif %}>
+                <button
+                  class="button"
+                  type="button"
+                  data-action="maintenance-run"
+                  data-endpoint="/maintenance/{{ script.slug }}"
+                  data-token-field="#maintenance-token"
+                  {% if not installers_enabled %}disabled{% endif %}
+                >
                   Run
                 </button>
               </td>

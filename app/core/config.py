@@ -36,6 +36,11 @@ class Settings(BaseSettings):
         env="TACTICAL_DESK_MYSQL_DATABASE",
     )
     secret_key: str = Field(default="change-me", description="Secret key for signing tokens")
+    maintenance_token: str | None = Field(
+        default=None,
+        description="Shared secret required to trigger maintenance automation",
+        env="TACTICAL_DESK_MAINTENANCE_TOKEN",
+    )
     enable_installers: bool = Field(
         default=False,
         description="Allow executing provisioning scripts from the API",
