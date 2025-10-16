@@ -849,10 +849,6 @@
     return slugifyValue(value);
   }
 
-  function slugifyPlaybook(value) {
-    return slugifyValue(value);
-  }
-
   const organizationForm = document.getElementById("organization-form");
   if (organizationForm) {
     const nameInput = organizationForm.querySelector("#organization-name");
@@ -870,83 +866,64 @@
     }
   }
 
-  const playbookTableBody = document.querySelector(
-    "[data-role='playbook-table-body']"
-  );
-
-  if (playbookTableBody) {
-    const rows = Array.from(
-      playbookTableBody.querySelectorAll("tr[data-playbook-row]")
-    );
-    rows.forEach(ensureVisibilityFlags);
-
-    playbookTableBody.addEventListener("click", async (event) => {
-      const deleteTrigger = event.target.closest(
-        "[data-action='playbook-delete']"
+  const runbookLabelTable = document.getElementById("runbook-label-table");
+  if (runbookLabelTable && runbookLabelTable.tBodies.length > 0) {
+    const runbookTableBody = runbookLabelTable.tBodies[0];
+    Array.from(runbookTableBody.rows).forEach(ensureVisibilityFlags);
+    runbookLabelTable.addEventListener("click", async (event) => {
+      const renameTrigger = event.target.closest(
+        "[data-action='rename-runbook-label']"
       );
-      if (!deleteTrigger) {
+      if (!renameTrigger) {
         return;
       }
-      const playbookId = deleteTrigger.dataset.playbookId;
-      if (!playbookId) {
-        return;
-      }
-      const playbookName = deleteTrigger.dataset.playbookName || "this playbook";
-      const confirmed = window.confirm(
-        `Delete ${playbookName}? This action cannot be undone.`
+      const currentLabel = renameTrigger.dataset.label || "";
+      const proposed = window.prompt(
+        "Rename runbook label",
+        currentLabel
       );
-      if (!confirmed) {
+      if (proposed === null) {
         return;
       }
-      deleteTrigger.disabled = true;
+      const trimmed = proposed.trim();
+      if (!trimmed) {
+        window.alert("Runbook label cannot be empty.");
+        return;
+      }
+      if (trimmed === currentLabel) {
+        return;
+      }
+      if (renameTrigger instanceof HTMLButtonElement) {
+        renameTrigger.disabled = true;
+      }
       try {
         const response = await fetch(
-          `/api/playbooks/${encodeURIComponent(playbookId)}`,
+          `/api/automations/runbook-labels/${encodeURIComponent(currentLabel)}`,
           {
-            method: "DELETE",
+            method: "PATCH",
             headers: {
+              "Content-Type": "application/json",
               Accept: "application/json",
             },
             credentials: "same-origin",
+            body: JSON.stringify({ new_label: trimmed }),
           }
         );
-        if (response.status === 409) {
-          const payload = await response.json().catch(() => ({}));
-          const detail =
-            payload?.detail ||
-            "Unable to delete playbook while automations are still linked.";
-          throw new Error(detail);
-        }
+        const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          throw new Error(
-            payload?.detail || "Unable to delete playbook. Try again later."
-          );
+          const detail =
+            payload?.detail || "Unable to rename runbook label. Try again later.";
+          throw new Error(detail);
         }
         window.location.reload();
       } catch (error) {
-        window.alert(error.message || "Unable to delete playbook");
+        window.alert(error.message || "Unable to rename runbook label.");
       } finally {
-        deleteTrigger.disabled = false;
+        if (renameTrigger instanceof HTMLButtonElement) {
+          renameTrigger.disabled = false;
+        }
       }
     });
-  }
-
-  const playbookForm = document.getElementById("playbook-form");
-  if (playbookForm) {
-    const nameInput = playbookForm.querySelector("#playbook-name");
-    const slugInput = playbookForm.querySelector("#playbook-slug");
-    let slugManuallyEdited = playbookForm.dataset.mode === "edit";
-    if (nameInput && slugInput) {
-      nameInput.addEventListener("input", () => {
-        if (!slugManuallyEdited) {
-          slugInput.value = slugifyPlaybook(nameInput.value);
-        }
-      });
-      slugInput.addEventListener("input", () => {
-        slugManuallyEdited = slugInput.value.trim().length > 0;
-      });
-    }
   }
 
   if (organizationTableBody) {
@@ -1862,7 +1839,7 @@
         if (!playbookValue) {
           setAutomationFormMessage(
             messageTarget,
-            "Playbook is required.",
+            "Runbook label is required.",
             "error"
           );
           playbookInput?.focus();

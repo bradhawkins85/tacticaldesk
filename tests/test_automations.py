@@ -453,3 +453,50 @@ def test_automation_edit_page_loads():
         assert "automation-edit-page" in html
         assert "automation-editor__kind" in html
         assert "data-role=\"automation-edit-page\"" in html
+
+def test_runbook_label_listing_and_rename():
+    with TestClient(app) as client:
+        labels_response = client.get("/api/automations/runbook-labels")
+        assert labels_response.status_code == 200
+        labels = labels_response.json()
+        summary = {item["label"]: item["automation_count"] for item in labels}
+        assert "Platform maintenance" in summary
+        assert summary["Platform maintenance"] >= 1
+
+        rename_response = client.patch(
+            "/api/automations/runbook-labels/Platform%20maintenance",
+            json={"new_label": "Platform maintenance v2"},
+        )
+        assert rename_response.status_code == 200
+        renamed_payload = rename_response.json()
+        updated_labels = {item["label"] for item in renamed_payload}
+        assert "Platform maintenance v2" in updated_labels
+        assert "Platform maintenance" not in updated_labels
+
+        automations = client.get("/api/automations").json()
+        lifecycle = next(
+            item for item in automations if item["name"] == "Lifecycle automation"
+        )
+        assert lifecycle["playbook"] == "Platform maintenance v2"
+
+
+def test_runbook_label_rename_conflict_and_missing():
+    with TestClient(app) as client:
+        labels = client.get("/api/automations/runbook-labels").json()
+        assert len(labels) >= 2
+        first_label = labels[0]["label"]
+        second_label = labels[1]["label"]
+        conflict = client.patch(
+            f"/api/automations/runbook-labels/{first_label}",
+            json={"new_label": second_label},
+        )
+        assert conflict.status_code == 409
+        detail = conflict.json().get("detail")
+        assert detail and "already exists" in detail
+
+        missing = client.patch(
+            "/api/automations/runbook-labels/Unknown",
+            json={"new_label": "New label"},
+        )
+        assert missing.status_code == 404
+        assert "not found" in missing.json().get("detail", "").lower()
