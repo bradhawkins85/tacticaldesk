@@ -70,4 +70,44 @@
     </table>
   </div>
 </section>
+<section class="panel automation-update">
+  <header class="panel__header">
+    <div>
+      <h2>Lifecycle automation</h2>
+      <p>Securely execute platform maintenance jobs without leaving the control tower.</p>
+    </div>
+    <div class="token-field">
+      <label for="automation-maintenance-token">Maintenance token</label>
+      <input
+        id="automation-maintenance-token"
+        name="automation_maintenance_token"
+        type="password"
+        placeholder="Enter maintenance token"
+        autocomplete="off"
+      />
+    </div>
+  </header>
+  <div class="panel__body">
+    <div class="automation-update__actions">
+      <button
+        class="primary-button"
+        type="button"
+        data-action="maintenance-run"
+        data-endpoint="/maintenance/update"
+        data-token-field="#automation-maintenance-token"
+        data-output="#automation-update-output"
+      >
+        Run secure update
+      </button>
+      <p class="automation-update__help">
+        Uses the hardened update script to pull vetted releases, install dependencies, run migrations, and restart
+        services. Requests must include the maintenance token and are executed over HTTPS.
+      </p>
+    </div>
+    <div class="log-console" aria-live="polite">
+      <h3>Update status</h3>
+      <pre id="automation-update-output">Awaiting update command…</pre>
+    </div>
+  </div>
+</section>
 {% endblock %}

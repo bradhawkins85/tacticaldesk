@@ -971,6 +971,20 @@ body {
     gap: 1.5rem;
 }
 
+.automation-update__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.automation-update__help {
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    max-width: 36rem;
+    line-height: 1.5;
+}
+
 .panel__footer {
     border-top: 1px solid var(--color-border);
     padding-top: 1rem;
