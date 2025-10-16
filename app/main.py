@@ -17,13 +17,17 @@ from app.api.routers import auth as auth_router
 from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
 from app.api.routers import organizations as organizations_router
-from app.core.config import get_settings
-from app.core.db import dispose_engine, get_engine, get_session
-from app.models import IntegrationModule, Organization, User
 from app.api.routers import webhooks as webhooks_router
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
-from app.models import IntegrationModule, User, WebhookDelivery, utcnow
+from app.models import (
+    Contact,
+    IntegrationModule,
+    Organization,
+    User,
+    WebhookDelivery,
+    utcnow,
+)
 from app.schemas import WebhookStatus
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -409,6 +413,20 @@ def _serialize_organization(organization: Organization) -> dict[str, object]:
     }
 
 
+def _serialize_contact(contact: Contact) -> dict[str, object]:
+    return {
+        "id": contact.id,
+        "organization_id": contact.organization_id,
+        "name": contact.name,
+        "job_title": contact.job_title or "",
+        "email": contact.email or "",
+        "phone": contact.phone or "",
+        "notes": contact.notes or "",
+        "created_at_iso": _format_iso(contact.created_at),
+        "updated_at_iso": _format_iso(contact.updated_at),
+    }
+
+
 async def _load_enabled_integrations(session: AsyncSession) -> list[dict[str, str]]:
     result = await session.execute(
         select(IntegrationModule)
@@ -437,6 +455,17 @@ async def _list_organizations(session: AsyncSession) -> list[dict[str, object]]:
         select(Organization).order_by(Organization.name.asc())
     )
     return [_serialize_organization(org) for org in result.scalars().all()]
+
+
+async def _list_contacts_for_organization(
+    session: AsyncSession, organization_id: int
+) -> list[dict[str, object]]:
+    result = await session.execute(
+        select(Contact)
+        .where(Contact.organization_id == organization_id)
+        .order_by(Contact.name.asc())
+    )
+    return [_serialize_contact(contact) for contact in result.scalars().all()]
 
 
 async def _template_context(
@@ -948,6 +977,39 @@ async def admin_organisations(
         active_admin="organisations",
     )
     return templates.TemplateResponse("organisations.html", context)
+
+
+@app.get(
+    "/admin/organisations/{organization_id}/contacts",
+    response_class=HTMLResponse,
+    name="admin_organization_contacts",
+)
+async def admin_organization_contacts(
+    request: Request,
+    organization_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    result = await session.execute(
+        select(Organization).where(Organization.id == organization_id)
+    )
+    organization = result.scalar_one_or_none()
+    if organization is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    contacts = await _list_contacts_for_organization(session, organization_id)
+    organization_payload = _serialize_organization(organization)
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title=f"{organization.name} contacts",
+        page_subtitle="Keep your stakeholder roster accurate with job titles and escalation paths.",
+        organization=organization_payload,
+        contacts=contacts,
+        contact_count=len(contacts),
+        active_nav="admin",
+        active_admin="organisations",
+    )
+    return templates.TemplateResponse("organization_contacts.html", context)
 def _format_iso(dt: datetime | None) -> str | None:
     if dt is None:
         return None

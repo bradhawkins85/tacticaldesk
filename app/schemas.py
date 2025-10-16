@@ -111,6 +111,37 @@ class OrganizationRead(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class ContactBase(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255, min_length=1)
+    job_title: Optional[str] = Field(default=None, max_length=255)
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = Field(default=None, max_length=64)
+    notes: Optional[str] = Field(default=None, max_length=2048)
+
+
+class ContactCreate(ContactBase):
+    name: str = Field(max_length=255, min_length=1)
+
+
+class ContactUpdate(ContactBase):
+    pass
+
+
+class ContactRead(BaseModel):
+    id: int
+    organization_id: int
+    name: str
+    job_title: Optional[str]
+    email: Optional[str]
+    phone: Optional[str]
+    notes: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
 class WebhookStatus(str, Enum):
     RETRYING = "retrying"
     PAUSED = "paused"
