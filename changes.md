@@ -28,3 +28,5 @@
 - 2025-10-16T03:09:00Z Feature: Added ticket detail workspace with dedicated history/reply layout opening in new tabs.
 - 2025-10-16T05:45:00Z Feature: Added integration enable/disable controls with dedicated settings pages and dynamic navigation updates.
 - 2025-10-16T06:00:00Z Fix: Restored missing imports for integration schemas, database migrations, and automated tests to stabilize integration toggling flows.
+- 2025-10-16T03:22:48Z Feature: Automated .env.example generation and verification against configuration defaults.
+- 2025-10-16T05:45:00Z Fix: Corrected secure update script discovery to point maintenance API at the repository-level scripts directory.
