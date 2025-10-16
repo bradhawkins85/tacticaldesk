@@ -51,3 +51,4 @@
 - 2025-10-16T12:30:00Z Feature: Enabled AND/OR trigger filters for event automations with updated API, UI controls, and regression coverage.
 
 - 2025-10-16T10:07:38Z Feature: Refactored event automation editor with additive trigger condition builder and dynamic UI controls.
+- 2025-10-16T12:45:00Z Feature: Added icon-based automation controls with manual run and delete APIs plus UI feedback updates.

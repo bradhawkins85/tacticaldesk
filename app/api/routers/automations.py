@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Iterable
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -275,3 +275,42 @@ async def update_automation(
         await session.refresh(automation)
 
     return AutomationRead.from_orm(automation)
+
+
+@router.post("/{automation_id}/run")
+async def run_automation(
+    *,
+    automation_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    automation = await _get_automation(session, automation_id)
+    if automation.kind != "scheduled":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only scheduled automations support manual execution",
+        )
+
+    automation.last_run_at = utcnow()
+    automation.updated_at = utcnow()
+
+    await session.commit()
+    await session.refresh(automation)
+
+    return {
+        "detail": f"Queued manual execution for {automation.name}.",
+        "last_run_at": automation.last_run_at.isoformat(),
+    }
+
+
+@router.delete("/{automation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_automation(
+    *,
+    automation_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    automation = await _get_automation(session, automation_id)
+
+    await session.delete(automation)
+    await session.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
