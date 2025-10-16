@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import unicodedata
 from typing import Any
 from urllib.parse import quote
 
@@ -24,6 +25,24 @@ async def _load_ntfy_settings(session: AsyncSession) -> tuple[bool, dict[str, An
     if module is None:
         return False, {}
     return bool(module.enabled), dict(module.settings or {})
+
+
+def _sanitize_header_value(value: str | None) -> str | None:
+    """Return an ASCII-safe header value or ``None`` when empty."""
+
+    if value is None:
+        return None
+
+    sanitized = value.replace("\r", " ").replace("\n", " ")
+    # Replace common Unicode dash characters with a standard hyphen.
+    for dash in ("—", "–", "―", "−"):
+        sanitized = sanitized.replace(dash, "-")
+
+    normalized = unicodedata.normalize("NFKD", sanitized)
+    ascii_bytes = normalized.encode("ascii", "ignore")
+    ascii_value = ascii_bytes.decode("ascii")
+    ascii_value = " ".join(ascii_value.split())
+    return ascii_value or None
 
 
 async def send_ntfy_notification(
@@ -63,11 +82,17 @@ async def send_ntfy_notification(
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    title = f"{automation_name} — {event_type}".strip()
+    title = _sanitize_header_value(f"{automation_name} — {event_type}".strip())
     if title:
         headers["Title"] = title
-    headers["X-TacticalDesk-Automation"] = automation_name
-    headers["X-TacticalDesk-Ticket"] = ticket_identifier
+
+    automation_header = _sanitize_header_value(automation_name)
+    if automation_header:
+        headers["X-TacticalDesk-Automation"] = automation_header
+
+    ticket_header = _sanitize_header_value(ticket_identifier)
+    if ticket_header:
+        headers["X-TacticalDesk-Ticket"] = ticket_header
 
     timeout = httpx.Timeout(10.0, connect=5.0)
 
