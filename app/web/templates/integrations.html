@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block header_actions %}
+<a class="secondary-button" href="{{ url_for('automation') }}">Automation control tower</a>
+{% endblock %}
+{% block content %}
+<section class="content-section">
+  <header class="section-header">
+    <h2>Integration catalogue</h2>
+    <p class="subtitle">Control which external platforms Tactical Desk can connect to and review their synchronization status.</p>
+  </header>
+  <div class="table-toolbar">
+    <label class="filter">
+      <span>Filter</span>
+      <input type="search" placeholder="Search integrations" data-role="table-filter" aria-controls="integration-table" />
+    </label>
+    <div class="form-message" data-role="integration-message" aria-live="polite"></div>
+  </div>
+  <div class="table-wrapper">
+    <table id="integration-table" class="data-table" data-role="sortable-table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="name">Integration</th>
+          <th scope="col" data-sort-key="status">Status</th>
+          <th scope="col" data-sort-key="updated">Last updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for module in integrations %}
+        <tr data-integration-row="{{ module.slug }}">
+          <td data-label="Integration">
+            <div class="integration-row">
+              <span class="integration-row__icon" aria-hidden="true">{{ module.icon }}</span>
+              <div class="integration-row__content">
+                <span class="integration-row__name">{{ module.name }}</span>
+                <p class="integration-row__description">{{ module.description or 'No description provided.' }}</p>
+                <a class="integration-row__link" href="{{ url_for('integration_detail', slug=module.slug) }}">Manage settings</a>
+              </div>
+            </div>
+          </td>
+          <td data-label="Status" data-sort-value="{{ 1 if module.enabled else 0 }}">
+            <div class="integration-toggle">
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  data-role="integration-toggle"
+                  data-slug="{{ module.slug }}"
+                  {% if module.enabled %}checked{% endif %}
+                  aria-label="Toggle {{ module.name }} integration"
+                />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </label>
+              <span
+                class="badge {{ 'status-open' if module.enabled else 'status-waiting' }}"
+                data-role="integration-status-label"
+              >
+                {{ 'Enabled' if module.enabled else 'Disabled' }}
+              </span>
+            </div>
+          </td>
+          <td
+            data-label="Last updated"
+            data-sort-value="{{ module.updated_at_iso or '' }}"
+            {% if module.updated_at_iso %}data-format="datetime"{% endif %}
+          >
+            {{ module.updated_at_iso or "Not configured" }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="panel integration-guidance">
+  <header class="panel__header">
+    <div>
+      <h2>Operational safeguards</h2>
+      <p>Enabled integrations are continuously monitored and retried when webhook deliveries fail.</p>
+    </div>
+  </header>
+  <div class="panel__body">
+    <ul class="guidance-list">
+      <li>All credentials are encrypted at rest and rotated via the integration settings page.</li>
+      <li>Audit logs capture enable/disable events for compliance investigations.</li>
+      <li>Use the automation workspace to orchestrate playbooks against enabled integrations.</li>
+    </ul>
+  </div>
+</section>
+{% endblock %}

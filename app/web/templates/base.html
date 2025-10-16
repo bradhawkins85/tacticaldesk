@@ -48,6 +48,36 @@
             <span class="nav-icon" aria-hidden="true">🤖</span>
             <span>Automation</span>
           </a>
+          <a
+            class="nav-link{% if current_nav == 'integrations' %} is-active{% endif %}"
+            href="{{ url_for('integrations_index') }}"
+            {% if current_nav == 'integrations' %}aria-current="page"{% endif %}
+          >
+            <span class="nav-icon" aria-hidden="true">🔌</span>
+            <span>Integrations</span>
+          </a>
+          {% set current_integration = active_integration | default('', true) %}
+          <div class="nav-group" role="group" aria-labelledby="integrations-nav-heading" data-role="integration-nav">
+            <p id="integrations-nav-heading" class="nav-heading{% if current_nav == 'integrations' %} is-active{% endif %}">
+              <span class="nav-icon" aria-hidden="true">🌐</span>
+              <span>Integrations</span>
+            </p>
+            {% if integration_nav %}
+            {% for integration in integration_nav %}
+            <a
+              class="nav-sublink{% if current_integration == integration.slug %} is-active{% endif %}"
+              href="{{ url_for('integration_detail', slug=integration.slug) }}"
+              data-integration-link="{{ integration.slug }}"
+              {% if current_integration == integration.slug %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">{{ integration.icon }}</span>
+              <span>{{ integration.name }}</span>
+            </a>
+            {% endfor %}
+            {% else %}
+            <p class="nav-empty">No integrations enabled</p>
+            {% endif %}
+          </div>
           {% set current_admin = active_admin | default('', true) %}
           <div class="nav-group" role="group" aria-labelledby="admin-nav-heading">
             <p id="admin-nav-heading" class="nav-heading{% if current_admin %} is-active{% endif %}">

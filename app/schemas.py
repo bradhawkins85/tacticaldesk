@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -26,3 +26,48 @@ class UserRead(UserBase):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class IntegrationSettings(BaseModel):
+    base_url: Optional[str] = Field(default=None, max_length=2048)
+    api_key: Optional[str] = Field(default=None, max_length=512)
+    webhook_url: Optional[str] = Field(default=None, max_length=2048)
+    client_id: Optional[str] = Field(default=None, max_length=255)
+    client_secret: Optional[str] = Field(default=None, max_length=512)
+    tenant_id: Optional[str] = Field(default=None, max_length=255)
+
+    class Config:
+        extra = "allow"
+
+
+class IntegrationModuleBase(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=1024)
+    icon: Optional[str] = Field(default=None, max_length=16)
+    enabled: Optional[bool] = None
+    settings: Optional[IntegrationSettings] = None
+
+
+class IntegrationModuleCreate(IntegrationModuleBase):
+    name: str = Field(max_length=255)
+    slug: str = Field(max_length=255)
+    enabled: bool = Field(default=False)
+
+
+class IntegrationModuleUpdate(IntegrationModuleBase):
+    pass
+
+
+class IntegrationModuleRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    description: Optional[str]
+    icon: Optional[str]
+    enabled: bool
+    settings: Dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True

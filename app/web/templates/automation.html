@@ -54,21 +54,55 @@
       <span>Filter</span>
       <input type="search" placeholder="Search modules" data-role="table-filter" aria-controls="modules-table" />
     </label>
+    <div class="form-message" data-role="integration-message" aria-live="polite"></div>
   </div>
   <div class="table-wrapper">
     <table id="modules-table" class="data-table" data-role="sortable-table">
       <thead>
         <tr>
-          <th scope="col" data-sort-key="module">Module</th>
+          <th scope="col" data-sort-key="module">Integration</th>
           <th scope="col" data-sort-key="enabled">Enabled</th>
+          <th scope="col" data-sort-key="updated">Last updated</th>
         </tr>
       </thead>
       <tbody>
         {% for module in module_toggles %}
-        <tr>
-          <td data-label="Module">{{ module.module }}</td>
+        <tr data-integration-row="{{ module.slug }}">
+          <td data-label="Integration">
+            <div class="integration-row">
+              <span class="integration-row__icon" aria-hidden="true">{{ module.icon }}</span>
+              <div class="integration-row__content">
+                <span class="integration-row__name">{{ module.module }}</span>
+                <a class="integration-row__link" href="{{ url_for('integration_detail', slug=module.slug) }}">Configure</a>
+              </div>
+            </div>
+          </td>
           <td data-label="Enabled" data-sort-value="{{ 1 if module.enabled else 0 }}">
-            <span class="badge {{ 'status-open' if module.enabled else 'status-waiting' }}">{{ 'Enabled' if module.enabled else 'Disabled' }}</span>
+            <div class="integration-toggle">
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  data-role="integration-toggle"
+                  data-slug="{{ module.slug }}"
+                  {% if module.enabled %}checked{% endif %}
+                  aria-label="Toggle {{ module.module }} integration"
+                />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </label>
+              <span
+                class="badge {{ 'status-open' if module.enabled else 'status-waiting' }}"
+                data-role="integration-status-label"
+              >
+                {{ 'Enabled' if module.enabled else 'Disabled' }}
+              </span>
+            </div>
+          </td>
+          <td
+            data-label="Last updated"
+            data-sort-value="{{ module.updated_at_iso or '' }}"
+            {% if module.updated_at_iso %}data-format="datetime"{% endif %}
+          >
+            {{ module.updated_at_iso or "Not configured" }}
           </td>
         </tr>
         {% endfor %}
