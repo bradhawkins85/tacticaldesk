@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block header_actions %}
+<a class="secondary-button" href="{{ url_for('automation') }}">Back to automations</a>
+{% endblock %}
+{% block content %}
+<section
+  class="panel automation-editor"
+  data-role="automation-edit-page"
+  data-automation-id="{{ automation.id }}"
+  data-automation-kind="{{ automation.kind }}"
+  data-return-url="{{ url_for('automation') }}"
+>
+  <header class="panel__header">
+    <div class="panel__intro">
+      <span class="automation-editor__kind">{{ automation.kind | title }} automation</span>
+      <h2 class="panel__title">{{ automation.name }}</h2>
+      <p class="panel__subtitle">Update metadata, scheduling, and trigger details for this automation.</p>
+    </div>
+  </header>
+  <div class="panel__body">
+    <form data-role="automation-edit-form" autocomplete="off">
+      <p class="automation-editor__hint">Timestamps are saved in UTC and rendered in your local timezone.</p>
+      <div class="automation-editor__grid">
+        <div class="form-field">
+          <label for="automation-name">Name</label>
+          <input
+            id="automation-name"
+            name="name"
+            type="text"
+            maxlength="255"
+            required
+            value="{{ automation.name }}"
+          />
+        </div>
+        <div class="form-field">
+          <label for="automation-playbook">Playbook</label>
+          <input
+            id="automation-playbook"
+            name="playbook"
+            type="text"
+            maxlength="255"
+            required
+            value="{{ automation.playbook }}"
+          />
+        </div>
+        <div class="form-field automation-editor__grid-item--full">
+          <label for="automation-description">Description</label>
+          <textarea id="automation-description" name="description" rows="4" maxlength="2048">{{ automation.description }}</textarea>
+        </div>
+        <div class="form-field" data-automation-section="scheduled">
+          <label for="automation-cadence">Cadence</label>
+          <input
+            id="automation-cadence"
+            name="cadence"
+            type="text"
+            maxlength="255"
+            value="{{ automation.cadence or '' }}"
+          />
+        </div>
+        <div class="form-field" data-automation-section="event">
+          <label for="automation-trigger">Trigger</label>
+          <input
+            id="automation-trigger"
+            name="trigger"
+            type="text"
+            maxlength="255"
+            value="{{ automation.trigger or '' }}"
+          />
+        </div>
+        <div class="form-field" data-automation-section="event">
+          <label for="automation-status">Status</label>
+          <input
+            id="automation-status"
+            name="status"
+            type="text"
+            maxlength="64"
+            value="{{ automation.status or '' }}"
+          />
+        </div>
+        <div class="form-field" data-automation-section="scheduled">
+          <label for="automation-next-run">Next run</label>
+          <input
+            id="automation-next-run"
+            name="next_run_at"
+            type="datetime-local"
+            step="60"
+            data-automation-datetime
+            data-iso-value="{{ automation.next_run_iso or '' }}"
+          />
+        </div>
+        <div class="form-field" data-automation-section="scheduled">
+          <label for="automation-last-run">Last run</label>
+          <input
+            id="automation-last-run"
+            name="last_run_at"
+            type="datetime-local"
+            step="60"
+            data-automation-datetime
+            data-iso-value="{{ automation.last_run_iso or '' }}"
+          />
+        </div>
+        <div class="form-field" data-automation-section="event">
+          <label for="automation-last-trigger">Last triggered</label>
+          <input
+            id="automation-last-trigger"
+            name="last_trigger_at"
+            type="datetime-local"
+            step="60"
+            data-automation-datetime
+            data-iso-value="{{ automation.last_trigger_iso or '' }}"
+          />
+        </div>
+      </div>
+      <div class="automation-editor__message" data-role="automation-message" role="status" aria-live="polite"></div>
+      <div class="automation-editor__actions">
+        <a class="secondary-button" href="{{ url_for('automation') }}">Cancel</a>
+        <button class="primary-button" type="submit" data-role="automation-submit">Save changes</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
