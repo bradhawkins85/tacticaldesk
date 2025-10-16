@@ -44,11 +44,21 @@ if [[ -n "${GIT_USERNAME}" && -n "${GIT_TOKEN}" ]]; then
   git -C "${APP_DIR}" remote set-url origin "${AUTH_REPO_URL}"
 fi
 
+CURRENT_HEAD="$(git -C "${APP_DIR}" rev-parse HEAD)"
+
 git -C "${APP_DIR}" fetch origin "${BRANCH}"
 git -C "${APP_DIR}" checkout "${BRANCH}"
 git -C "${APP_DIR}" reset --hard "origin/${BRANCH}"
 
-"${APP_DIR}/.venv/bin/pip" install --no-cache-dir -r "${APP_DIR}/requirements.txt"
+UPDATED_HEAD="$(git -C "${APP_DIR}" rev-parse HEAD)"
+CODE_UPDATED=false
+if [[ "${CURRENT_HEAD}" != "${UPDATED_HEAD}" ]]; then
+  CODE_UPDATED=true
+fi
+
+if [[ "${CODE_UPDATED}" == true ]]; then
+  "${APP_DIR}/.venv/bin/pip" install --no-cache-dir -r "${APP_DIR}/requirements.txt"
+fi
 
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 if [[ -f "${SERVICE_FILE}" ]]; then
@@ -69,7 +79,10 @@ if [[ -f "${SERVICE_FILE}" ]]; then
   sudo systemctl daemon-reload
 fi
 
-sudo systemctl restart "${SERVICE_NAME}.service"
-sudo systemctl status "${SERVICE_NAME}.service" --no-pager
-
-echo "${SERVICE_NAME} updated from ${BRANCH} and service restarted."
+if [[ "${CODE_UPDATED}" == true ]]; then
+  sudo systemctl restart "${SERVICE_NAME}.service"
+  sudo systemctl status "${SERVICE_NAME}.service" --no-pager
+  echo "${SERVICE_NAME} updated from ${BRANCH} and service restarted."
+else
+  echo "${SERVICE_NAME} is already up to date on ${BRANCH}; requirements installation and service restart skipped."
+fi

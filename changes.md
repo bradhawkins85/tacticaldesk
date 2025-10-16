@@ -4,3 +4,5 @@
 - 2025-10-15T23:42:57Z Feature: Introduced deployment installers, maintenance API/UI with secure token gating, and MySQL-aware configuration fallback.
 - 2025-10-15T23:54:53Z Fix: Hardened install scripts to auto-install python3 and venv prerequisites before provisioning virtual environments.
 - 2025-10-16T00:08:09Z Fix: Added PYTHONPATH configuration and app directory hints to service definitions to resolve startup import failures.
+
+- 2025-10-16T00:15:24Z Fix: Prevent update script from reinstalling requirements and restarting service when code is unchanged.
