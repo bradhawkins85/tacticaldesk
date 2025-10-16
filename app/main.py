@@ -1832,7 +1832,8 @@ async def docs_ticket_variables(
         session=session,
         page_title="Ticket template variables",
         page_subtitle=(
-            "Review dynamic placeholders that can be merged into ticket actions and notifications."
+            "Review dynamic placeholders that can be merged into ticket actions and notifications, and wrap keys in "
+            "double curly braces (for example {{ ticket.subject }}) when composing automation content."
         ),
         active_nav="docs",
         active_docs="ticket_variables",
