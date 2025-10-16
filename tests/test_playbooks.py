@@ -24,14 +24,16 @@ def test_seeded_playbooks_available(playbook_db: Path):
         assert response.status_code == 200
         payload = response.json()
         names = {item["name"] for item in payload}
-        assert "Run secure update" in names
+        assert "Platform maintenance" in names
         assert "Quarterly patch audit" in names
+        assert "Run secure update" not in names
 
         html_response = client.get("/admin/playbooks")
         assert html_response.status_code == 200
         html = html_response.text
         assert "Playbook catalogue" in html
-        assert "Run secure update" in html
+        assert "Platform maintenance" in html
+        assert "Run secure update" not in html
         assert "Quarterly patch audit" in html
 
 
