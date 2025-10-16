@@ -40,6 +40,29 @@ EVENT_TRIGGER_OPTIONS: tuple[str, ...] = _BASE_EVENT_TRIGGERS + _CONDITION_TRIGG
 
 EVENT_TRIGGER_SET: frozenset[str] = frozenset(EVENT_TRIGGER_OPTIONS)
 
+EVENT_AUTOMATION_ACTIONS: tuple[str, ...] = (
+    "Add Private Comment",
+    "Add Public Comment",
+    "Add Subscriber",
+    "Add Ticket Tag",
+    "Assign to",
+    "Attach Ticket Worksheet",
+    "Change Issue Type",
+    "Change Priority",
+    "Change Status",
+    "Email assignee",
+    "Email custom email address",
+    "Email customer/contact",
+    "Fire \"Ticket Automation Triggered\" notification",
+    "Post to Microsoft Teams",
+    "Post to Slack",
+    "Remove Ticket Tag",
+    "Set SLA",
+    "SMS Public Comment",
+    "Send Manual SMS",
+    "Update Ticket",
+)
+
 VALUE_REQUIRED_TRIGGER_OPTIONS: frozenset[str] = frozenset(
     {
         "Ticket Status Changed To",
