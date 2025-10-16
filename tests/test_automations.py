@@ -60,6 +60,41 @@ def test_update_scheduled_automation():
         assert "0 4 * * *" in html
 
 
+def test_update_scheduled_automation_with_trigger_filters():
+    with TestClient(app) as client:
+        scheduled = client.get("/api/automations", params={"kind": "scheduled"})
+        assert scheduled.status_code == 200
+        scheduled_items = scheduled.json()
+        target = next(item for item in scheduled_items if item["name"] == "Patch window compliance")
+        automation_id = target["id"]
+
+        payload = {
+            "trigger_filters": {
+                "match": "any",
+                "conditions": [
+                    {
+                        "type": "Assigned to",
+                        "operator": "equals",
+                        "value": "Service Desk",
+                    }
+                ],
+            }
+        }
+
+        response = client.patch(
+            f"/api/automations/{automation_id}",
+            json=payload,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["trigger_filters"]["conditions"][0]["type"] == "Assigned to"
+        assert body["trigger_filters"]["conditions"][0]["value"] == "Service Desk"
+
+        html = client.get(f"/automation/scheduled/{automation_id}")
+        assert html.status_code == 200
+        assert "Assigned to" in html.text
+
+
 def test_scheduled_automation_rejects_invalid_cron():
     with TestClient(app) as client:
         scheduled = client.get("/api/automations", params={"kind": "scheduled"})
@@ -145,6 +180,11 @@ def test_update_event_automation_trigger_filters():
                         "type": "Ticket Status Changed From",
                         "operator": "equals",
                         "value": "Open",
+                    },
+                    {
+                        "type": "Assigned SLA",
+                        "operator": "equals",
+                        "value": "Gold",
                     },
                 ],
             }

@@ -1336,6 +1336,9 @@ async def automation_edit_scheduled_view(
         active_admin="automation",
         automation=automation_view,
         cron_reference_url=CRON_REFERENCE_URL,
+        event_trigger_options=EVENT_TRIGGER_OPTIONS,
+        trigger_operator_options=TRIGGER_OPERATOR_OPTIONS,
+        value_required_trigger_options=sorted(VALUE_REQUIRED_TRIGGER_OPTIONS),
     )
     return templates.TemplateResponse("automation_edit_scheduled.html", context)
 

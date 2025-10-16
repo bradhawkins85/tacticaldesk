@@ -96,10 +96,10 @@ def _normalize_trigger_filters(
     if value is None:
         return None
 
-    if automation_kind != "event":
+    if automation_kind not in {"event", "scheduled"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Trigger filters are only supported for event automations",
+            detail="Trigger filters are not supported for this automation type",
         )
 
     if isinstance(value, AutomationTriggerFilter):
