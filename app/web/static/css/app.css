@@ -96,6 +96,16 @@ body {
   border-top: 1px solid rgba(148, 163, 184, 0.25);
 }
 
+.nav-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: 4px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(148, 163, 184, 0.25);
+}
+
 .nav-heading {
   display: flex;
   align-items: center;
@@ -107,6 +117,11 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: rgba(226, 232, 240, 0.75);
+}
+
+.nav-heading--sub {
+  padding-left: 28px;
+  font-size: 0.7rem;
 }
 
 .nav-heading.is-active {
@@ -123,6 +138,10 @@ body {
   text-decoration: none;
   border: 1px solid transparent;
   transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.nav-sublink--nested {
+  padding-left: 48px;
 }
 
 .nav-sublink:hover,
@@ -142,6 +161,10 @@ body {
   padding: 8px 14px 8px 32px;
   font-size: 0.8rem;
   color: rgba(226, 232, 240, 0.6);
+}
+
+.nav-empty--nested {
+  padding-left: 48px;
 }
 
 .guidance-grid {

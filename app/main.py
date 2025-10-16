@@ -770,7 +770,8 @@ async def automation_view(
         page_subtitle="Launch workflows, monitor orchestration, and govern integration access.",
         orchestration_runs=orchestration_runs,
         module_toggles=module_toggles,
-        active_nav="automation",
+        active_nav="admin",
+        active_admin="automation",
     )
     return templates.TemplateResponse("automation.html", context)
 
@@ -787,7 +788,8 @@ async def integrations_index(
         page_title="Integration hub",
         page_subtitle="Enable connectors, enforce least privilege, and manage credentials in one place.",
         integrations=serialized,
-        active_nav="integrations",
+        active_nav="admin",
+        active_admin="integrations",
     )
     return templates.TemplateResponse("integrations.html", context)
 
@@ -826,7 +828,8 @@ async def integration_detail(
         or "Configure secure access, credentials, and automation hooks for this integration.",
         module=module_info,
         settings_fields=settings_fields,
-        active_nav="integrations",
+        active_nav="admin",
+        active_admin="integrations",
         active_integration=module.slug,
     )
     return templates.TemplateResponse("integration_detail.html", context)
