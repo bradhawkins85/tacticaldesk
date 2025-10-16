@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import re
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -122,58 +124,231 @@ async def dashboard(request: Request) -> HTMLResponse:
 
 @app.get("/tickets", response_class=HTMLResponse, name="tickets")
 async def tickets_view(request: Request) -> HTMLResponse:
+    def slugify(value: str) -> str:
+        tokens = re.findall(r"[a-z0-9]+", value.lower())
+        return "-".join(tokens) or "general"
+
+    def describe_age(delta: timedelta) -> str:
+        total_seconds = int(delta.total_seconds())
+        if total_seconds <= 0:
+            return "Just now"
+        minutes = total_seconds // 60
+        if minutes < 1:
+            return "Less than a minute ago"
+        hours = minutes // 60
+        days = hours // 24
+        weeks = days // 7
+        if weeks >= 1:
+            return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+        if days >= 1:
+            return f"{days} day{'s' if days != 1 else ''} ago"
+        if hours >= 1:
+            return f"{hours} hour{'s' if hours != 1 else ''} ago"
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+
     now_utc = datetime.now(timezone.utc)
-    queue_health = [
+    seed_tickets = [
         {
+            "id": "TD-4821",
+            "subject": "Query for Opensource Project",
+            "customer": "Quest Logistics",
+            "customer_email": "quest.labs@example.com",
+            "status": "Open",
+            "priority": "High",
+            "team": "Tier 1",
+            "category": "Support",
+            "assignment": "Unassigned",
             "queue": "Critical response",
-            "open": 7,
-            "waiting": 2,
-            "sla_breaches": 1,
-            "oldest_iso": (now_utc - timedelta(hours=3, minutes=41)).isoformat().replace("+00:00", "Z"),
+            "channel": "Email",
+            "last_reply": now_utc - timedelta(days=2, hours=6),
+            "labels": ["SLA watch"],
+            "is_starred": True,
+            "assets_visible": True,
         },
         {
+            "id": "TD-4820",
+            "subject": "Welcome to U Desk",
+            "customer": "Demo Customer",
+            "customer_email": "customer@demo.com",
+            "status": "Pending",
+            "priority": "Medium",
+            "team": "Customer success",
+            "category": "Onboarding",
+            "assignment": "Shared",
             "queue": "Service requests",
-            "open": 18,
-            "waiting": 6,
-            "sla_breaches": 0,
-            "oldest_iso": (now_utc - timedelta(hours=1, minutes=5)).isoformat().replace("+00:00", "Z"),
+            "channel": "Portal",
+            "last_reply": now_utc - timedelta(days=3, hours=4),
+            "labels": ["First response"],
+            "is_starred": False,
+            "assets_visible": False,
         },
         {
+            "id": "TD-4819",
+            "subject": "MFA reset follow-up",
+            "customer": "Northwind IT",
+            "customer_email": "support@northwind.example",
+            "status": "Answered",
+            "priority": "Low",
+            "team": "Tier 2",
+            "category": "Security",
+            "assignment": "My tickets",
+            "queue": "Critical response",
+            "channel": "Chat",
+            "last_reply": now_utc - timedelta(hours=5, minutes=30),
+            "labels": ["Security"],
+            "is_starred": False,
+            "assets_visible": True,
+        },
+        {
+            "id": "TD-4818",
+            "subject": "Quarterly backup validation",
+            "customer": "Axcelerate",
+            "customer_email": "ops@axcelerate.example",
+            "status": "Resolved",
+            "priority": "Medium",
+            "team": "Automation",
+            "category": "Infrastructure",
+            "assignment": "Shared",
             "queue": "Automation handoff",
-            "open": 5,
-            "waiting": 1,
-            "sla_breaches": 0,
-            "oldest_iso": (now_utc - timedelta(minutes=47)).isoformat().replace("+00:00", "Z"),
+            "channel": "Workflow",
+            "last_reply": now_utc - timedelta(days=1, hours=1),
+            "labels": ["Automation"],
+            "is_starred": False,
+            "assets_visible": True,
+        },
+        {
+            "id": "TD-4817",
+            "subject": "Password spray detected",
+            "customer": "SyncroRMM",
+            "customer_email": "soc@syncro.example",
+            "status": "Closed",
+            "priority": "High",
+            "team": "Incident response",
+            "category": "Security",
+            "assignment": "Shared",
+            "queue": "Critical response",
+            "channel": "Automation",
+            "last_reply": now_utc - timedelta(days=6, hours=2),
+            "labels": ["Post incident"],
+            "is_starred": False,
+            "assets_visible": False,
+        },
+        {
+            "id": "TD-4816",
+            "subject": "Spam newsletter opt-out",
+            "customer": "Marketing",
+            "customer_email": "noreply@marketing.example",
+            "status": "Spam",
+            "priority": "Low",
+            "team": "Triage",
+            "category": "Spam",
+            "assignment": "Trashed",
+            "queue": "Inbox cleanup",
+            "channel": "Email",
+            "last_reply": now_utc - timedelta(days=14, hours=5),
+            "labels": [],
+            "is_starred": False,
+            "assets_visible": False,
         },
     ]
 
-    escalation_pipeline = [
+    status_counter: Counter[str] = Counter()
+    assignment_counter: Counter[str] = Counter()
+    queue_counter: Counter[str] = Counter()
+
+    tickets: list[dict[str, object]] = []
+    for ticket in seed_tickets:
+        last_reply_iso = ticket["last_reply"].isoformat().replace("+00:00", "Z")
+        age_delta = now_utc - ticket["last_reply"]
+        filter_tokens = {
+            "all",
+            f"status-{slugify(ticket['status'])}",
+            f"priority-{slugify(ticket['priority'])}",
+            f"assignment-{slugify(ticket['assignment'])}",
+            f"queue-{slugify(ticket['queue'])}",
+            f"team-{slugify(ticket['team'])}",
+            f"category-{slugify(ticket['category'])}",
+        }
+        if ticket.get("is_starred"):
+            filter_tokens.add("flagged")
+        if ticket.get("assets_visible"):
+            filter_tokens.add("assets-visible")
+
+        enriched_ticket = {
+            **ticket,
+            "last_reply_iso": last_reply_iso,
+            "age_display": describe_age(age_delta),
+            "filter_tokens": sorted(filter_tokens),
+            "status_token": slugify(ticket["status"]),
+            "priority_token": slugify(ticket["priority"]),
+            "assignment_token": slugify(ticket["assignment"]),
+            "update_endpoint": f"/api/tickets/{ticket['id']}",
+        }
+        tickets.append(enriched_ticket)
+
+        status_counter.update([ticket["status"]])
+        assignment_counter.update([ticket["assignment"]])
+        queue_counter.update([ticket["queue"]])
+
+    ticket_filter_groups = [
         {
-            "ticket": "INC-4821",
-            "owner": "Tier 2",
-            "next_step": "Vendor engagement",
-            "eta_iso": (now_utc + timedelta(hours=2)).isoformat().replace("+00:00", "Z"),
+            "title": "Tickets",
+            "filters": [
+                {"key": "all", "label": "All", "icon": "📋", "count": len(tickets)},
+                {"key": "status-open", "label": "Open", "icon": "🟢", "count": status_counter.get("Open", 0)},
+                {"key": "status-pending", "label": "Pending", "icon": "🕒", "count": status_counter.get("Pending", 0)},
+                {"key": "status-answered", "label": "Answered", "icon": "✉️", "count": status_counter.get("Answered", 0)},
+                {"key": "status-resolved", "label": "Resolved", "icon": "✅", "count": status_counter.get("Resolved", 0)},
+                {"key": "status-closed", "label": "Closed", "icon": "📁", "count": status_counter.get("Closed", 0)},
+                {"key": "status-spam", "label": "Spam", "icon": "🚫", "count": status_counter.get("Spam", 0)},
+            ],
         },
         {
-            "ticket": "SR-1954",
-            "owner": "Automation",
-            "next_step": "Awaiting customer MFA reset",
-            "eta_iso": (now_utc + timedelta(hours=5, minutes=30)).isoformat().replace("+00:00", "Z"),
+            "title": "New",
+            "filters": [
+                {"key": "assignment-unassigned", "label": "Unassigned", "icon": "🆕", "count": assignment_counter.get("Unassigned", 0)},
+                {"key": "assignment-my-tickets", "label": "My tickets", "icon": "👤", "count": assignment_counter.get("My tickets", 0)},
+                {"key": "assignment-shared", "label": "Shared", "icon": "👥", "count": assignment_counter.get("Shared", 0)},
+                {"key": "assignment-trashed", "label": "Trashed", "icon": "🗑️", "count": assignment_counter.get("Trashed", 0)},
+            ],
         },
         {
-            "ticket": "CHG-2240",
-            "owner": "Change advisory",
-            "next_step": "CAB approval window",
-            "eta_iso": (now_utc + timedelta(days=1, hours=3)).isoformat().replace("+00:00", "Z"),
+            "title": "Queues",
+            "filters": [
+                {"key": f"queue-{slugify(name)}", "label": name, "icon": "🗂️", "count": queue_counter.get(name, 0)}
+                for name in sorted(queue_counter)
+            ],
         },
     ]
+
+    ticket_sort_options = [
+        {"value": "last-replied", "label": "Last replied"},
+        {"value": "newest", "label": "Newest"},
+        {"value": "oldest", "label": "Oldest"},
+        {"value": "priority", "label": "Priority"},
+    ]
+
+    asset_view_options = [
+        {"value": "workspace", "label": "Workspace assets"},
+        {"value": "related", "label": "Related assets"},
+        {"value": "all", "label": "All assets"},
+    ]
+
+    status_options = sorted({ticket["status"] for ticket in seed_tickets})
+    priority_options = sorted({ticket["priority"] for ticket in seed_tickets})
+    team_options = sorted({ticket["team"] for ticket in seed_tickets})
 
     context = _template_context(
         request=request,
         page_title="Unified Ticket Workspace",
         page_subtitle="Track queues, escalations, and SLA risk across every service channel.",
-        queue_health=queue_health,
-        escalation_pipeline=escalation_pipeline,
+        tickets=tickets,
+        ticket_filter_groups=ticket_filter_groups,
+        ticket_sort_options=ticket_sort_options,
+        asset_view_options=asset_view_options,
+        ticket_status_options=status_options,
+        ticket_priority_options=priority_options,
+        ticket_team_options=team_options,
         active_nav="tickets",
     )
     return templates.TemplateResponse("tickets.html", context)

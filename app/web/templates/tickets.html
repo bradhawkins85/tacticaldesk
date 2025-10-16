@@ -1,77 +1,187 @@
 {% extends "base.html" %}
 {% block header_actions %}
-<button class="primary-button" type="button" data-action="new-ticket">Log ticket</button>
-<button class="secondary-button" type="button" data-action="assign">Bulk assign</button>
+<div class="ticket-header-actions">
+  <label class="ticket-sort" for="ticket-sort-select">
+    <span class="ticket-sort__label">Sort</span>
+    <select id="ticket-sort-select" name="ticket-sort" class="ticket-sort__select">
+      {% for option in ticket_sort_options %}
+      <option value="{{ option.value }}"{% if loop.first %} selected{% endif %}>{{ option.label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="ticket-sort" for="asset-visibility-select">
+    <span class="ticket-sort__label">Assets visibility</span>
+    <select id="asset-visibility-select" name="asset-visibility" class="ticket-sort__select">
+      {% for option in asset_view_options %}
+      <option value="{{ option.value }}"{% if loop.first %} selected{% endif %}>{{ option.label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button class="secondary-button" type="button" data-action="ticket-refresh">Refresh</button>
+</div>
 {% endblock %}
 {% block content %}
-<section class="content-section">
-  <header class="section-header">
-    <h2>Queue health</h2>
-    <p class="subtitle">Understand workload distribution and SLA exposure before escalations occur.</p>
-  </header>
-  <div class="table-toolbar">
-    <label class="filter">
-      <span>Filter</span>
-      <input type="search" placeholder="Search queues" data-role="table-filter" aria-controls="queue-table" />
-    </label>
-  </div>
-  <div class="table-wrapper">
-    <table id="queue-table" class="data-table" data-role="sortable-table">
-      <thead>
-        <tr>
-          <th scope="col" data-sort-key="queue">Queue</th>
-          <th scope="col" data-sort-key="open">Open</th>
-          <th scope="col" data-sort-key="waiting">Waiting</th>
-          <th scope="col" data-sort-key="sla_breaches">SLA breaches</th>
-          <th scope="col" data-sort-key="oldest">Oldest ticket</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for queue in queue_health %}
-        <tr>
-          <td data-label="Queue">{{ queue.queue }}</td>
-          <td data-label="Open" data-sort-value="{{ queue.open }}">{{ queue.open }}</td>
-          <td data-label="Waiting" data-sort-value="{{ queue.waiting }}">{{ queue.waiting }}</td>
-          <td data-label="SLA breaches" data-sort-value="{{ queue.sla_breaches }}">{{ queue.sla_breaches }}</td>
-          <td data-label="Oldest ticket" data-sort-value="{{ queue.oldest_iso }}">{{ queue.oldest_iso }}</td>
-        </tr>
+<div class="ticket-workspace" role="region" aria-label="Ticket workspace">
+  <aside class="ticket-sidebar" aria-label="Ticket filters">
+    {% for group in ticket_filter_groups %}
+    <div class="ticket-sidebar__group">
+      <h3 class="ticket-sidebar__title">{{ group.title }}</h3>
+      <div class="ticket-sidebar__items">
+        {% for filter in group.filters %}
+        <button
+          class="ticket-filter-button{% if loop.first and loop.parent.first %} is-active{% endif %}"
+          type="button"
+          data-action="ticket-filter"
+          data-filter="{{ filter.key }}"
+        >
+          <span class="ticket-filter-button__icon" aria-hidden="true">{{ filter.icon }}</span>
+          <span class="ticket-filter-button__label">{{ filter.label }}</span>
+          <span class="ticket-filter-button__count">{{ filter.count }}</span>
+        </button>
         {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-<section class="content-section">
-  <header class="section-header">
-    <h2>Escalation pipeline</h2>
-    <p class="subtitle">Coordinate upcoming escalations and proactively communicate next actions.</p>
-  </header>
-  <div class="table-toolbar">
-    <label class="filter">
-      <span>Filter</span>
-      <input type="search" placeholder="Search escalations" data-role="table-filter" aria-controls="escalation-table" />
-    </label>
-  </div>
-  <div class="table-wrapper">
-    <table id="escalation-table" class="data-table" data-role="sortable-table">
-      <thead>
-        <tr>
-          <th scope="col" data-sort-key="ticket">Ticket</th>
-          <th scope="col" data-sort-key="owner">Owner</th>
-          <th scope="col" data-sort-key="next_step">Next step</th>
-          <th scope="col" data-sort-key="eta">Next update</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for escalation in escalation_pipeline %}
-        <tr>
-          <td data-label="Ticket">{{ escalation.ticket }}</td>
-          <td data-label="Owner">{{ escalation.owner }}</td>
-          <td data-label="Next step">{{ escalation.next_step }}</td>
-          <td data-label="Next update" data-sort-value="{{ escalation.eta_iso }}">{{ escalation.eta_iso }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="ticket-sidebar__footer">
+      <button class="ticket-label-button" type="button" data-action="ticket-add-label">+ Label</button>
+    </div>
+  </aside>
+  <section class="ticket-board">
+    <header class="ticket-board__header">
+      <div class="ticket-board__controls">
+        <button class="icon-button" type="button" aria-label="Select all tickets" data-action="ticket-select-all">☑️</button>
+        <button class="icon-button" type="button" aria-label="Back" data-action="ticket-back">🔙</button>
+        <button class="icon-button" type="button" aria-label="Archive" data-action="ticket-archive">🗃️</button>
+        <button class="icon-button" type="button" aria-label="Spam" data-action="ticket-mark-spam">🚫</button>
+        <button class="icon-button" type="button" aria-label="Trash" data-action="ticket-trash">🗑️</button>
+      </div>
+      <div class="ticket-board__filters">
+        <label class="ticket-search" for="ticket-search-input">
+          <span class="ticket-search__icon" aria-hidden="true">🔍</span>
+          <input
+            id="ticket-search-input"
+            type="search"
+            placeholder="Search tickets"
+            data-role="table-filter"
+            aria-controls="ticket-table"
+          />
+        </label>
+        <button class="secondary-button" type="button" data-action="ticket-filter-panel">Filter view</button>
+      </div>
+    </header>
+    <div class="ticket-table-container">
+      <table id="ticket-table" class="data-table ticket-table" data-role="sortable-table" data-ticket-table="true">
+        <thead>
+          <tr>
+            <th scope="col" aria-label="Select"></th>
+            <th scope="col" data-sort-key="id">ID</th>
+            <th scope="col" data-sort-key="subject">Subject</th>
+            <th scope="col" data-sort-key="customer">Customer</th>
+            <th scope="col" data-sort-key="timestamp">Timestamp</th>
+            <th scope="col" data-sort-key="age">Age</th>
+            <th scope="col" data-sort-key="team">Team</th>
+            <th scope="col" data-sort-key="category">Category</th>
+            <th scope="col" aria-label="Update actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ticket in tickets %}
+          <tr data-filter-keys="{{ ticket.filter_tokens | join(' ') }}">
+            <td data-label="Select" class="ticket-table__select">
+              <input type="checkbox" aria-label="Select ticket {{ ticket.id }}" />
+              {% if ticket.is_starred %}
+              <span class="ticket-table__star" aria-label="Starred ticket">★</span>
+              {% endif %}
+            </td>
+            <td data-label="ID">
+              <a href="#" class="ticket-id">{{ ticket.id }}</a>
+            </td>
+            <td data-label="Subject">
+              <div class="ticket-subject">
+                <span class="ticket-subject__title">{{ ticket.subject }}</span>
+                <div class="ticket-subject__meta">
+                  <span class="status-pill status-pill--{{ ticket.status_token }}">{{ ticket.status }}</span>
+                  <span class="badge badge--priority badge--priority-{{ ticket.priority_token }}">{{ ticket.priority }} priority</span>
+                  <span class="ticket-subject__channel">{{ ticket.channel }}</span>
+                  {% for label in ticket.labels %}
+                  <span class="ticket-label">{{ label }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+            </td>
+            <td data-label="Customer">
+              <div class="ticket-customer">
+                <span class="ticket-customer__name">{{ ticket.customer }}</span>
+                <a class="ticket-customer__email" href="mailto:{{ ticket.customer_email }}">{{ ticket.customer_email }}</a>
+              </div>
+            </td>
+            <td data-label="Timestamp" data-sort-value="{{ ticket.last_reply_iso }}">{{ ticket.last_reply_iso }}</td>
+            <td data-label="Age" data-sort-value="{{ ticket.last_reply_iso }}">{{ ticket.age_display }}</td>
+            <td data-label="Team">{{ ticket.team }}</td>
+            <td data-label="Category">{{ ticket.category }}</td>
+            <td data-label="Update" class="ticket-table__actions">
+              <button
+                class="button button--ghost"
+                type="button"
+                data-action="ticket-update"
+                data-ticket-id="{{ ticket.id }}"
+                data-ticket-subject="{{ ticket.subject }}"
+                data-ticket-status="{{ ticket.status }}"
+                data-ticket-priority="{{ ticket.priority }}"
+                data-ticket-team="{{ ticket.team }}"
+                data-update-endpoint="{{ ticket.update_endpoint }}"
+              >
+                Update
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+<dialog id="ticket-update-dialog" class="ticket-update-dialog" aria-labelledby="ticket-update-title">
+  <form method="dialog" class="ticket-update-dialog__form" data-role="ticket-update-form">
+    <header class="ticket-update-dialog__header">
+      <h2 id="ticket-update-title">Update ticket</h2>
+      <p class="ticket-update-dialog__subtitle" data-role="ticket-update-summary"></p>
+    </header>
+    <div class="ticket-update-dialog__body">
+      <label class="ticket-update-field">
+        <span>Status</span>
+        <select name="status" data-role="ticket-update-status">
+          {% for status in ticket_status_options %}
+          <option value="{{ status }}">{{ status }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="ticket-update-field">
+        <span>Priority</span>
+        <select name="priority" data-role="ticket-update-priority">
+          {% for priority in ticket_priority_options %}
+          <option value="{{ priority }}">{{ priority }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="ticket-update-field">
+        <span>Team</span>
+        <select name="team" data-role="ticket-update-team">
+          {% for team in ticket_team_options %}
+          <option value="{{ team }}">{{ team }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="ticket-update-field">
+        <span>Notes</span>
+        <textarea name="notes" rows="3" placeholder="Add a customer facing update" data-role="ticket-update-notes"></textarea>
+      </label>
+      <p class="form-feedback" data-role="ticket-update-feedback" aria-live="polite"></p>
+    </div>
+    <footer class="ticket-update-dialog__footer">
+      <button type="submit" class="primary-button">Save changes</button>
+      <button type="button" class="secondary-button" data-action="ticket-update-close">Cancel</button>
+    </footer>
+  </form>
+</dialog>
 {% endblock %}
