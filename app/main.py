@@ -618,17 +618,10 @@ async def automation_view(request: Request) -> HTMLResponse:
             "duration_minutes": 7,
             "finished_iso": "",
         },
-        {
-            "workflow": "Axcelerate sync",
-            "status": "Queued",
-            "duration_minutes": 0,
-            "finished_iso": "",
-        },
     ]
 
     module_toggles = [
         {"module": "SyncroRMM", "enabled": True},
-        {"module": "Axcelerate", "enabled": False},
         {"module": "TacticalRMM", "enabled": True},
         {"module": "Xero", "enabled": False},
     ]

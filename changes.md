@@ -22,5 +22,7 @@
 - 2025-10-16T03:55:00Z Fix: Restored maintenance execution token checks with UI prompts and API validation to block unauthorized automation.
 - 2025-10-16T04:30:00Z Fix: Removed maintenance token guardrails and UI dependencies so maintenance automation can run without shared secrets.
 - 2025-10-16T03:45:00Z Fix: Realigned ticket selection column borders so row dividers line up with the ID column separators.
+- 2025-10-16T03:10:55Z Fix: Removed Axcelerate integration module from automation controls.
+
 - 2025-10-16T05:05:00Z Fix: Allowed secure update automation to execute without maintenance tokens and hardened UI feedback when output targets are missing.
 - 2025-10-16T03:09:00Z Feature: Added ticket detail workspace with dedicated history/reply layout opening in new tabs.
