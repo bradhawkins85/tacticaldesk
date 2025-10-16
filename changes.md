@@ -62,3 +62,4 @@
 - 2025-10-16T14:15:00Z Feature: Added embedded CURD Swagger documentation workspace with admin navigation link and OpenAPI export tools.
 - 2025-10-16T11:22:28Z Fix: Renamed CURD API Docs references to API Docs for accurate terminology.
 - 2025-10-16T15:05:00Z Fix: Converted the secure update playbook into a platform maintenance action so the update button no longer registers a run-secure-update playbook.
+- 2025-10-16T15:00:00Z Fix: Removed the Maintenance admin menu entry to streamline available navigation options.
