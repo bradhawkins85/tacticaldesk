@@ -91,7 +91,7 @@ app.include_router(webhooks_router.router)
 async def api_docs_swagger_ui(request: Request) -> HTMLResponse:
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
-        title=f"{settings.app_name} CURD API Docs",
+        title=f"{settings.app_name} API Docs",
         oauth2_redirect_url=request.url_for("swagger_ui_redirect"),
         swagger_favicon_url=str(request.url_for("static", path="img/favicon.svg")),
     )
