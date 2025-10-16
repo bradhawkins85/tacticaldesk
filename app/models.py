@@ -68,6 +68,19 @@ class Organization(Base):
     description: str | None = Column(Text, nullable=True)
     contact_email: str | None = Column(String(255), nullable=True)
     is_archived: bool = Column(Boolean, default=False, nullable=False)
+    created_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
 class WebhookDelivery(Base):
     __tablename__ = "webhook_deliveries"
 

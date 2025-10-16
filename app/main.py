@@ -760,41 +760,11 @@ async def analytics_view(
 async def automation_view(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
-    now_utc = datetime.now(timezone.utc)
-    orchestration_runs = [
-        {
-            "workflow": "Critical patch rollup",
-            "status": "Completed",
-            "duration_minutes": 18,
-            "finished_iso": (now_utc - timedelta(minutes=22)).isoformat().replace("+00:00", "Z"),
-        },
-        {
-            "workflow": "Endpoint isolation",
-            "status": "Running",
-            "duration_minutes": 7,
-            "finished_iso": "",
-        },
-    ]
-
-    modules = await _list_integrations(session)
-    module_toggles = [
-        {
-            "module": module_info["name"],
-            "slug": module_info["slug"],
-            "icon": module_info["icon"],
-            "enabled": module_info["enabled"],
-            "updated_at_iso": module_info["updated_at_iso"],
-        }
-        for module_info in (_serialize_integration(module) for module in modules)
-    ]
-
     context = await _template_context(
         request=request,
         session=session,
         page_title="Automation Control Tower",
-        page_subtitle="Launch workflows, monitor orchestration, and govern integration access.",
-        orchestration_runs=orchestration_runs,
-        module_toggles=module_toggles,
+        page_subtitle="Manage lifecycle automation and run secure platform updates.",
         active_nav="admin",
         active_admin="automation",
     )
