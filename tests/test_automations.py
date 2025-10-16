@@ -140,8 +140,12 @@ def test_update_event_automation_trigger_filters():
             "trigger_filters": {
                 "match": "all",
                 "conditions": [
-                    "Ticket Created",
-                    "Ticket Status Changed",
+                    {"type": "Ticket Created"},
+                    {
+                        "type": "Ticket Status Changed From",
+                        "operator": "equals",
+                        "value": "Open",
+                    },
                 ],
             }
         }
@@ -153,13 +157,25 @@ def test_update_event_automation_trigger_filters():
         assert update.status_code == 200
         body = update.json()
         assert body["trigger_filters"]["match"] == "all"
-        assert body["trigger_filters"]["conditions"] == payload["trigger_filters"][
-            "conditions"
-        ]
+        def _normalize_conditions(raw_conditions):
+            normalized = []
+            for condition in raw_conditions:
+                normalized.append(
+                    {key: value for key, value in condition.items() if value is not None}
+                )
+            return normalized
+
+        assert _normalize_conditions(body["trigger_filters"]["conditions"]) == payload[
+            "trigger_filters"
+        ]["conditions"]
         assert body["trigger"] is None
 
         html = client.get("/automation").text
-        assert "ALL: Ticket Created, Ticket Status Changed" in html
+        assert "ALL" in html
+        assert "Ticket Created" in html
+        assert "Ticket Status Changed From" in html
+        assert "Equals" in html
+        assert "Open" in html
 
 
 def test_manual_run_endpoint_updates_last_run():

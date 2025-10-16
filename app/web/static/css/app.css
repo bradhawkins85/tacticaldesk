@@ -1704,31 +1704,79 @@ body.has-open-modal {
     gap: 0.75rem;
 }
 
-.trigger-conditions__list {
+.trigger-conditions__controls {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    justify-content: flex-end;
 }
 
-.trigger-condition {
-    display: flex;
+.trigger-conditions__filter {
+    max-width: 280px;
+    width: 100%;
+}
+
+.trigger-conditions__table-wrapper {
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background-color: var(--color-surface-elevated);
+}
+
+.trigger-conditions__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.trigger-conditions__table th,
+.trigger-conditions__table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.trigger-conditions__table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.trigger-conditions__sort {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.35rem;
 }
 
-.trigger-condition__select {
-    flex: 1 1 auto;
-    min-width: 0;
+.trigger-conditions__sort::after {
+    content: attr(data-sort-indicator);
+    font-size: 0.75rem;
+    color: var(--color-muted);
+}
+
+.trigger-condition__select,
+.trigger-condition__operator,
+.trigger-condition__value {
+    width: 100%;
+}
+
+.trigger-condition__value[disabled],
+.trigger-condition__operator[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.trigger-conditions__actions-header,
+.trigger-conditions__actions {
+    text-align: right;
+    width: 80px;
 }
 
 .trigger-condition__remove {
     width: 36px;
     height: 36px;
     padding: 0;
-}
-
-.trigger-condition__remove[hidden] {
-    display: none;
 }
 
 .automation-editor__message {

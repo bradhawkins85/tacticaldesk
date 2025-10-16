@@ -114,7 +114,9 @@ def _normalize_trigger_filters(
             ) from exc
 
     invalid_conditions = [
-        condition for condition in filters.conditions if condition not in EVENT_TRIGGER_SET
+        condition.type
+        for condition in filters.conditions
+        if condition.type not in EVENT_TRIGGER_SET
     ]
     if invalid_conditions:
         raise HTTPException(
@@ -236,8 +238,9 @@ async def update_automation(
             if automation.kind == "event":
                 if len(filters.conditions) == 1:
                     single_condition = filters.conditions[0]
-                    if single_condition != automation.trigger:
-                        automation.trigger = single_condition
+                    single_label = single_condition.display_text()
+                    if single_label != automation.trigger:
+                        automation.trigger = single_label
                         updated = True
                 else:
                     if automation.trigger is not None:

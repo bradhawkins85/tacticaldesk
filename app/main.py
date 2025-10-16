@@ -21,7 +21,11 @@ from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
 from app.api.routers import organizations as organizations_router
 from app.api.routers import webhooks as webhooks_router
-from app.core.automations import EVENT_TRIGGER_OPTIONS
+from app.core.automations import (
+    EVENT_TRIGGER_OPTIONS,
+    TRIGGER_OPERATOR_OPTIONS,
+    VALUE_REQUIRED_TRIGGER_OPTIONS,
+)
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
 from app.core.tickets import ticket_store
@@ -152,13 +156,17 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
     trigger_display = automation.trigger or ""
     trigger_sort_value = automation.trigger or ""
     if filters_model and filters_model.conditions:
-        if len(filters_model.conditions) == 1:
-            trigger_display = filters_model.conditions[0]
-            trigger_sort_value = filters_model.conditions[0]
+        display_conditions = [
+            condition.display_text() for condition in filters_model.conditions
+        ]
+        sort_values = [condition.sort_key() for condition in filters_model.conditions]
+        if len(display_conditions) == 1:
+            trigger_display = display_conditions[0]
+            trigger_sort_value = sort_values[0]
         else:
             prefix = "ALL" if filters_model.match == "all" else "ANY"
-            trigger_display = f"{prefix}: {', '.join(filters_model.conditions)}"
-            trigger_sort_value = " ".join(filters_model.conditions)
+            trigger_display = f"{prefix}: {', '.join(display_conditions)}"
+            trigger_sort_value = " ".join(sort_values)
     if not trigger_display:
         trigger_display = "—"
 
@@ -1359,6 +1367,8 @@ async def automation_edit_event_view(
         active_admin="automation",
         automation=automation_view,
         event_trigger_options=EVENT_TRIGGER_OPTIONS,
+        trigger_operator_options=TRIGGER_OPERATOR_OPTIONS,
+        value_required_trigger_options=sorted(VALUE_REQUIRED_TRIGGER_OPTIONS),
     )
     return templates.TemplateResponse("automation_edit_event.html", context)
 
