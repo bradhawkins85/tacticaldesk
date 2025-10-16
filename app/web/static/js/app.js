@@ -169,6 +169,17 @@
     }
   });
 
+  document.querySelectorAll('[data-role="local-datetime"]').forEach((element) => {
+    const value = element.getAttribute("datetime") || element.textContent?.trim();
+    if (!value) {
+      return;
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      element.textContent = parsed.toLocaleString();
+    }
+  });
+
   document.querySelectorAll("[data-role='table-filter']").forEach((filterInput) => {
     const container =
       filterInput.closest(
@@ -246,96 +257,39 @@
     }
   });
 
-  const ticketUpdateDialog = document.getElementById("ticket-update-dialog");
-  const ticketUpdateForm = ticketUpdateDialog?.querySelector("[data-role='ticket-update-form']");
-  const ticketUpdateSummary = ticketUpdateDialog?.querySelector("[data-role='ticket-update-summary']");
-  const ticketUpdateStatus = ticketUpdateDialog?.querySelector("[data-role='ticket-update-status']");
-  const ticketUpdatePriority = ticketUpdateDialog?.querySelector("[data-role='ticket-update-priority']");
-  const ticketUpdateTeam = ticketUpdateDialog?.querySelector("[data-role='ticket-update-team']");
-  const ticketUpdateNotes = ticketUpdateDialog?.querySelector("[data-role='ticket-update-notes']");
-  const ticketUpdateFeedback = ticketUpdateDialog?.querySelector("[data-role='ticket-update-feedback']");
-  let activeTicketId = null;
-
-  function closeTicketDialog() {
-    if (!ticketUpdateDialog) {
-      return;
-    }
-    if (typeof ticketUpdateDialog.close === "function") {
-      ticketUpdateDialog.close();
-    } else {
-      ticketUpdateDialog.removeAttribute("open");
-    }
-  }
-
-  document.addEventListener("click", (event) => {
-    const updateButton = event.target.closest("[data-action='ticket-update']");
-    if (updateButton && ticketUpdateDialog) {
-      activeTicketId = updateButton.dataset.ticketId || null;
-      if (ticketUpdateSummary) {
-        const parts = [updateButton.dataset.ticketId, updateButton.dataset.ticketSubject]
-          .filter(Boolean)
-          .join(" · ");
-        ticketUpdateSummary.textContent = parts;
-      }
-      if (ticketUpdateStatus && updateButton.dataset.ticketStatus) {
-        ticketUpdateStatus.value = updateButton.dataset.ticketStatus;
-      }
-      if (ticketUpdatePriority && updateButton.dataset.ticketPriority) {
-        ticketUpdatePriority.value = updateButton.dataset.ticketPriority;
-      }
-      if (ticketUpdateTeam && updateButton.dataset.ticketTeam) {
-        ticketUpdateTeam.value = updateButton.dataset.ticketTeam;
-      }
-      if (ticketUpdateNotes) {
-        ticketUpdateNotes.value = "";
-      }
-      if (ticketUpdateFeedback) {
-        ticketUpdateFeedback.textContent = "";
-        ticketUpdateFeedback.classList.remove("error", "success");
-      }
-      ticketUpdateDialog.dataset.updateEndpoint = updateButton.dataset.updateEndpoint || "";
-      if (typeof ticketUpdateDialog.showModal === "function") {
-        ticketUpdateDialog.showModal();
-      } else {
-        ticketUpdateDialog.setAttribute("open", "open");
-      }
-    }
-
-    const closeButton = event.target.closest("[data-action='ticket-update-close']");
-    if (closeButton) {
-      closeTicketDialog();
-    }
-  });
-
-  if (ticketUpdateForm) {
-    ticketUpdateForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      if (!ticketUpdateFeedback) {
-        closeTicketDialog();
-        return;
-      }
-      ticketUpdateFeedback.classList.remove("error");
-      ticketUpdateFeedback.classList.add("success");
-      const endpoint = ticketUpdateDialog?.dataset.updateEndpoint || "";
-      ticketUpdateFeedback.textContent = endpoint
-        ? `Ticket ${activeTicketId || ""} staged for update via ${endpoint}.`
-        : `Ticket ${activeTicketId || ""} staged for update.`;
-      setTimeout(() => {
-        closeTicketDialog();
-      }, 900);
-    });
-  }
-
   const maintenanceButtons = document.querySelectorAll("[data-action='maintenance-run']");
+
+  function resolveMaintenanceOutput(button) {
+    const explicitSelector = button.dataset.output;
+    if (explicitSelector) {
+      const target = document.querySelector(explicitSelector);
+      if (target) {
+        return target;
+      }
+    }
+
+    const scopedContainer = button.closest("[data-maintenance-container]") || button.parentElement;
+    if (scopedContainer) {
+      const existing = scopedContainer.querySelector("[data-role='maintenance-output']");
+      if (existing) {
+        return existing;
+      }
+      const created = document.createElement("pre");
+      created.dataset.role = "maintenance-output";
+      created.textContent = "Awaiting execution…";
+      scopedContainer.appendChild(created);
+      return created;
+    }
+    return null;
+  }
 
   maintenanceButtons.forEach((button) => {
     button.addEventListener("click", async () => {
-      const outputSelector = button.dataset.output || "[data-role='maintenance-output']";
-      const maintenanceOutput = document.querySelector(outputSelector);
+      const maintenanceOutput = resolveMaintenanceOutput(button);
 
       if (!maintenanceOutput) {
-        console.warn("Maintenance action missing output element", {
-          outputSelector,
+        console.warn("Maintenance action missing output target", {
+          button,
         });
         return;
       }
@@ -346,16 +300,31 @@
         return;
       }
 
+      const tokenFieldSelector = button.dataset.tokenField;
+      let tokenValue = "";
+      if (tokenFieldSelector) {
+        const tokenField = document.querySelector(tokenFieldSelector);
+        tokenValue = tokenField?.value?.trim() ?? "";
+      }
+
       maintenanceOutput.textContent = `Executing ${endpoint}…`;
       button.disabled = true;
 
       try {
-        const response = await fetch(endpoint, {
+        const headers = {
+          Accept: "application/json",
+        };
+        const fetchOptions = {
           method: "POST",
-          headers: {
-            "Accept": "application/json",
-          },
-        });
+          headers,
+          credentials: "same-origin",
+        };
+        if (tokenValue) {
+          headers["Content-Type"] = "application/json";
+          fetchOptions.body = JSON.stringify({ token: tokenValue });
+        }
+
+        const response = await fetch(endpoint, fetchOptions);
         const payload = await response.json().catch(() => ({ detail: "No response payload" }));
         if (!response.ok) {
           throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed");

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -37,6 +37,275 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 app.include_router(auth_router.router)
 app.include_router(maintenance_router.router)
+
+
+def slugify(value: str) -> str:
+    tokens = re.findall(r"[a-z0-9]+", value.lower())
+    return "-".join(tokens) or "general"
+
+
+def describe_age(delta: timedelta) -> str:
+    total_seconds = int(delta.total_seconds())
+    if total_seconds <= 0:
+        return "Just now"
+    minutes = total_seconds // 60
+    if minutes < 1:
+        return "Less than a minute ago"
+    hours = minutes // 60
+    days = hours // 24
+    weeks = days // 7
+    if weeks >= 1:
+        return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+    if days >= 1:
+        return f"{days} day{'s' if days != 1 else ''} ago"
+    if hours >= 1:
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+
+
+def build_ticket_records(now_utc: datetime) -> list[dict[str, object]]:
+    seed_tickets: list[dict[str, object]] = [
+        {
+            "id": "TD-4821",
+            "subject": "Query for Opensource Project",
+            "customer": "Quest Logistics",
+            "customer_email": "quest.labs@example.com",
+            "status": "Open",
+            "priority": "High",
+            "team": "Tier 1",
+            "category": "Support",
+            "assignment": "Unassigned",
+            "queue": "Critical response",
+            "channel": "Email",
+            "last_reply_dt": now_utc - timedelta(days=2, hours=6),
+            "labels": ["SLA watch"],
+            "is_starred": True,
+            "assets_visible": True,
+            "created_at_dt": now_utc - timedelta(days=3, hours=2),
+            "due_at_dt": now_utc + timedelta(hours=6),
+            "summary": "Investigating packet loss impacting the VPN tunnel between HQ and warehouse sites.",
+            "history": [
+                {
+                    "actor": "Quest Logistics · Alicia Patel",
+                    "direction": "inbound",
+                    "channel": "Email",
+                    "summary": "Client reports recurring VPN tunnel flaps on Cisco ASA.",
+                    "body": (
+                        "Hi Tactical Desk team,\n\n"
+                        "We're continuing to see the HQ ↔ warehouse VPN tunnel drop every few hours. "
+                        "The ASA event log shows keepalive failures. Can you confirm the monitoring profile "
+                        "is still applied?"
+                    ),
+                    "timestamp_dt": now_utc - timedelta(days=2, hours=6),
+                },
+                {
+                    "actor": "Super Admin",
+                    "direction": "outbound",
+                    "channel": "Portal reply",
+                    "summary": "Requested logs and scheduled joint troubleshooting session.",
+                    "body": (
+                        "Thanks Alicia, we're correlating the drops with ISP latency spikes. "
+                        "Please upload the latest ASA tech support bundle. We also reserved a remote session "
+                        "for tomorrow 09:00 AM your time."
+                    ),
+                    "timestamp_dt": now_utc - timedelta(days=1, hours=18),
+                },
+                {
+                    "actor": "Quest Logistics · Alicia Patel",
+                    "direction": "inbound",
+                    "channel": "Portal reply",
+                    "summary": "Uploaded diagnostics and confirmed maintenance window availability.",
+                    "body": (
+                        "Bundle uploaded here: https://share.example.com/asa-bundle.zip\n"
+                        "Confirmed maintenance window tomorrow 09:00 AM."
+                    ),
+                    "timestamp_dt": now_utc - timedelta(days=1, hours=3),
+                },
+            ],
+            "watchers": ["network.ops@example.com", "tier1@tacticaldesk.example"],
+        },
+        {
+            "id": "TD-4820",
+            "subject": "Welcome to U Desk",
+            "customer": "Demo Customer",
+            "customer_email": "customer@demo.com",
+            "status": "Pending",
+            "priority": "Medium",
+            "team": "Customer success",
+            "category": "Onboarding",
+            "assignment": "Shared",
+            "queue": "Service requests",
+            "channel": "Portal",
+            "last_reply_dt": now_utc - timedelta(days=3, hours=4),
+            "labels": ["First response"],
+            "is_starred": False,
+            "assets_visible": False,
+            "created_at_dt": now_utc - timedelta(days=4, hours=5),
+            "due_at_dt": now_utc + timedelta(days=1, hours=2),
+            "summary": "Coordinating the onboarding playbook and provisioning initial workspace access.",
+            "history": [
+                {
+                    "actor": "Demo Customer · Maria Gomez",
+                    "direction": "inbound",
+                    "channel": "Portal reply",
+                    "summary": "Shared the user list and SSO metadata for onboarding.",
+                    "body": (
+                        "Attached the CSV with our first 25 agents. The Azure AD SAML metadata is also uploaded. "
+                        "Let us know once SSO is staged so we can test."
+                    ),
+                    "timestamp_dt": now_utc - timedelta(days=3, hours=4),
+                },
+                {
+                    "actor": "Customer Success · Liam Chen",
+                    "direction": "outbound",
+                    "channel": "Email",
+                    "summary": "Confirmed receipt and outlined deployment milestones.",
+                    "body": (
+                        "Thanks Maria! We'll import the agent roster today and target SSO testing by Friday. "
+                        "You'll receive calendar invites for the onboarding workshops shortly."
+                    ),
+                    "timestamp_dt": now_utc - timedelta(days=2, hours=20),
+                },
+            ],
+            "watchers": ["onboarding@tacticaldesk.example"],
+        },
+        {
+            "id": "TD-4819",
+            "subject": "MFA reset follow-up",
+            "customer": "Northwind IT",
+            "customer_email": "support@northwind.example",
+            "status": "Answered",
+            "priority": "Low",
+            "team": "Tier 2",
+            "category": "Security",
+            "assignment": "My tickets",
+            "queue": "Critical response",
+            "channel": "Chat",
+            "last_reply_dt": now_utc - timedelta(hours=5, minutes=30),
+            "labels": ["Security"],
+            "is_starred": False,
+            "assets_visible": True,
+            "created_at_dt": now_utc - timedelta(days=1, hours=2),
+            "due_at_dt": now_utc + timedelta(hours=10),
+            "summary": "Verifying conditional access baseline after forced MFA reset for executive accounts.",
+            "history": [
+                {
+                    "actor": "Northwind IT · Calvin Shaw",
+                    "direction": "inbound",
+                    "channel": "Chat",
+                    "summary": "Requested confirmation the emergency access accounts were disabled post-incident.",
+                    "body": (
+                        "We reset 14 exec accounts last night. Can you double-check the emergency accounts are disabled "
+                        "again and provide an audit extract?"
+                    ),
+                    "timestamp_dt": now_utc - timedelta(hours=5, minutes=30),
+                },
+                {
+                    "actor": "Tier 2 · Priya Desai",
+                    "direction": "outbound",
+                    "channel": "Chat",
+                    "summary": "Shared Azure AD audit log confirming emergency access removal.",
+                    "body": "Export attached and emergency accounts back to disabled state.",
+                    "timestamp_dt": now_utc - timedelta(hours=4, minutes=55),
+                },
+            ],
+            "watchers": ["security@tacticaldesk.example"],
+        },
+        {
+            "id": "TD-4818",
+            "subject": "Quarterly backup validation",
+            "customer": "Axcelerate",
+            "customer_email": "ops@axcelerate.example",
+            "status": "Resolved",
+            "priority": "Medium",
+            "team": "Automation",
+            "category": "Infrastructure",
+            "assignment": "Shared",
+            "queue": "Automation handoff",
+            "channel": "Workflow",
+            "last_reply_dt": now_utc - timedelta(days=1, hours=1),
+            "labels": ["Automation"],
+            "is_starred": False,
+            "assets_visible": True,
+            "created_at_dt": now_utc - timedelta(days=8),
+            "due_at_dt": now_utc - timedelta(hours=2),
+            "summary": "Completed validation cycle for Axcelerate production backups across regions.",
+            "history": [
+                {
+                    "actor": "Automation Bot",
+                    "direction": "system",
+                    "channel": "Workflow",
+                    "summary": "Validation workflow executed across 12 backup sets.",
+                    "body": "All restore drills completed successfully. Reports archived in /reports/q1.",
+                    "timestamp_dt": now_utc - timedelta(days=1, hours=1),
+                },
+            ],
+            "watchers": ["automation@tacticaldesk.example"],
+        },
+        {
+            "id": "TD-4817",
+            "subject": "Password spray detected",
+            "customer": "SyncroRMM",
+            "customer_email": "soc@syncro.example",
+            "status": "Closed",
+            "priority": "High",
+            "team": "Incident response",
+            "category": "Security",
+            "assignment": "Shared",
+            "queue": "Critical response",
+            "channel": "Automation",
+            "last_reply_dt": now_utc - timedelta(days=6, hours=2),
+            "labels": ["Post incident"],
+            "is_starred": False,
+            "assets_visible": False,
+            "created_at_dt": now_utc - timedelta(days=6, hours=18),
+            "due_at_dt": now_utc - timedelta(days=4),
+            "summary": "Closed major incident after coordinated response to global password spray alerts.",
+            "history": [
+                {
+                    "actor": "Automation Bot",
+                    "direction": "system",
+                    "channel": "Automation",
+                    "summary": "Webhook alert from SIEM acknowledging containment.",
+                    "body": "Incident runbook completed. Accounts rotated and IP ranges blocked.",
+                    "timestamp_dt": now_utc - timedelta(days=6, hours=2),
+                },
+            ],
+            "watchers": ["soc@syncro.example", "irlead@tacticaldesk.example"],
+        },
+        {
+            "id": "TD-4816",
+            "subject": "Spam newsletter opt-out",
+            "customer": "Marketing",
+            "customer_email": "noreply@marketing.example",
+            "status": "Spam",
+            "priority": "Low",
+            "team": "Triage",
+            "category": "Spam",
+            "assignment": "Trashed",
+            "queue": "Inbox cleanup",
+            "channel": "Email",
+            "last_reply_dt": now_utc - timedelta(days=14, hours=5),
+            "labels": [],
+            "is_starred": False,
+            "assets_visible": False,
+            "created_at_dt": now_utc - timedelta(days=14, hours=6),
+            "due_at_dt": None,
+            "summary": "Junk marketing request automatically classified and suppressed.",
+            "history": [
+                {
+                    "actor": "Filter Engine",
+                    "direction": "system",
+                    "channel": "Email",
+                    "summary": "Message quarantined as spam per policy.",
+                    "body": "No analyst action required.",
+                    "timestamp_dt": now_utc - timedelta(days=14, hours=5),
+                },
+            ],
+            "watchers": [],
+        },
+    ]
+    return seed_tickets
 
 
 def _template_context(**extra: object) -> dict[str, object]:
@@ -124,133 +393,8 @@ async def dashboard(request: Request) -> HTMLResponse:
 
 @app.get("/tickets", response_class=HTMLResponse, name="tickets")
 async def tickets_view(request: Request) -> HTMLResponse:
-    def slugify(value: str) -> str:
-        tokens = re.findall(r"[a-z0-9]+", value.lower())
-        return "-".join(tokens) or "general"
-
-    def describe_age(delta: timedelta) -> str:
-        total_seconds = int(delta.total_seconds())
-        if total_seconds <= 0:
-            return "Just now"
-        minutes = total_seconds // 60
-        if minutes < 1:
-            return "Less than a minute ago"
-        hours = minutes // 60
-        days = hours // 24
-        weeks = days // 7
-        if weeks >= 1:
-            return f"{weeks} week{'s' if weeks != 1 else ''} ago"
-        if days >= 1:
-            return f"{days} day{'s' if days != 1 else ''} ago"
-        if hours >= 1:
-            return f"{hours} hour{'s' if hours != 1 else ''} ago"
-        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-
     now_utc = datetime.now(timezone.utc)
-    seed_tickets = [
-        {
-            "id": "TD-4821",
-            "subject": "Query for Opensource Project",
-            "customer": "Quest Logistics",
-            "customer_email": "quest.labs@example.com",
-            "status": "Open",
-            "priority": "High",
-            "team": "Tier 1",
-            "category": "Support",
-            "assignment": "Unassigned",
-            "queue": "Critical response",
-            "channel": "Email",
-            "last_reply": now_utc - timedelta(days=2, hours=6),
-            "labels": ["SLA watch"],
-            "is_starred": True,
-            "assets_visible": True,
-        },
-        {
-            "id": "TD-4820",
-            "subject": "Welcome to U Desk",
-            "customer": "Demo Customer",
-            "customer_email": "customer@demo.com",
-            "status": "Pending",
-            "priority": "Medium",
-            "team": "Customer success",
-            "category": "Onboarding",
-            "assignment": "Shared",
-            "queue": "Service requests",
-            "channel": "Portal",
-            "last_reply": now_utc - timedelta(days=3, hours=4),
-            "labels": ["First response"],
-            "is_starred": False,
-            "assets_visible": False,
-        },
-        {
-            "id": "TD-4819",
-            "subject": "MFA reset follow-up",
-            "customer": "Northwind IT",
-            "customer_email": "support@northwind.example",
-            "status": "Answered",
-            "priority": "Low",
-            "team": "Tier 2",
-            "category": "Security",
-            "assignment": "My tickets",
-            "queue": "Critical response",
-            "channel": "Chat",
-            "last_reply": now_utc - timedelta(hours=5, minutes=30),
-            "labels": ["Security"],
-            "is_starred": False,
-            "assets_visible": True,
-        },
-        {
-            "id": "TD-4818",
-            "subject": "Quarterly backup validation",
-            "customer": "Axcelerate",
-            "customer_email": "ops@axcelerate.example",
-            "status": "Resolved",
-            "priority": "Medium",
-            "team": "Automation",
-            "category": "Infrastructure",
-            "assignment": "Shared",
-            "queue": "Automation handoff",
-            "channel": "Workflow",
-            "last_reply": now_utc - timedelta(days=1, hours=1),
-            "labels": ["Automation"],
-            "is_starred": False,
-            "assets_visible": True,
-        },
-        {
-            "id": "TD-4817",
-            "subject": "Password spray detected",
-            "customer": "SyncroRMM",
-            "customer_email": "soc@syncro.example",
-            "status": "Closed",
-            "priority": "High",
-            "team": "Incident response",
-            "category": "Security",
-            "assignment": "Shared",
-            "queue": "Critical response",
-            "channel": "Automation",
-            "last_reply": now_utc - timedelta(days=6, hours=2),
-            "labels": ["Post incident"],
-            "is_starred": False,
-            "assets_visible": False,
-        },
-        {
-            "id": "TD-4816",
-            "subject": "Spam newsletter opt-out",
-            "customer": "Marketing",
-            "customer_email": "noreply@marketing.example",
-            "status": "Spam",
-            "priority": "Low",
-            "team": "Triage",
-            "category": "Spam",
-            "assignment": "Trashed",
-            "queue": "Inbox cleanup",
-            "channel": "Email",
-            "last_reply": now_utc - timedelta(days=14, hours=5),
-            "labels": [],
-            "is_starred": False,
-            "assets_visible": False,
-        },
-    ]
+    seed_tickets = build_ticket_records(now_utc)
 
     status_counter: Counter[str] = Counter()
     assignment_counter: Counter[str] = Counter()
@@ -258,8 +402,8 @@ async def tickets_view(request: Request) -> HTMLResponse:
 
     tickets: list[dict[str, object]] = []
     for ticket in seed_tickets:
-        last_reply_iso = ticket["last_reply"].isoformat().replace("+00:00", "Z")
-        age_delta = now_utc - ticket["last_reply"]
+        last_reply_iso = ticket["last_reply_dt"].isoformat().replace("+00:00", "Z")
+        age_delta = now_utc - ticket["last_reply_dt"]
         filter_tokens = {
             "all",
             f"status-{slugify(ticket['status'])}",
@@ -282,7 +426,6 @@ async def tickets_view(request: Request) -> HTMLResponse:
             "status_token": slugify(ticket["status"]),
             "priority_token": slugify(ticket["priority"]),
             "assignment_token": slugify(ticket["assignment"]),
-            "update_endpoint": f"/api/tickets/{ticket['id']}",
         }
         tickets.append(enriched_ticket)
 
@@ -354,6 +497,58 @@ async def tickets_view(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("tickets.html", context)
 
 
+@app.get("/tickets/{ticket_id}", response_class=HTMLResponse, name="ticket_detail")
+async def ticket_detail_view(request: Request, ticket_id: str) -> HTMLResponse:
+    now_utc = datetime.now(timezone.utc)
+    seed_tickets = build_ticket_records(now_utc)
+    ticket_lookup = {ticket["id"]: ticket for ticket in seed_tickets}
+    ticket = ticket_lookup.get(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    created_at_iso = ticket["created_at_dt"].isoformat().replace("+00:00", "Z")
+    updated_at_iso = ticket["last_reply_dt"].isoformat().replace("+00:00", "Z")
+    due_at_dt = ticket.get("due_at_dt")
+    due_at_iso = due_at_dt.isoformat().replace("+00:00", "Z") if due_at_dt else None
+    history = []
+    for entry in ticket.get("history", []):
+        timestamp_iso = entry["timestamp_dt"].isoformat().replace("+00:00", "Z")
+        history.append(
+            {
+                key: value
+                for key, value in entry.items()
+                if key != "timestamp_dt"
+            }
+            | {"timestamp_iso": timestamp_iso}
+        )
+
+    status_options = sorted({record["status"] for record in seed_tickets})
+    priority_options = sorted({record["priority"] for record in seed_tickets})
+    team_options = sorted({record["team"] for record in seed_tickets})
+    assignment_options = sorted({record["assignment"] for record in seed_tickets})
+    queue_options = sorted({record["queue"] for record in seed_tickets})
+
+    context = _template_context(
+        request=request,
+        page_title=f"{ticket['id']} · {ticket['subject']}",
+        page_subtitle="Review ticket context, conversation history, and craft a secure reply.",
+        ticket={
+            **ticket,
+            "created_at_iso": created_at_iso,
+            "updated_at_iso": updated_at_iso,
+            "due_at_iso": due_at_iso,
+            "history": history,
+        },
+        ticket_status_options=status_options,
+        ticket_priority_options=priority_options,
+        ticket_team_options=team_options,
+        ticket_assignment_options=assignment_options,
+        ticket_queue_options=queue_options,
+        active_nav="tickets",
+    )
+    return templates.TemplateResponse("ticket_detail.html", context)
+
+
 @app.get("/analytics", response_class=HTMLResponse, name="analytics")
 async def analytics_view(request: Request) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
@@ -423,17 +618,10 @@ async def automation_view(request: Request) -> HTMLResponse:
             "duration_minutes": 7,
             "finished_iso": "",
         },
-        {
-            "workflow": "Axcelerate sync",
-            "status": "Queued",
-            "duration_minutes": 0,
-            "finished_iso": "",
-        },
     ]
 
     module_toggles = [
         {"module": "SyncroRMM", "enabled": True},
-        {"module": "Axcelerate", "enabled": False},
         {"module": "TacticalRMM", "enabled": True},
         {"module": "Xero", "enabled": False},
     ]
