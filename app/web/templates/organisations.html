@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
 {% block header_actions %}
-<button class="button" type="button" data-action="organization-new">
+<a class="button" href="{{ url_for('admin_organization_create') }}">
   <span aria-hidden="true">➕</span>
   <span>Create organisation</span>
-</button>
+</a>
 {% endblock %}
 
 {% block content %}
@@ -96,19 +96,18 @@
                 >
                   👥 Contacts
                 </a>
-                <button
-                  type="button"
+                <a
                   class="button button--ghost"
-                  data-action="edit-organization"
-                  data-organization-id="{{ org.id }}"
+                  href="{{ url_for('admin_organization_edit', organization_id=org.id) }}"
                 >
                   ✏️ Edit
-                </button>
+                </a>
                 <button
                   type="button"
                   class="button button--ghost"
                   data-action="toggle-organization-archive"
                   data-organization-id="{{ org.id }}"
+                  data-is-archived="{{ 'true' if org.is_archived else 'false' }}"
                 >
                   {{ 'Restore' if org.is_archived else 'Archive' }}
                 </button>
@@ -127,72 +126,4 @@
   </section>
 </div>
 
-<div class="modal" data-role="organization-modal" aria-hidden="true">
-  <div class="modal__backdrop" data-role="organization-modal-backdrop"></div>
-  <div
-    class="modal__dialog organization-form"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="organization-modal-title"
-    aria-describedby="organization-modal-subtitle"
-  >
-    <div class="modal__header">
-      <div class="modal__title-group">
-        <h2 class="modal__title" id="organization-modal-title" data-role="organization-form-title">
-          Create new organisation
-        </h2>
-        <p class="modal__subtitle" id="organization-modal-subtitle" data-role="organization-form-subtitle">
-          Capture the organisation name, assign a slug for API usage, and optionally record the
-          operations contact.
-        </p>
-      </div>
-      <button
-        class="button button--ghost modal__close"
-        type="button"
-        aria-label="Close create organisation dialog"
-        data-action="organization-modal-close"
-      >
-        ✕
-      </button>
-    </div>
-    <form id="organization-form" autocomplete="off" data-mode="create">
-      <div class="form-field">
-        <label for="organization-name">Name</label>
-        <input id="organization-name" name="name" type="text" required maxlength="255" />
-      </div>
-      <div class="form-field">
-        <label for="organization-slug">Slug</label>
-        <input
-          id="organization-slug"
-          name="slug"
-          type="text"
-          required
-          maxlength="255"
-          pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        />
-        <small class="form-field__hint">Lowercase letters, numbers, and hyphens only.</small>
-      </div>
-      <div class="form-field">
-        <label for="organization-contact">Primary contact email</label>
-        <input id="organization-contact" name="contact_email" type="email" maxlength="255" />
-      </div>
-      <div class="form-field">
-        <label for="organization-description">Description</label>
-        <textarea id="organization-description" name="description" rows="4" maxlength="2048"></textarea>
-      </div>
-      <div class="form-actions">
-        <button class="button" type="submit" data-role="organization-submit-label">
-          Create organisation
-        </button>
-        <button class="button button--ghost" type="button" data-action="organization-reset">
-          Clear form
-        </button>
-        <button class="button button--ghost" type="button" data-action="organization-modal-close">
-          Cancel
-        </button>
-      </div>
-      <p class="form-feedback" data-role="organization-message" role="status"></p>
-    </form>
-  </div>
-</div>
 {% endblock %}
