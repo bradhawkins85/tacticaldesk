@@ -27,6 +27,12 @@
       data-ticket-actions='{{ automation.ticket_actions | tojson | safe }}'
       autocomplete="off"
     >
+      <div class="automation-editor__section" data-automation-section="details">
+        <div class="automation-editor__section-header">
+          <h3 class="automation-editor__section-title">Automation details</h3>
+          <p class="automation-editor__section-description">
+            Update the identifying information for this event-driven playbook and review its recent activity.
+          </p>
       <p class="automation-editor__hint">
         Triggers map to Tactical Desk events such as ticket creation, updates, and resolution workflows.
       </p>
@@ -70,197 +76,265 @@
             </option>
           </select>
         </div>
-        <div class="form-field automation-editor__grid-item--full">
-          <label>Conditions</label>
-          <div
-            class="trigger-conditions"
-            data-role="trigger-conditions"
-            data-trigger-options='{{ event_trigger_options | tojson | safe }}'
-            data-value-required='{{ value_required_trigger_options | tojson | safe }}'
-          >
-            <div class="trigger-conditions__controls">
+        <div class="automation-editor__section-body">
+          <div class="automation-editor__grid">
+            <div class="form-field">
+              <label for="automation-name">Name</label>
               <input
-                type="search"
-                class="trigger-conditions__filter"
-                placeholder="Filter conditions"
-                data-role="trigger-condition-filter"
-                aria-label="Filter trigger conditions"
+                id="automation-name"
+                name="name"
+                type="text"
+                maxlength="255"
+                required
+                value="{{ automation.name }}"
               />
             </div>
-            <div class="trigger-conditions__table-wrapper">
-              <table class="trigger-conditions__table" data-role="trigger-condition-table">
-                <thead>
-                  <tr>
-                    <th scope="col">
-                      <button type="button" class="trigger-conditions__sort" data-role="trigger-sort" data-sort-key="type" aria-label="Sort by trigger">
-                        Trigger
-                      </button>
-                    </th>
-                    <th scope="col">Operator</th>
-                    <th scope="col">Value</th>
-                    <th scope="col" class="trigger-conditions__actions-header">Actions</th>
-                  </tr>
-                </thead>
-                <tbody class="trigger-conditions__list" data-role="trigger-condition-list"></tbody>
-              </table>
-            </div>
-            <template data-role="trigger-condition-template">
-              <tr class="trigger-condition" data-role="trigger-condition">
-                <td data-column="type">
-                  <select
-                    class="trigger-condition__select"
-                    data-role="trigger-condition-select"
-                    aria-label="Trigger condition"
-                  >
-                    <option value="">Select a trigger</option>
-                    {% for trigger in event_trigger_options %}
-                    <option value="{{ trigger }}">{{ trigger }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td data-column="operator">
-                  <select
-                    class="trigger-condition__operator"
-                    data-role="trigger-condition-operator"
-                    aria-label="Trigger operator"
-                  >
-                    <option value="">Select an operator</option>
-                    {% for value, label in trigger_operator_options %}
-                    <option value="{{ value }}">{{ label }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td data-column="value">
-                  <input
-                    type="text"
-                    class="trigger-condition__value"
-                    data-role="trigger-condition-value"
-                    placeholder="Enter value"
-                    maxlength="255"
-                  />
-                </td>
-                <td class="trigger-conditions__actions" data-column="actions">
-                  <button
-                    type="button"
-                    class="icon-button trigger-condition__remove"
-                    data-action="remove-trigger-condition"
-                    aria-label="Remove condition"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </td>
-              </tr>
-            </template>
-            <button
-              type="button"
-              class="link-button trigger-conditions__add"
-              data-action="add-trigger-condition"
-            >
-              + Add new condition
-            </button>
-            <p class="form-help">Start with one condition and add more as needed.</p>
-          </div>
-        </div>
-        <div class="form-field automation-editor__grid-item--full">
-          <label>Ticket actions</label>
-          <div
-            class="ticket-actions"
-            data-role="ticket-actions"
-            data-action-options='{{ automation_actions | tojson | safe }}'
-          >
-            <div class="ticket-actions__controls">
+            <div class="form-field">
+              <label for="automation-playbook">Playbook</label>
               <input
-                type="search"
-                class="ticket-actions__filter"
-                placeholder="Filter actions"
-                data-role="ticket-action-filter"
-                aria-label="Filter ticket actions"
+                id="automation-playbook"
+                name="playbook"
+                type="text"
+                maxlength="255"
+                required
+                value="{{ automation.playbook }}"
               />
             </div>
-            <div class="ticket-actions__table-wrapper">
-              <table class="ticket-actions__table">
-                <thead>
-                  <tr>
-                    <th scope="col">Action</th>
-                    <th scope="col">Details</th>
-                  </tr>
-                </thead>
-                <tbody class="ticket-actions__list" data-role="ticket-action-list"></tbody>
-              </table>
+            <div class="form-field automation-editor__grid-item--full">
+              <label for="automation-description">Description</label>
+              <textarea id="automation-description" name="description" rows="4" maxlength="2048">{{ automation.description or '' }}</textarea>
             </div>
-            <template data-role="ticket-action-template">
-              <tr class="ticket-action" data-role="ticket-action">
-                <td data-column="action">
-                  <select
-                    class="ticket-action__select"
-                    data-role="ticket-action-select"
-                    aria-label="Ticket action"
-                    required
-                  >
-                    <option value="">Select an action</option>
-                    {% for option in automation_actions %}
-                    <option value="{{ option.slug }}">{{ option.name }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td data-column="value">
-                  <div class="ticket-action__value-wrapper">
-                    <textarea
-                      class="ticket-action__value"
-                      data-role="ticket-action-value"
-                      rows="3"
-                      maxlength="4096"
-                      placeholder="Enter action details"
-                      aria-label="Action details"
-                      required
-                    ></textarea>
-                    <button
-                      type="button"
-                      class="icon-button ticket-action__remove"
-                      data-action="remove-ticket-action"
-                      aria-label="Remove ticket action"
-                    >
-                      <span aria-hidden="true">&times;</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </template>
-            <button
-              type="button"
-              class="link-button ticket-actions__add"
-              data-action="add-ticket-action"
-            >
-              + Add ticket action
-            </button>
-            <p class="form-help">
-              Assign one or more actions to execute after the trigger conditions are met.
-            </p>
+            <div class="form-field">
+              <label for="automation-status">Status label</label>
+              <input
+                id="automation-status"
+                name="status"
+                type="text"
+                maxlength="64"
+                value="{{ automation.status or '' }}"
+                placeholder="Active"
+              />
+            </div>
+            <div class="form-field">
+              <label for="automation-last-trigger">Last triggered</label>
+              <input
+                id="automation-last-trigger"
+                name="last_trigger_at"
+                type="datetime-local"
+                step="60"
+                data-automation-datetime
+                data-iso-value="{{ automation.last_trigger_iso or '' }}"
+              />
+            </div>
           </div>
-        </div>
-        <div class="form-field">
-          <label for="automation-status">Status label</label>
-          <input
-            id="automation-status"
-            name="status"
-            type="text"
-            maxlength="64"
-            value="{{ automation.status or '' }}"
-            placeholder="Active"
-          />
-        </div>
-        <div class="form-field">
-          <label for="automation-last-trigger">Last triggered</label>
-          <input
-            id="automation-last-trigger"
-            name="last_trigger_at"
-            type="datetime-local"
-            step="60"
-            data-automation-datetime
-            data-iso-value="{{ automation.last_trigger_iso or '' }}"
-          />
         </div>
       </div>
+
+      <div class="automation-editor__section" data-automation-section="triggers">
+        <div class="automation-editor__section-header">
+          <h3 class="automation-editor__section-title">Trigger conditions</h3>
+          <p class="automation-editor__section-description">
+            Triggers map to Tactical Desk events such as ticket creation, updates, and resolution workflows.
+          </p>
+        </div>
+        <div class="automation-editor__section-body">
+          <div class="automation-editor__grid">
+            <div class="form-field">
+              <label for="automation-trigger-match">Trigger logic</label>
+              {% set selected_match = automation.trigger_filters.match if automation.trigger_filters else 'any' %}
+              <select id="automation-trigger-match" name="trigger_match">
+                <option value="any" {% if selected_match != 'all' %}selected{% endif %}>
+                  Match any selected trigger (OR)
+                </option>
+                <option value="all" {% if selected_match == 'all' %}selected{% endif %}>
+                  Require all selected triggers (AND)
+                </option>
+              </select>
+            </div>
+            <div class="form-field automation-editor__grid-item--full">
+              <label>Conditions</label>
+              <div
+                class="trigger-conditions"
+                data-role="trigger-conditions"
+                data-trigger-options='{{ event_trigger_options | tojson | safe }}'
+                data-value-required='{{ value_required_trigger_options | tojson | safe }}'
+              >
+                <div class="trigger-conditions__controls">
+                  <input
+                    type="search"
+                    class="trigger-conditions__filter"
+                    placeholder="Filter conditions"
+                    data-role="trigger-condition-filter"
+                    aria-label="Filter trigger conditions"
+                  />
+                </div>
+                <div class="trigger-conditions__table-wrapper">
+                  <table class="trigger-conditions__table" data-role="trigger-condition-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">
+                          <button type="button" class="trigger-conditions__sort" data-role="trigger-sort" data-sort-key="type" aria-label="Sort by trigger">
+                            Trigger
+                          </button>
+                        </th>
+                        <th scope="col">Operator</th>
+                        <th scope="col">Value</th>
+                        <th scope="col" class="trigger-conditions__actions-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody class="trigger-conditions__list" data-role="trigger-condition-list"></tbody>
+                  </table>
+                </div>
+                <template data-role="trigger-condition-template">
+                  <tr class="trigger-condition" data-role="trigger-condition">
+                    <td data-column="type">
+                      <select
+                        class="trigger-condition__select"
+                        data-role="trigger-condition-select"
+                        aria-label="Trigger condition"
+                      >
+                        <option value="">Select a trigger</option>
+                        {% for trigger in event_trigger_options %}
+                        <option value="{{ trigger }}">{{ trigger }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td data-column="operator">
+                      <select
+                        class="trigger-condition__operator"
+                        data-role="trigger-condition-operator"
+                        aria-label="Trigger operator"
+                      >
+                        <option value="">Select an operator</option>
+                        {% for value, label in trigger_operator_options %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td data-column="value">
+                      <input
+                        type="text"
+                        class="trigger-condition__value"
+                        data-role="trigger-condition-value"
+                        placeholder="Enter value"
+                        maxlength="255"
+                      />
+                    </td>
+                    <td class="trigger-conditions__actions" data-column="actions">
+                      <button
+                        type="button"
+                        class="icon-button trigger-condition__remove"
+                        data-action="remove-trigger-condition"
+                        aria-label="Remove condition"
+                      >
+                        <span aria-hidden="true">&times;</span>
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+                <button
+                  type="button"
+                  class="link-button trigger-conditions__add"
+                  data-action="add-trigger-condition"
+                >
+                  + Add new condition
+                </button>
+                <p class="form-help">Start with one condition and add more as needed.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="automation-editor__section" data-automation-section="actions">
+        <div class="automation-editor__section-header">
+          <h3 class="automation-editor__section-title">Ticket actions</h3>
+          <p class="automation-editor__section-description">
+            Assign one or more automated responses once the trigger conditions are met.
+          </p>
+        </div>
+        <div class="automation-editor__section-body">
+          <div class="automation-editor__grid">
+            <div class="form-field automation-editor__grid-item--full">
+              <div
+                class="ticket-actions"
+                data-role="ticket-actions"
+                data-action-options='{{ automation_actions | tojson | safe }}'
+              >
+                <div class="ticket-actions__controls">
+                  <input
+                    type="search"
+                    class="ticket-actions__filter"
+                    placeholder="Filter actions"
+                    data-role="ticket-action-filter"
+                    aria-label="Filter ticket actions"
+                  />
+                </div>
+                <div class="ticket-actions__table-wrapper">
+                  <table class="ticket-actions__table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Action</th>
+                        <th scope="col">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody class="ticket-actions__list" data-role="ticket-action-list"></tbody>
+                  </table>
+                </div>
+                <template data-role="ticket-action-template">
+                  <tr class="ticket-action" data-role="ticket-action">
+                    <td data-column="action">
+                      <select
+                        class="ticket-action__select"
+                        data-role="ticket-action-select"
+                        aria-label="Ticket action"
+                        required
+                      >
+                        <option value="">Select an action</option>
+                        {% for option in automation_actions %}
+                        <option value="{{ option.slug }}">{{ option.name }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td data-column="value">
+                      <div class="ticket-action__value-wrapper">
+                        <textarea
+                          class="ticket-action__value"
+                          data-role="ticket-action-value"
+                          rows="3"
+                          maxlength="4096"
+                          placeholder="Enter action details"
+                          aria-label="Action details"
+                          required
+                        ></textarea>
+                        <button
+                          type="button"
+                          class="icon-button ticket-action__remove"
+                          data-action="remove-ticket-action"
+                          aria-label="Remove ticket action"
+                        >
+                          <span aria-hidden="true">&times;</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+                <button
+                  type="button"
+                  class="link-button ticket-actions__add"
+                  data-action="add-ticket-action"
+                >
+                  + Add ticket action
+                </button>
+                <p class="form-help">
+                  Define how Tactical Desk should update or notify tickets whenever this automation runs.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <section
         class="automation-action-catalog"
         aria-labelledby="automation-action-catalog-title"
