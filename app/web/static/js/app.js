@@ -1095,6 +1095,19 @@
     const triggerSortButton = triggerConditionsRoot?.querySelector(
       "[data-role='trigger-sort']"
     );
+    const ticketActionsRoot = form?.querySelector("[data-role='ticket-actions']");
+    const ticketActionList = ticketActionsRoot?.querySelector(
+      "[data-role='ticket-action-list']"
+    );
+    const ticketActionTemplate = ticketActionsRoot?.querySelector(
+      "[data-role='ticket-action-template']"
+    );
+    const addTicketActionButton = ticketActionsRoot?.querySelector(
+      "[data-action='add-ticket-action']"
+    );
+    const ticketActionFilter = ticketActionsRoot?.querySelector(
+      "[data-role='ticket-action-filter']"
+    );
 
     let valueRequiredTriggers = new Set();
     if (triggerConditionsRoot) {
@@ -1107,6 +1120,27 @@
           }
         } catch (error) {
           console.warn("Unable to parse value required triggers", error);
+        }
+      }
+    }
+
+    let ticketActionOptions = [];
+    const ticketActionLookup = new Map();
+    if (ticketActionsRoot) {
+      const optionsDataset = ticketActionsRoot.dataset.actionOptions;
+      if (optionsDataset) {
+        try {
+          const parsedOptions = JSON.parse(optionsDataset);
+          if (Array.isArray(parsedOptions)) {
+            ticketActionOptions = parsedOptions;
+            parsedOptions.forEach((option) => {
+              if (option && option.slug) {
+                ticketActionLookup.set(option.slug, option.name || option.slug);
+              }
+            });
+          }
+        } catch (error) {
+          console.warn("Unable to parse ticket action options", error);
         }
       }
     }
@@ -1132,6 +1166,19 @@
           initialTriggerFilters = JSON.parse(filtersDataset);
         } catch (error) {
           console.warn("Unable to parse trigger filters", error);
+        }
+      }
+
+      let initialTicketActions = [];
+      const ticketActionsDataset = form.dataset.ticketActions;
+      if (ticketActionsDataset) {
+        try {
+          const parsedActions = JSON.parse(ticketActionsDataset);
+          if (Array.isArray(parsedActions)) {
+            initialTicketActions = parsedActions;
+          }
+        } catch (error) {
+          console.warn("Unable to parse ticket actions", error);
         }
       }
 
@@ -1386,6 +1433,156 @@
         return { conditions, errors };
       }
 
+      function normalizeTicketAction(raw) {
+        if (!raw) {
+          return null;
+        }
+        if (typeof raw === "string") {
+          const slug = raw.trim().toLowerCase();
+          if (!slug) {
+            return null;
+          }
+          return { action: slug, value: "" };
+        }
+        if (typeof raw === "object") {
+          const slug = (raw.action || raw.slug || raw.type || "")
+            .toString()
+            .trim()
+            .toLowerCase();
+          if (!slug) {
+            return null;
+          }
+          let text = "";
+          if (raw.value !== undefined && raw.value !== null) {
+            text = String(raw.value);
+          } else if (raw.details !== undefined && raw.details !== null) {
+            text = String(raw.details);
+          }
+          return { action: slug, value: text };
+        }
+        return null;
+      }
+
+      function applyTicketActionFilter() {
+        if (!ticketActionList) {
+          return;
+        }
+        const query =
+          ticketActionFilter instanceof HTMLInputElement
+            ? ticketActionFilter.value.trim().toLowerCase()
+            : "";
+        const rows = Array.from(
+          ticketActionList.querySelectorAll("[data-role='ticket-action']")
+        );
+        rows.forEach((row) => {
+          const actionSelect = row.querySelector(
+            "[data-role='ticket-action-select']"
+          );
+          const valueInput = row.querySelector(
+            "[data-role='ticket-action-value']"
+          );
+          const slug =
+            actionSelect instanceof HTMLSelectElement
+              ? actionSelect.value
+              : "";
+          const label = ticketActionLookup.get(slug) || "";
+          const selectedText =
+            actionSelect instanceof HTMLSelectElement &&
+            actionSelect.selectedOptions.length > 0
+              ? actionSelect.selectedOptions[0].textContent || ""
+              : "";
+          const valueText =
+            valueInput instanceof HTMLTextAreaElement ? valueInput.value : "";
+          const haystack = `${label} ${selectedText} ${valueText}`
+            .trim()
+            .toLowerCase();
+          const matches = query === "" || haystack.includes(query);
+          row.classList.toggle("is-hidden", !matches);
+        });
+      }
+
+      function addTicketActionRow(action = null) {
+        if (!ticketActionTemplate || !ticketActionList) {
+          return null;
+        }
+        const fragment = document.importNode(
+          ticketActionTemplate.content,
+          true
+        );
+        const row = fragment.querySelector("[data-role='ticket-action']");
+        if (!row) {
+          return null;
+        }
+        const actionSelect = row.querySelector(
+          "[data-role='ticket-action-select']"
+        );
+        const valueInput = row.querySelector(
+          "[data-role='ticket-action-value']"
+        );
+        if (action && actionSelect instanceof HTMLSelectElement) {
+          actionSelect.value = action.action || "";
+        }
+        if (action && valueInput instanceof HTMLTextAreaElement) {
+          valueInput.value = action.value || "";
+        }
+        ticketActionList.appendChild(fragment);
+        applyTicketActionFilter();
+        return ticketActionList.lastElementChild;
+      }
+
+      function setTicketActionValues(values) {
+        if (!ticketActionList) {
+          return;
+        }
+        ticketActionList.innerHTML = "";
+        const normalized = Array.isArray(values) && values.length ? values : [null];
+        normalized.forEach((entry) => {
+          const action = normalizeTicketAction(entry);
+          addTicketActionRow(action);
+        });
+        applyTicketActionFilter();
+      }
+
+      function collectTicketActionValues() {
+        if (!ticketActionList) {
+          return { actions: [], errors: [] };
+        }
+        const rows = Array.from(
+          ticketActionList.querySelectorAll("[data-role='ticket-action']")
+        );
+        const actions = [];
+        const errors = [];
+        rows.forEach((row, index) => {
+          const actionSelect = row.querySelector(
+            "[data-role='ticket-action-select']"
+          );
+          const valueInput = row.querySelector(
+            "[data-role='ticket-action-value']"
+          );
+          const slug =
+            actionSelect instanceof HTMLSelectElement
+              ? actionSelect.value.trim().toLowerCase()
+              : "";
+          const valueText =
+            valueInput instanceof HTMLTextAreaElement
+              ? valueInput.value.trim()
+              : "";
+          if (!slug && !valueText) {
+            return;
+          }
+          if (!slug) {
+            errors.push(`Action is required for ticket action ${index + 1}.`);
+            return;
+          }
+          if (!valueText) {
+            errors.push(`Details are required for ticket action ${index + 1}.`);
+            return;
+          }
+          actions.push({ action: slug, value: valueText });
+        });
+        return { actions, errors };
+      }
+
       const selectedConditionsRaw = Array.isArray(
         initialTriggerFilters?.conditions
       )
@@ -1418,6 +1615,10 @@
         Array.from(triggerInput.options).forEach((option) => {
           option.selected = selectedSet.has(option.value);
         });
+      }
+
+      if (ticketActionsRoot) {
+        setTicketActionValues(initialTicketActions);
       }
 
       if (addTriggerConditionButton) {
@@ -1480,6 +1681,48 @@
             return;
           }
           applyTriggerFilter();
+        });
+      }
+
+      if (addTicketActionButton instanceof HTMLButtonElement) {
+        addTicketActionButton.addEventListener("click", () => {
+          const newRow = addTicketActionRow();
+          const select = newRow?.querySelector(
+            "[data-role='ticket-action-select']"
+          );
+          if (select instanceof HTMLSelectElement) {
+            select.focus();
+          }
+        });
+      }
+
+      if (ticketActionFilter instanceof HTMLInputElement) {
+        ticketActionFilter.addEventListener("input", () => {
+          applyTicketActionFilter();
+        });
+      }
+
+      if (ticketActionList) {
+        ticketActionList.addEventListener("click", (event) => {
+          const removeButton = event.target.closest(
+            "[data-action='remove-ticket-action']"
+          );
+          if (!removeButton) {
+            return;
+          }
+          const row = removeButton.closest("[data-role='ticket-action']");
+          if (!row) {
+            return;
+          }
+          row.remove();
+          if (ticketActionList.children.length === 0) {
+            addTicketActionRow();
+          }
+          applyTicketActionFilter();
+        });
+
+        ticketActionList.addEventListener("input", () => {
+          applyTicketActionFilter();
         });
       }
 
@@ -1590,6 +1833,20 @@
           payload.trigger = triggerInput.value?.trim() || null;
         }
 
+        if (ticketActionsRoot) {
+          const { actions: selectedActions, errors: actionErrors } =
+            collectTicketActionValues();
+          if (actionErrors.length > 0) {
+            setAutomationFormMessage(
+              messageTarget,
+              actionErrors[0],
+              "error"
+            );
+            return;
+          }
+          payload.ticket_actions = selectedActions;
+        }
+
         if (statusInput) {
           payload.status = statusInput.value?.trim() || null;
         }
@@ -1658,6 +1915,12 @@
                 updated.trigger_filters?.match === "all" ? "all" : "any";
               triggerMatchInput.value = updatedMatch;
             }
+            if (ticketActionsRoot) {
+              const updatedActions = Array.isArray(updated.ticket_actions)
+                ? updated.ticket_actions
+                : [];
+              setTicketActionValues(updatedActions);
+            }
             if (statusInput) {
               statusInput.value = updated.status || "";
             }
@@ -1683,6 +1946,11 @@
                 updated.trigger_filters ?? null
               );
               form.dataset.triggerValue = updated.trigger || "";
+              form.dataset.ticketActions = JSON.stringify(
+                Array.isArray(updated.ticket_actions)
+                  ? updated.ticket_actions
+                  : []
+              );
             }
           }
 

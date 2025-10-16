@@ -7,6 +7,7 @@ from typing import Any, Dict, Literal, Optional
 from pydantic import BaseModel, EmailStr, Field, constr, validator
 
 from app.core.automations import (
+    EVENT_AUTOMATION_ACTION_LOOKUP,
     TRIGGER_OPERATOR_LABELS,
     VALUE_REQUIRED_TRIGGER_OPTIONS,
 )
@@ -299,6 +300,44 @@ class AutomationTriggerFilter(BaseModel):
         return super().dict(*args, **kwargs)
 
 
+class AutomationTicketAction(BaseModel):
+    action: str = Field(
+        max_length=128,
+        description="Ticket action identifier (slug).",
+    )
+    value: str = Field(
+        max_length=4096,
+        description="Action payload such as comment text or status update.",
+    )
+
+    @validator("action")
+    def _validate_action(cls, raw_action: str | None) -> str:
+        if raw_action is None:
+            raise ValueError("Action identifier is required.")
+        candidate = raw_action.strip()
+        slug = candidate.lower()
+        if slug in EVENT_AUTOMATION_ACTION_LOOKUP:
+            return slug
+        normalized_label = candidate.casefold()
+        for key, label in EVENT_AUTOMATION_ACTION_LOOKUP.items():
+            if label.casefold() == normalized_label:
+                return key
+        raise ValueError("Unsupported automation action.")
+
+    @validator("value")
+    def _validate_value(cls, raw_value: str | None) -> str:
+        if raw_value is None:
+            raise ValueError("Action value is required.")
+        cleaned = raw_value.strip()
+        if not cleaned:
+            raise ValueError("Action value is required.")
+        return cleaned
+
+    def dict(self, *args, **kwargs):  # type: ignore[override]
+        kwargs.setdefault("exclude_none", True)
+        return super().dict(*args, **kwargs)
+
+
 class AutomationUpdate(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     description: Optional[str] = Field(default=None, max_length=2048)
@@ -320,6 +359,12 @@ class AutomationUpdate(BaseModel):
             " multiple trigger conditions using match 'any' (OR) or 'all' (AND)."
         ),
     )
+    ticket_actions: Optional[list[Any]] = Field(
+        default=None,
+        description=(
+            "Ordered list of ticket actions to perform when an automation executes."
+        ),
+    )
 
 
 class AutomationRead(BaseModel):
@@ -338,6 +383,7 @@ class AutomationRead(BaseModel):
     action_endpoint: Optional[str]
     action_output_selector: Optional[str]
     trigger_filters: Optional[AutomationTriggerFilter]
+    ticket_actions: Optional[list[AutomationTicketAction]]
 
     class Config:
         orm_mode = True

@@ -12,7 +12,7 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import declarative_base
 
 from sqlalchemy.types import JSON
@@ -106,6 +106,11 @@ class Automation(Base):
     trigger: str | None = Column(String(255), nullable=True)
     trigger_filters: dict | None = Column(
         MutableDict.as_mutable(JSON),
+        nullable=True,
+        default=None,
+    )
+    ticket_actions: list[dict[str, str]] | None = Column(
+        MutableList.as_mutable(JSON),
         nullable=True,
         default=None,
     )
