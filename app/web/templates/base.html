@@ -55,14 +55,6 @@
               <span>Automation</span>
             </a>
             <a
-              class="nav-sublink{% if current_admin == 'api_docs' %} is-active{% endif %}"
-              href="{{ url_for('admin_api_docs') }}"
-              {% if current_admin == 'api_docs' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">📘</span>
-              <span>API Docs</span>
-            </a>
-            <a
               class="nav-sublink{% if current_admin == 'organisations' %} is-active{% endif %}"
               href="{{ url_for('admin_organisations') }}"
               {% if current_admin == 'organisations' %}aria-current="page"{% endif %}
@@ -116,6 +108,29 @@
               <p class="nav-empty nav-empty--nested">No integrations enabled</p>
               {% endif %}
             </div>
+          </div>
+          {% set current_docs = active_docs | default('', true) %}
+          <div class="nav-group" role="group" aria-labelledby="docs-nav-heading">
+            <p id="docs-nav-heading" class="nav-heading{% if current_nav == 'docs' %} is-active{% endif %}">
+              <span class="nav-icon" aria-hidden="true">📚</span>
+              <span>Docs</span>
+            </p>
+            <a
+              class="nav-sublink{% if current_docs == 'api_docs' %} is-active{% endif %}"
+              href="{{ url_for('admin_api_docs') }}"
+              {% if current_docs == 'api_docs' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">📘</span>
+              <span>API Docs</span>
+            </a>
+            <a
+              class="nav-sublink{% if current_docs == 'ticket_variables' %} is-active{% endif %}"
+              href="{{ url_for('docs_ticket_variables') }}"
+              {% if current_docs == 'ticket_variables' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">🧾</span>
+              <span>Ticket Variables</span>
+            </a>
           </div>
         </nav>
         <footer class="sidebar-footer">

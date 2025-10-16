@@ -323,10 +323,15 @@ def test_event_automation_template_variables_rendered_in_ui():
         page = client.get(f"/automation/event/{automation_id}")
         assert page.status_code == 200
         html = page.text
-        assert "Available template variables" in html
-        assert "ticket.subject" in html
-        assert "ticket.previous_status" in html
-        assert "event.triggered_at" in html
+        assert "/docs/ticket-variables" in html
+
+        docs_page = client.get("/docs/ticket-variables")
+        assert docs_page.status_code == 200
+        docs_html = docs_page.text
+        assert "Available template variables" in docs_html
+        assert "ticket.subject" in docs_html
+        assert "ticket.previous_status" in docs_html
+        assert "event.triggered_at" in docs_html
 
 
 def test_ticket_action_template_variables_render_in_dispatch_payload():

@@ -1655,7 +1655,6 @@ async def automation_edit_event_view(
         event_trigger_options=EVENT_TRIGGER_OPTIONS,
         trigger_operator_options=TRIGGER_OPERATOR_OPTIONS,
         value_required_trigger_options=sorted(VALUE_REQUIRED_TRIGGER_OPTIONS),
-        automation_template_variables=AUTOMATION_TEMPLATE_VARIABLES,
         automation_actions=[
             {"name": action, "slug": slugify(action)}
             for action in EVENT_AUTOMATION_ACTIONS
@@ -1792,12 +1791,34 @@ async def admin_api_docs(
         session=session,
         page_title="CURD API Documentation",
         page_subtitle="Explore authenticated endpoints and sample payloads for Tactical Desk.",
-        active_nav="admin",
-        active_admin="api_docs",
+        active_nav="docs",
+        active_docs="api_docs",
         swagger_url=swagger_url,
         schema_url=schema_url,
     )
     return templates.TemplateResponse("api_docs.html", context)
+
+
+@app.get(
+    "/docs/ticket-variables",
+    response_class=HTMLResponse,
+    name="docs_ticket_variables",
+)
+async def docs_ticket_variables(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Ticket template variables",
+        page_subtitle=(
+            "Review dynamic placeholders that can be merged into ticket actions and notifications."
+        ),
+        active_nav="docs",
+        active_docs="ticket_variables",
+        automation_template_variables=AUTOMATION_TEMPLATE_VARIABLES,
+    )
+    return templates.TemplateResponse("docs_ticket_variables.html", context)
 
 
 @app.get(

@@ -33,50 +33,11 @@
           <p class="automation-editor__section-description">
             Update the identifying information for this event-driven playbook and review its recent activity.
           </p>
-      <p class="automation-editor__hint">
-        Triggers map to Tactical Desk events such as ticket creation, updates, and resolution workflows.
-      </p>
-      <div class="automation-editor__grid">
-        <div class="form-field">
-          <label for="automation-name">Name</label>
-          <input
-            id="automation-name"
-            name="name"
-            type="text"
-            maxlength="255"
-            required
-            value="{{ automation.name }}"
-          />
-        </div>
-        <div class="form-field">
-          <label for="automation-playbook">Runbook label</label>
-          <input
-            id="automation-playbook"
-            name="playbook"
-            type="text"
-            maxlength="255"
-            required
-            list="runbook-label-options"
-            value="{{ automation.playbook }}"
-          />
-        </div>
-        <div class="form-field automation-editor__grid-item--full">
-          <label for="automation-description">Description</label>
-          <textarea id="automation-description" name="description" rows="4" maxlength="2048">{{ automation.description or '' }}</textarea>
-        </div>
-        <div class="form-field">
-          <label for="automation-trigger-match">Trigger logic</label>
-          {% set selected_match = automation.trigger_filters.match if automation.trigger_filters else 'any' %}
-          <select id="automation-trigger-match" name="trigger_match">
-            <option value="any" {% if selected_match != 'all' %}selected{% endif %}>
-              Match any selected trigger (OR)
-            </option>
-            <option value="all" {% if selected_match == 'all' %}selected{% endif %}>
-              Require all selected triggers (AND)
-            </option>
-          </select>
         </div>
         <div class="automation-editor__section-body">
+          <p class="automation-editor__hint">
+            Triggers map to Tactical Desk events such as ticket creation, updates, and resolution workflows.
+          </p>
           <div class="automation-editor__grid">
             <div class="form-field">
               <label for="automation-name">Name</label>
@@ -90,13 +51,14 @@
               />
             </div>
             <div class="form-field">
-              <label for="automation-playbook">Playbook</label>
+              <label for="automation-playbook">Runbook label</label>
               <input
                 id="automation-playbook"
                 name="playbook"
                 type="text"
                 maxlength="255"
                 required
+                list="runbook-label-options"
                 value="{{ automation.playbook }}"
               />
             </div>
@@ -242,57 +204,6 @@
                 <p class="form-help">Start with one condition and add more as needed.</p>
               </div>
             </div>
-            <template data-role="ticket-action-template">
-              <tr class="ticket-action" data-role="ticket-action">
-                <td data-column="action">
-                  <select
-                    class="ticket-action__select"
-                    data-role="ticket-action-select"
-                    aria-label="Ticket action"
-                    required
-                  >
-                    <option value="">Select an action</option>
-                    {% for option in automation_actions %}
-                    <option value="{{ option.slug }}">{{ option.name }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td data-column="value">
-                  <div class="ticket-action__value-wrapper">
-                    <textarea
-                      class="ticket-action__value"
-                      data-role="ticket-action-value"
-                      rows="3"
-                      maxlength="4096"
-                      placeholder="Enter action details"
-                      aria-label="Action details"
-                      required
-                    ></textarea>
-                    <button
-                      type="button"
-                      class="icon-button ticket-action__remove"
-                      data-action="remove-ticket-action"
-                      aria-label="Remove ticket action"
-                    >
-                      <span aria-hidden="true">&times;</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </template>
-            <button
-              type="button"
-              class="link-button ticket-actions__add"
-              data-action="add-ticket-action"
-            >
-              + Add ticket action
-            </button>
-            <p class="form-help">
-              Assign one or more actions to execute after the trigger conditions are met. Use
-              template variables such as <code>{{ '{{ ticket.subject }}' }}</code> or
-              <code>{{ '{{ ticket.status }}' }}</code> to personalise outbound notifications and
-              ticket updates.
-            </p>
           </div>
         </div>
       </div>
@@ -378,7 +289,9 @@
                   + Add ticket action
                 </button>
                 <p class="form-help">
-                  Define how Tactical Desk should update or notify tickets whenever this automation runs.
+                  Define how Tactical Desk should update or notify tickets whenever this automation runs. Review the
+                  <a href="{{ url_for('docs_ticket_variables') }}">ticket variable reference</a>
+                  for merge fields that personalise notifications and outbound messages.
                 </p>
               </div>
             </div>
@@ -386,126 +299,6 @@
         </div>
       </div>
 
-      <section
-        class="automation-action-catalog"
-        aria-labelledby="automation-action-catalog-title"
-      >
-        <div class="automation-action-catalog__header">
-          <div class="automation-action-catalog__text">
-            <h3
-              class="automation-action-catalog__title"
-              id="automation-action-catalog-title"
-            >
-              Available ticket actions
-            </h3>
-            <p class="automation-action-catalog__description">
-              Actions execute after all trigger conditions evaluate to true and can be
-              referenced in downstream runbook orchestration.
-            </p>
-          </div>
-          <div class="automation-action-catalog__filter">
-            <label class="visually-hidden" for="automation-action-filter">
-              Filter ticket actions
-            </label>
-            <input
-              id="automation-action-filter"
-              type="search"
-              class="automation-action-catalog__filter-input"
-              placeholder="Filter actions"
-              data-role="table-filter"
-              aria-controls="automation-action-table"
-            />
-          </div>
-        </div>
-        <div class="table-container">
-          <table
-            id="automation-action-table"
-            class="data-table automation-action-table"
-            data-role="sortable-table"
-          >
-            <thead>
-              <tr>
-                <th scope="col" data-sort-key="action">Action</th>
-                <th scope="col" data-sort-key="identifier">Identifier</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for action in automation_actions %}
-              <tr>
-                <td data-cell="action" data-sort-value="{{ action.name }}">
-                  {{ action.name }}
-                </td>
-                <td data-cell="identifier" data-sort-value="{{ action.slug }}">
-                  <code>{{ action.slug }}</code>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section
-        class="automation-action-catalog automation-variable-catalog"
-        aria-labelledby="automation-variable-catalog-title"
-      >
-        <div class="automation-action-catalog__header">
-          <div class="automation-action-catalog__text">
-            <h3
-              class="automation-action-catalog__title"
-              id="automation-variable-catalog-title"
-            >
-              Available template variables
-            </h3>
-            <p class="automation-action-catalog__description">
-              Reference these placeholders inside ticket action details to merge ticket metadata and
-              event context into notifications.
-            </p>
-          </div>
-          <div class="automation-action-catalog__filter">
-            <label class="visually-hidden" for="automation-variable-filter">
-              Filter template variables
-            </label>
-            <input
-              id="automation-variable-filter"
-              type="search"
-              class="automation-action-catalog__filter-input"
-              placeholder="Filter variables"
-              data-role="table-filter"
-              aria-controls="automation-variable-table"
-            />
-          </div>
-        </div>
-        <div class="table-container">
-          <table
-            id="automation-variable-table"
-            class="data-table automation-variable-table"
-            data-role="sortable-table"
-          >
-            <thead>
-              <tr>
-                <th scope="col" data-sort-key="variable">Variable</th>
-                <th scope="col" data-sort-key="label">Label</th>
-                <th scope="col" data-sort-key="description">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for variable in automation_template_variables %}
-              <tr>
-                <td data-cell="variable" data-sort-value="{{ variable.key }}">
-                  <code>{{ variable.key }}</code>
-                </td>
-                <td data-cell="label" data-sort-value="{{ variable.label }}">
-                  {{ variable.label }}
-                </td>
-                <td data-cell="description" data-sort-value="{{ variable.description }}">
-                  {{ variable.description }}
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
       <div class="automation-editor__message" data-role="automation-message" role="status" aria-live="polite"></div>
       <div class="automation-editor__actions">
         <a class="secondary-button" href="{{ url_for('automation') }}">Cancel</a>
