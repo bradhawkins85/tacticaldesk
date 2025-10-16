@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, constr, validator
+from pydantic import BaseModel, EmailStr, Field, constr, root_validator, validator
 
 from app.core.automations import (
     EVENT_AUTOMATION_ACTION_LOOKUP,
@@ -309,6 +309,29 @@ class AutomationTicketAction(BaseModel):
         max_length=4096,
         description="Action payload such as comment text or status update.",
     )
+
+    @root_validator(pre=True)
+    def _coerce_aliases(cls, values: dict[str, object]) -> dict[str, object]:
+        data = dict(values or {})
+        if "action" not in data or data.get("action") in {None, ""}:
+            for candidate_key in ("slug", "name", "label", "type"):
+                candidate = data.get(candidate_key)
+                if isinstance(candidate, str) and candidate.strip():
+                    data["action"] = candidate
+                    break
+        if "value" not in data or data.get("value") in {None, ""}:
+            for candidate_key in ("details", "text", "body"):
+                candidate = data.get(candidate_key)
+                if candidate is None:
+                    continue
+                if isinstance(candidate, str):
+                    if candidate.strip():
+                        data["value"] = candidate
+                        break
+                    continue
+                data["value"] = str(candidate)
+                break
+        return data
 
     @validator("action")
     def _validate_action(cls, raw_action: str | None) -> str:
