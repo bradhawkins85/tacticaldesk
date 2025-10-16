@@ -20,7 +20,12 @@
     </div>
   </header>
   <div class="panel__body">
-    <form data-role="automation-edit-form" autocomplete="off">
+    <form
+      data-role="automation-edit-form"
+      data-trigger-filters='{{ automation.trigger_filters | tojson | safe }}'
+      data-trigger-value="{{ automation.trigger or '' }}"
+      autocomplete="off"
+    >
       <p class="automation-editor__hint">
         Cron expressions run in UTC and render in your local timezone when displayed below.
         {% if cron_reference_url %}
@@ -67,6 +72,109 @@
             placeholder="0 2 * * *"
           />
           <p class="form-field__hint">Provide five or six cron segments. Example: <code>30 0 * * *</code>.</p>
+        </div>
+        <div class="form-field">
+          <label for="automation-trigger-match">Trigger logic</label>
+          {% set selected_match = automation.trigger_filters.match if automation.trigger_filters else 'any' %}
+          <select id="automation-trigger-match" name="trigger_match">
+            <option value="any" {% if selected_match != 'all' %}selected{% endif %}>
+              Match any selected trigger (OR)
+            </option>
+            <option value="all" {% if selected_match == 'all' %}selected{% endif %}>
+              Require all selected triggers (AND)
+            </option>
+          </select>
+        </div>
+        <div class="form-field automation-editor__grid-item--full">
+          <label>Conditions</label>
+          <div
+            class="trigger-conditions"
+            data-role="trigger-conditions"
+            data-trigger-options='{{ event_trigger_options | tojson | safe }}'
+            data-value-required='{{ value_required_trigger_options | tojson | safe }}'
+          >
+            <div class="trigger-conditions__controls">
+              <input
+                type="search"
+                class="trigger-conditions__filter"
+                placeholder="Filter conditions"
+                data-role="trigger-condition-filter"
+                aria-label="Filter trigger conditions"
+              />
+            </div>
+            <div class="trigger-conditions__table-wrapper">
+              <table class="trigger-conditions__table" data-role="trigger-condition-table">
+                <thead>
+                  <tr>
+                    <th scope="col">
+                      <button type="button" class="trigger-conditions__sort" data-role="trigger-sort" data-sort-key="type" aria-label="Sort by trigger">
+                        Trigger
+                      </button>
+                    </th>
+                    <th scope="col">Operator</th>
+                    <th scope="col">Value</th>
+                    <th scope="col" class="trigger-conditions__actions-header">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="trigger-conditions__list" data-role="trigger-condition-list"></tbody>
+              </table>
+            </div>
+            <template data-role="trigger-condition-template">
+              <tr class="trigger-condition" data-role="trigger-condition">
+                <td data-column="type">
+                  <select
+                    class="trigger-condition__select"
+                    data-role="trigger-condition-select"
+                    aria-label="Trigger condition"
+                  >
+                    <option value="">Select a trigger</option>
+                    {% for trigger in event_trigger_options %}
+                    <option value="{{ trigger }}">{{ trigger }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td data-column="operator">
+                  <select
+                    class="trigger-condition__operator"
+                    data-role="trigger-condition-operator"
+                    aria-label="Trigger operator"
+                  >
+                    <option value="">Select an operator</option>
+                    {% for value, label in trigger_operator_options %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td data-column="value">
+                  <input
+                    type="text"
+                    class="trigger-condition__value"
+                    data-role="trigger-condition-value"
+                    placeholder="Enter value"
+                    maxlength="255"
+                  />
+                </td>
+                <td class="trigger-conditions__actions" data-column="actions">
+                  <button
+                    type="button"
+                    class="icon-button trigger-condition__remove"
+                    data-action="remove-trigger-condition"
+                    aria-label="Remove condition"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </td>
+              </tr>
+            </template>
+            <button
+              type="button"
+              class="link-button trigger-conditions__add"
+              data-action="add-trigger-condition"
+            >
+              + Add new condition
+            </button>
+            <p class="form-help">Start with one condition and add more as needed.</p>
+          </div>
         </div>
         <div class="form-field">
           <label for="automation-next-run">Next run</label>
