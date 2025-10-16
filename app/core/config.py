@@ -41,6 +41,21 @@ class Settings(BaseSettings):
         description="Allow executing provisioning scripts from the API",
         env="TACTICAL_DESK_ENABLE_INSTALLERS",
     )
+    ntfy_base_url: str | None = Field(
+        default=None,
+        description="Default ntfy base URL override",
+        env="TACTICAL_DESK_NTFY_BASE_URL",
+    )
+    ntfy_topic: str | None = Field(
+        default=None,
+        description="Default ntfy topic override",
+        env="TACTICAL_DESK_NTFY_TOPIC",
+    )
+    ntfy_token: str | None = Field(
+        default=None,
+        description="Default ntfy access token",
+        env="TACTICAL_DESK_NTFY_TOKEN",
+    )
 
     class Config:
         env_file = ".env"
