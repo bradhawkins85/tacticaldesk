@@ -158,35 +158,75 @@
     </div>
     <aside class="ticket-detail__reply" aria-labelledby="ticket-reply-title">
       <h2 id="ticket-reply-title">Reply to ticket</h2>
-      <form class="ticket-reply-form" method="post" action="#">
+      {% if reply_form_saved %}
+      <div class="alert alert--success" role="status">Reply sent successfully.</div>
+      {% endif %}
+      {% if reply_form_errors %}
+      <div class="alert alert--error" role="alert">
+        <ul>
+          {% for message in reply_form_errors %}
+          <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      <form
+        class="ticket-reply-form"
+        method="post"
+        action="{{ url_for('ticket_reply', ticket_id=ticket.id) }}"
+      >
         <label class="ticket-detail__field">
           <span>To</span>
-          <input type="email" name="to" value="{{ ticket.customer_email }}" autocomplete="off" />
+          <input
+            type="email"
+            name="to"
+            value="{{ reply_form_data.to or ticket.customer_email }}"
+            autocomplete="off"
+          />
         </label>
         <label class="ticket-detail__field">
           <span>CC</span>
-          <input type="text" name="cc" placeholder="Add teammates" autocomplete="off" />
+          <input
+            type="text"
+            name="cc"
+            value="{{ reply_form_data.cc }}"
+            placeholder="Add teammates"
+            autocomplete="off"
+          />
         </label>
         <label class="ticket-detail__field">
           <span>Reply template</span>
+          {% set current_template = reply_form_data.template or 'custom' %}
           <select name="template">
-            <option value="custom" selected>Custom reply</option>
-            <option value="acknowledge">Acknowledge receipt</option>
-            <option value="status-update">Status update</option>
-            <option value="resolution">Resolution notice</option>
+            <option value="custom"{% if current_template == 'custom' %} selected{% endif %}>Custom reply</option>
+            <option value="acknowledge"{% if current_template == 'acknowledge' %} selected{% endif %}>Acknowledge receipt</option>
+            <option value="status-update"{% if current_template == 'status-update' %} selected{% endif %}>Status update</option>
+            <option value="resolution"{% if current_template == 'resolution' %} selected{% endif %}>Resolution notice</option>
           </select>
         </label>
         <label class="ticket-detail__field ticket-detail__field--textarea">
           <span>Message</span>
-          <textarea name="message" rows="8" placeholder="Compose your reply">Hi {{ ticket.customer }},\n\n</textarea>
+          <textarea
+            name="message"
+            rows="8"
+            placeholder="Compose your reply"
+          >{{- reply_form_data.message or ('Hi ' ~ ticket.customer ~ ',\n\n') -}}</textarea>
         </label>
         <div class="ticket-reply-form__controls">
           <label class="ticket-detail__field ticket-detail__field--checkbox">
-            <input type="checkbox" name="public_reply" checked />
+            <input
+              type="checkbox"
+              name="public_reply"
+              {% if reply_form_data.public_reply %}checked{% endif %}
+            />
             <span>Send as public reply</span>
           </label>
           <label class="ticket-detail__field ticket-detail__field--checkbox">
-            <input type="checkbox" name="add_signature" checked />
+            <input
+              type="checkbox"
+              name="add_signature"
+              {% if reply_form_data.add_signature %}checked{% endif %}
+            />
             <span>Append signature</span>
           </label>
         </div>

@@ -68,3 +68,50 @@ def test_ticket_update_validation_errors_reported():
         # ensure the submitted (invalid) values are preserved for user correction
         assert "value=\"\"" in html
         assert "value=\"invalid-email\"" in html
+
+
+def test_ticket_reply_successful_submission_appends_history():
+    with TestClient(app) as client:
+        reply_payload = {
+            "to": "quest.labs@example.com",
+            "cc": "network.ops@example.com",
+            "template": "custom",
+            "message": "We are continuing to investigate and will follow up shortly.\nThank you for your patience.",
+            "public_reply": "on",
+            "add_signature": "on",
+        }
+        response = client.post(
+            "/tickets/TD-4821/reply",
+            data=reply_payload,
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        location = response.headers["location"]
+        assert location.endswith("?reply=1")
+
+        detail_response = client.get(location)
+        assert detail_response.status_code == 200
+        html = detail_response.text
+        assert "Reply sent successfully." in html
+        assert "We are continuing to investigate" in html
+        assert "Thank you for your patience." in html
+        assert "Super Admin" in html
+
+
+def test_ticket_reply_validation_errors_reported():
+    with TestClient(app) as client:
+        reply_payload = {
+            "to": "not-an-email",
+            "cc": "",
+            "template": "custom",
+            "message": " ",
+        }
+        response = client.post(
+            "/tickets/TD-4821/reply",
+            data=reply_payload,
+        )
+        assert response.status_code == 422
+        html = response.text
+        assert "Recipient must be a valid email address." in html
+        assert "Message cannot be empty." in html
+        assert "Query for Opensource Project" in html

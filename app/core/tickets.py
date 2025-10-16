@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Iterable
+from html import escape
+from typing import Dict, Iterable, List
 import asyncio
 
 from app.models import utcnow
@@ -44,6 +45,7 @@ class TicketStore:
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
         self._overrides: Dict[str, StoredTicketOverride] = {}
+        self._replies: Dict[str, List[dict[str, object]]] = {}
 
     async def apply_overrides(
         self, tickets: Iterable[dict[str, object]]
@@ -97,10 +99,40 @@ class TicketStore:
             self._overrides[ticket_id] = override
             return override.as_dict()
 
+    async def append_reply(
+        self,
+        ticket_id: str,
+        *,
+        actor: str,
+        channel: str,
+        summary: str,
+        message: str,
+    ) -> dict[str, object]:
+        """Store a reply entry for the ticket conversation history."""
+
+        async with self._lock:
+            reply_entry = {
+                "actor": actor,
+                "direction": "outbound",
+                "channel": channel,
+                "summary": summary,
+                "body": escape(message),
+                "timestamp_dt": utcnow(),
+            }
+            existing = self._replies.setdefault(ticket_id, [])
+            existing.append(reply_entry)
+            return dict(reply_entry)
+
+    async def list_replies(self, ticket_id: str) -> list[dict[str, object]]:
+        async with self._lock:
+            replies = self._replies.get(ticket_id, [])
+            return [dict(entry) for entry in replies]
+
     async def reset(self) -> None:
         """Clear overrides (useful for tests)."""
         async with self._lock:
             self._overrides.clear()
+            self._replies.clear()
 
 
 ticket_store = TicketStore()

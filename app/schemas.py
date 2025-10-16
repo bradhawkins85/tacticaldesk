@@ -8,6 +8,8 @@ from pydantic import BaseModel, EmailStr, Field, constr
 
 TicketShortText = constr(strip_whitespace=True, min_length=1, max_length=255)
 TicketSummaryText = constr(strip_whitespace=True, min_length=1, max_length=2048)
+TicketMessageText = constr(strip_whitespace=True, min_length=1, max_length=4096)
+TicketTemplateKey = constr(strip_whitespace=True, min_length=1, max_length=64)
 
 
 class UserBase(BaseModel):
@@ -159,6 +161,15 @@ class TicketUpdate(BaseModel):
     queue: TicketShortText
     category: TicketShortText
     summary: TicketSummaryText
+
+
+class TicketReply(BaseModel):
+    to: EmailStr
+    cc: Optional[str] = Field(default="", max_length=1024)
+    template: TicketTemplateKey
+    message: TicketMessageText
+    public_reply: bool = True
+    add_signature: bool = True
 class ContactBase(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     job_title: Optional[str] = Field(default=None, max_length=255)

@@ -34,7 +34,13 @@ from app.models import (
     WebhookDelivery,
     utcnow,
 )
-from app.schemas import OrganizationCreate, OrganizationUpdate, TicketUpdate, WebhookStatus
+from app.schemas import (
+    OrganizationCreate,
+    OrganizationUpdate,
+    TicketReply,
+    TicketUpdate,
+    WebhookStatus,
+)
 from pydantic import ValidationError
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -81,6 +87,27 @@ TICKET_FORM_FIELDS = (
     "category",
     "summary",
 )
+
+REPLY_FORM_FIELDS = (
+    "to",
+    "cc",
+    "template",
+    "message",
+    "public_reply",
+    "add_signature",
+)
+
+REPLY_FIELD_LABELS = {
+    "to": "Recipient",
+    "cc": "CC",
+    "template": "Reply template",
+    "message": "Message",
+    "public_reply": "Public reply",
+    "add_signature": "Append signature",
+}
+
+DEFAULT_REPLY_ACTOR = "Super Admin"
+DEFAULT_REPLY_CHANNEL = "Portal reply"
 
 
 def _automation_datetime_to_iso(value: datetime | None) -> str | None:
@@ -144,11 +171,13 @@ def _format_field_label(field_name: str) -> str:
     return field_name.replace("_", " ").capitalize()
 
 
-def _format_ticket_validation_errors(error: ValidationError) -> list[str]:
+def _format_validation_errors(
+    error: ValidationError, field_labels: dict[str, str] | None = None
+) -> list[str]:
     messages: list[str] = []
     for entry in error.errors():
         field = str(entry.get("loc", [""])[-1])
-        label = _format_field_label(field)
+        label = field_labels.get(field, _format_field_label(field)) if field_labels else _format_field_label(field)
         error_type = entry.get("type", "")
         if error_type == "value_error.email":
             messages.append(f"{label} must be a valid email address.")
@@ -167,7 +196,24 @@ def _format_ticket_validation_errors(error: ValidationError) -> list[str]:
     return messages
 
 
-async def _extract_ticket_form_data(request: Request) -> dict[str, str]:
+def _normalize_checkbox(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "on", "yes"}
+
+
+def _summarize_reply(message: str, limit: int = 160) -> str:
+    collapsed = " ".join(message.strip().splitlines())
+    if not collapsed:
+        return "Reply sent"
+    if len(collapsed) > limit:
+        return collapsed[: limit - 1].rstrip() + "…"
+    return collapsed
+
+
+async def _extract_form_data(
+    request: Request, fields: tuple[str, ...]
+) -> dict[str, str]:
     content_type = request.headers.get("content-type", "")
     media_type = content_type.split(";")[0].strip().lower()
     if media_type == "application/x-www-form-urlencoded":
@@ -180,7 +226,7 @@ async def _extract_ticket_form_data(request: Request) -> dict[str, str]:
         except LookupError:
             decoded_body = body.decode("utf-8", errors="ignore")
         parsed = parse_qs(decoded_body, keep_blank_values=True)
-        return {field: parsed.get(field, [""])[0] for field in TICKET_FORM_FIELDS}
+        return {field: parsed.get(field, [""])[0] for field in fields}
 
     try:
         form = await request.form()
@@ -189,7 +235,16 @@ async def _extract_ticket_form_data(request: Request) -> dict[str, str]:
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Unsupported form submission type.",
         ) from exc
-    return {field: (form.get(field) or "") for field in TICKET_FORM_FIELDS}
+    result: dict[str, str] = {}
+    for field in fields:
+        value = form.get(field)
+        if isinstance(value, str):
+            result[field] = value
+        elif value is None:
+            result[field] = ""
+        else:
+            result[field] = str(value)
+    return result
 
 
 async def _prepare_ticket_detail_context(
@@ -200,6 +255,9 @@ async def _prepare_ticket_detail_context(
     form_data: dict[str, str] | None = None,
     form_errors: list[str] | None = None,
     saved: bool = False,
+    reply_form_data: dict[str, str] | None = None,
+    reply_form_errors: list[str] | None = None,
+    reply_saved: bool = False,
 ) -> dict[str, object]:
     seed_tickets = build_ticket_records(now_utc)
     seed_tickets = await ticket_store.apply_overrides(seed_tickets)
@@ -241,10 +299,28 @@ async def _prepare_ticket_detail_context(
         if isinstance(timestamp_dt, datetime):
             if timestamp_dt.tzinfo is None:
                 timestamp_dt = timestamp_dt.replace(tzinfo=timezone.utc)
+            entry_copy["timestamp_dt"] = timestamp_dt
             entry_copy["timestamp_iso"] = (
                 timestamp_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
             )
         history_entries.append(entry_copy)
+
+    stored_replies = await ticket_store.list_replies(ticket_id)
+    for entry in stored_replies:
+        entry_copy = dict(entry)
+        timestamp_dt = entry_copy.get("timestamp_dt")
+        if isinstance(timestamp_dt, datetime):
+            if timestamp_dt.tzinfo is None:
+                timestamp_dt = timestamp_dt.replace(tzinfo=timezone.utc)
+            entry_copy["timestamp_dt"] = timestamp_dt
+            entry_copy["timestamp_iso"] = (
+                timestamp_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            )
+        history_entries.append(entry_copy)
+
+    history_entries.sort(
+        key=lambda entry: entry.get("timestamp_dt") or datetime.min.replace(tzinfo=timezone.utc)
+    )
 
     display_ticket.update(
         {
@@ -261,6 +337,17 @@ async def _prepare_ticket_detail_context(
     assignment_options = sorted({record["assignment"] for record in seed_tickets})
     queue_options = sorted({record["queue"] for record in seed_tickets})
 
+    default_reply_form = {
+        "to": display_ticket.get("customer_email", ""),
+        "cc": "",
+        "template": "custom",
+        "message": "",
+        "public_reply": "on",
+        "add_signature": "on",
+    }
+    if reply_form_data:
+        default_reply_form.update(reply_form_data)
+
     return {
         "request": request,
         "page_title": f"{display_ticket['id']} · {display_ticket['subject']}",
@@ -276,6 +363,9 @@ async def _prepare_ticket_detail_context(
         "active_nav": "tickets",
         "form_errors": form_errors or [],
         "form_saved": saved,
+        "reply_form_data": default_reply_form,
+        "reply_form_errors": reply_form_errors or [],
+        "reply_form_saved": reply_saved,
     }
 
 
@@ -945,6 +1035,7 @@ async def ticket_detail_view(
         now_utc,
         ticket_id=ticket_id,
         saved=request.query_params.get("saved") == "1",
+        reply_saved=request.query_params.get("reply") == "1",
     )
     context = await _template_context(session=session, **context)
     return templates.TemplateResponse("ticket_detail.html", context)
@@ -963,12 +1054,12 @@ async def ticket_update_view(
     if ticket_id not in ticket_lookup:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    form_data = await _extract_ticket_form_data(request)
+    form_data = await _extract_form_data(request, TICKET_FORM_FIELDS)
 
     try:
         payload = TicketUpdate(**form_data)
     except ValidationError as exc:
-        error_messages = _format_ticket_validation_errors(exc)
+        error_messages = _format_validation_errors(exc)
         sanitized_form_data = {
             key: form_data.get(key, "").strip() for key in TICKET_FORM_FIELDS
         }
@@ -990,6 +1081,76 @@ async def ticket_update_view(
 
     redirect_url = request.url_for("ticket_detail", ticket_id=ticket_id)
     redirect_url = f"{redirect_url}?saved=1"
+    return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post(
+    "/tickets/{ticket_id}/reply", response_class=HTMLResponse, name="ticket_reply"
+)
+async def ticket_reply_view(
+    request: Request,
+    ticket_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    now_utc = datetime.now(timezone.utc)
+    seed_tickets = build_ticket_records(now_utc)
+    seed_tickets = await ticket_store.apply_overrides(seed_tickets)
+    ticket_lookup = {ticket["id"]: ticket for ticket in seed_tickets}
+    if ticket_id not in ticket_lookup:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    raw_form = await _extract_form_data(request, REPLY_FORM_FIELDS)
+
+    checkbox_public = _normalize_checkbox(raw_form.get("public_reply"))
+    checkbox_signature = _normalize_checkbox(raw_form.get("add_signature"))
+
+    reply_payload = {
+        "to": raw_form.get("to", "").strip(),
+        "cc": raw_form.get("cc", "").strip(),
+        "template": raw_form.get("template", "").strip(),
+        "message": raw_form.get("message", ""),
+        "public_reply": checkbox_public,
+        "add_signature": checkbox_signature,
+    }
+
+    view_form_data = {
+        "to": raw_form.get("to", "").strip(),
+        "cc": raw_form.get("cc", "").strip(),
+        "template": raw_form.get("template", "").strip(),
+        "message": raw_form.get("message", ""),
+        "public_reply": "on" if checkbox_public else "",
+        "add_signature": "on" if checkbox_signature else "",
+    }
+
+    try:
+        payload = TicketReply(**reply_payload)
+    except ValidationError as exc:
+        error_messages = _format_validation_errors(exc, REPLY_FIELD_LABELS)
+        context = await _prepare_ticket_detail_context(
+            request,
+            now_utc,
+            ticket_id=ticket_id,
+            reply_form_data=view_form_data,
+            reply_form_errors=error_messages,
+        )
+        context = await _template_context(session=session, **context)
+        return templates.TemplateResponse(
+            "ticket_detail.html",
+            context,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+    summary = _summarize_reply(payload.message)
+    await ticket_store.append_reply(
+        ticket_id,
+        actor=DEFAULT_REPLY_ACTOR,
+        channel=DEFAULT_REPLY_CHANNEL,
+        summary=summary,
+        message=payload.message,
+    )
+
+    redirect_url = request.url_for("ticket_detail", ticket_id=ticket_id)
+    redirect_url = f"{redirect_url}?reply=1"
     return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
