@@ -107,7 +107,8 @@ Type=simple
 User=$(whoami)
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${SERVICE_ENV_FILE}
-ExecStart=${APP_DIR}/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port ${PORT}
+Environment="PYTHONPATH=${APP_DIR}"
+ExecStart=${APP_DIR}/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port ${PORT} --app-dir ${APP_DIR}
 Restart=on-failure
 RestartSec=5
 
