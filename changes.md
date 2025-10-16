@@ -72,3 +72,4 @@
 - 2025-10-16T16:55:00Z Fix: Restored event automation editor by importing the EVENT_AUTOMATION_ACTIONS catalog into the view.
 - 2025-10-16T17:42:18Z Fix: Removed duplicate automation detail inputs and streamlined ticket action management inside the event editor.
 - 2025-10-16T17:42:18Z Feature: Added Docs navigation with a dedicated ticket variable reference page for automation authors.
+- 2025-10-16T17:30:00Z Feature: Added ntfy notification automation action with integration module seeding, delivery helper, and regression coverage.

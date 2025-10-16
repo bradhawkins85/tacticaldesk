@@ -293,6 +293,37 @@ def test_update_event_automation_ticket_actions():
         assert updated["ticket_actions"][1]["action"] == "change-status"
 
 
+def test_event_automation_accepts_ntfy_notification_action():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        target = next(
+            item for item in events.json() if item["name"] == "Incident escalation"
+        )
+        automation_id = target["id"]
+
+        payload = {
+            "ticket_actions": [
+                {
+                    "action": "send-ntfy-notification",
+                    "value": "Ticket {{ ticket.id }} assigned to {{ ticket.assignment }}.",
+                }
+            ]
+        }
+
+        response = client.patch(f"/api/automations/{automation_id}", json=payload)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["ticket_actions"][0]["action"] == "send-ntfy-notification"
+        assert body["ticket_actions"][0]["value"].startswith("Ticket {{ ticket.id }}")
+
+        html = client.get(f"/automation/event/{automation_id}")
+        assert html.status_code == 200
+        content = html.text
+        assert "send-ntfy-notification" in content
+        assert "Ticket {{ ticket.id }}" in content
+
+
 def test_event_automation_rejects_invalid_ticket_actions():
     with TestClient(app) as client:
         events = client.get("/api/automations", params={"kind": "event"})

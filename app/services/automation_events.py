@@ -21,6 +21,7 @@ from app.schemas import (
     AutomationTriggerCondition,
     AutomationTriggerFilter,
 )
+from app.services.notifications import send_ntfy_notification
 
 EventContext = dict[str, Any]
 
@@ -177,12 +178,21 @@ async def dispatch_ticket_event(
                     model = AutomationTicketAction.parse_obj(entry)
                 except ValidationError:
                     continue
+                rendered_value = render_template_value(
+                    model.value, variable_context
+                )
+                if model.action == "send-ntfy-notification":
+                    await send_ntfy_notification(
+                        session,
+                        message=rendered_value,
+                        automation_name=automation.name,
+                        event_type=event_type,
+                        ticket_identifier=ticket_identifier,
+                    )
                 rendered_actions.append(
                     {
                         "action": model.action,
-                        "value": render_template_value(
-                            model.value, variable_context
-                        ),
+                        "value": rendered_value,
                         "template": model.value,
                     }
                 )
