@@ -23,6 +23,7 @@ from app.api.routers import auth as auth_router
 from app.api.routers import automations as automations_router
 from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
+from app.api.routers import playbooks as playbooks_router
 from app.api.routers import organizations as organizations_router
 from app.api.routers import webhooks as webhooks_router
 from app.core.automations import (
@@ -47,6 +48,8 @@ from app.schemas import (
     AutomationTriggerFilter,
     OrganizationCreate,
     OrganizationUpdate,
+    PlaybookCreate,
+    PlaybookUpdate,
     TicketReply,
     TicketUpdate,
     WebhookStatus,
@@ -79,6 +82,7 @@ app.include_router(auth_router.router)
 app.include_router(automations_router.router)
 app.include_router(integrations_router.router)
 app.include_router(maintenance_router.router)
+app.include_router(playbooks_router.router)
 app.include_router(organizations_router.router)
 app.include_router(webhooks_router.router)
 
@@ -868,6 +872,53 @@ async def _organization_form_response(
     return templates.TemplateResponse("organization_form.html", context)
 
 
+async def _playbook_form_response(
+    *,
+    request: Request,
+    session: AsyncSession,
+    mode: str,
+    form_values: dict[str, str],
+    form_errors: list[str] | None = None,
+    playbook_name: str | None = None,
+    playbook_id: int | None = None,
+) -> HTMLResponse:
+    normalized_values = {
+        "name": form_values.get("name", ""),
+        "slug": form_values.get("slug", ""),
+        "description": form_values.get("description", ""),
+    }
+    is_edit = mode == "edit"
+    base_name = playbook_name or normalized_values["name"]
+    if is_edit and base_name:
+        page_title = f"Edit {base_name}"
+    elif is_edit:
+        page_title = "Edit playbook"
+    else:
+        page_title = "Create playbook"
+    page_subtitle = (
+        "Document playbook intent and provide operators with a consistent response pattern."
+        if is_edit
+        else "Define a reusable playbook with a slug for API integrations and optional description."
+    )
+    submit_label = "Save changes" if is_edit else "Create playbook"
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title=page_title,
+        page_subtitle=page_subtitle,
+        form_mode=mode,
+        form_title=page_title,
+        form_subtitle=page_subtitle,
+        form_values=normalized_values,
+        form_errors=form_errors or [],
+        submit_label=submit_label,
+        playbook_id=playbook_id,
+        active_nav="admin",
+        active_admin="playbooks",
+    )
+    return templates.TemplateResponse("playbook_form.html", context)
+
+
 def _serialize_contact(contact: Contact) -> dict[str, object]:
     return {
         "id": contact.id,
@@ -879,6 +930,44 @@ def _serialize_contact(contact: Contact) -> dict[str, object]:
         "notes": contact.notes or "",
         "created_at_iso": _format_iso(contact.created_at),
         "updated_at_iso": _format_iso(contact.updated_at),
+    }
+
+
+def _serialize_playbook_view(playbook: object) -> dict[str, object]:
+    if hasattr(playbook, "dict"):
+        data = playbook.dict()
+    elif isinstance(playbook, dict):
+        data = playbook
+    else:
+        raise TypeError("Unsupported playbook payload")
+
+    created_at = data.get("created_at")
+    updated_at = data.get("updated_at")
+
+    if isinstance(created_at, str):
+        try:
+            created_at_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except ValueError:
+            created_at_dt = None
+    else:
+        created_at_dt = created_at
+
+    if isinstance(updated_at, str):
+        try:
+            updated_at_dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+        except ValueError:
+            updated_at_dt = None
+    else:
+        updated_at_dt = updated_at
+
+    return {
+        "id": data["id"],
+        "name": data["name"],
+        "slug": data["slug"],
+        "description": data.get("description") or "",
+        "automation_count": int(data.get("automation_count", 0) or 0),
+        "created_at_iso": _format_iso(created_at_dt) if created_at_dt else "",
+        "updated_at_iso": _format_iso(updated_at_dt) if updated_at_dt else "",
     }
 
 
@@ -921,6 +1010,11 @@ async def _list_contacts_for_organization(
         .order_by(Contact.name.asc())
     )
     return [_serialize_contact(contact) for contact in result.scalars().all()]
+
+
+async def _list_playbooks_view(session: AsyncSession) -> list[dict[str, object]]:
+    playbooks = await playbooks_router.list_playbooks(session=session)
+    return [_serialize_playbook_view(item) for item in playbooks]
 
 
 async def _template_context(
@@ -1458,6 +1552,177 @@ async def automation_edit_redirect(
         raise HTTPException(status_code=404, detail="Automation not found")
 
     return RedirectResponse(target, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+
+@app.get("/admin/playbooks", response_class=HTMLResponse, name="admin_playbooks")
+async def admin_playbooks_view(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
+    playbooks = await _list_playbooks_view(session)
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Playbook catalogue",
+        page_subtitle=(
+            "Browse incident response and automation playbooks, track automation coverage, and"
+            " manage metadata for downstream integrations."
+        ),
+        playbooks=playbooks,
+        active_nav="admin",
+        active_admin="playbooks",
+    )
+    return templates.TemplateResponse("playbooks.html", context)
+
+
+@app.get(
+    "/admin/playbooks/create",
+    response_class=HTMLResponse,
+    name="admin_playbook_create",
+)
+async def admin_playbook_create(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
+    return await _playbook_form_response(
+        request=request,
+        session=session,
+        mode="create",
+        form_values={"name": "", "slug": "", "description": ""},
+    )
+
+
+@app.post(
+    "/admin/playbooks/create",
+    response_class=HTMLResponse,
+    name="admin_playbook_create_submit",
+)
+async def admin_playbook_create_submit(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> Response:
+    form = await request.form()
+    form_values = {
+        "name": (form.get("name") or "").strip(),
+        "slug": (form.get("slug") or "").strip().lower(),
+        "description": (form.get("description") or "").strip(),
+    }
+    try:
+        payload = PlaybookCreate(
+            name=form_values["name"],
+            slug=form_values["slug"],
+            description=form_values["description"] or None,
+        )
+    except ValidationError as exc:
+        errors = [error["msg"] for error in exc.errors()]
+        return await _playbook_form_response(
+            request=request,
+            session=session,
+            mode="create",
+            form_values=form_values,
+            form_errors=errors,
+        )
+
+    try:
+        await playbooks_router.create_playbook(payload, session=session)
+    except HTTPException as exc:
+        if exc.status_code in {status.HTTP_409_CONFLICT, status.HTTP_422_UNPROCESSABLE_ENTITY}:
+            detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+            return await _playbook_form_response(
+                request=request,
+                session=session,
+                mode="create",
+                form_values=form_values,
+                form_errors=[detail],
+            )
+        raise
+
+    return RedirectResponse(
+        request.url_for("admin_playbooks"),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@app.get(
+    "/admin/playbooks/{playbook_id}/edit",
+    response_class=HTMLResponse,
+    name="admin_playbook_edit",
+)
+async def admin_playbook_edit(
+    request: Request,
+    playbook_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    playbook = await playbooks_router.get_playbook(playbook_id, session=session)
+    form_values = {
+        "name": playbook.name,
+        "slug": playbook.slug,
+        "description": playbook.description or "",
+    }
+    return await _playbook_form_response(
+        request=request,
+        session=session,
+        mode="edit",
+        form_values=form_values,
+        playbook_name=playbook.name,
+        playbook_id=playbook.id,
+    )
+
+
+@app.post(
+    "/admin/playbooks/{playbook_id}/edit",
+    response_class=HTMLResponse,
+    name="admin_playbook_update",
+)
+async def admin_playbook_update(
+    request: Request,
+    playbook_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    playbook = await playbooks_router.get_playbook(playbook_id, session=session)
+    form = await request.form()
+    form_values = {
+        "name": (form.get("name") or "").strip(),
+        "slug": (form.get("slug") or "").strip().lower(),
+        "description": (form.get("description") or "").strip(),
+    }
+    try:
+        payload = PlaybookUpdate(
+            name=form_values["name"] or None,
+            slug=form_values["slug"] or None,
+            description=form_values["description"] or None,
+        )
+    except ValidationError as exc:
+        errors = [error["msg"] for error in exc.errors()]
+        return await _playbook_form_response(
+            request=request,
+            session=session,
+            mode="edit",
+            form_values=form_values,
+            form_errors=errors,
+            playbook_name=playbook.name,
+            playbook_id=playbook.id,
+        )
+
+    try:
+        updated = await playbooks_router.update_playbook(
+            playbook_id, payload, session=session
+        )
+    except HTTPException as exc:
+        if exc.status_code in {status.HTTP_409_CONFLICT, status.HTTP_422_UNPROCESSABLE_ENTITY}:
+            detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+            return await _playbook_form_response(
+                request=request,
+                session=session,
+                mode="edit",
+                form_values=form_values,
+                form_errors=[detail],
+                playbook_name=playbook.name,
+                playbook_id=playbook.id,
+            )
+        raise
+
+    return RedirectResponse(
+        request.url_for("admin_playbooks"),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @app.get("/integrations", response_class=HTMLResponse, name="integrations_index")
