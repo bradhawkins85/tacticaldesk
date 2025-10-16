@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block header_actions %}
+<a class="secondary-button" href="{{ url_for('integrations_index') }}">All integrations</a>
+{% endblock %}
+{% block content %}
+<section class="content-section integration-header">
+  <header class="section-header">
+    <h2>{{ module.name }}</h2>
+    <p class="subtitle">{{ module.description or "Securely manage credentials, webhooks, and automation access." }}</p>
+  </header>
+  <div class="integration-status-card">
+    <div class="integration-status-card__icon" aria-hidden="true">{{ module.icon }}</div>
+    <div class="integration-status-card__body">
+      <p class="integration-status-card__state">
+        <span class="badge {{ 'status-open' if module.enabled else 'status-waiting' }}" data-role="integration-status-label">
+          {{ 'Enabled' if module.enabled else 'Disabled' }}
+        </span>
+      </p>
+      <dl class="integration-status-card__meta">
+        <div>
+          <dt>Last updated</dt>
+          <dd data-role="integration-updated" data-format="datetime" data-sort-value="{{ module.updated_at_iso or '' }}">
+            {{ module.updated_at_iso or "Not configured" }}
+          </dd>
+        </div>
+        <div>
+          <dt>Created</dt>
+          <dd data-format="datetime" data-sort-value="{{ module.created_at_iso or '' }}">
+            {{ module.created_at_iso or "Unknown" }}
+          </dd>
+        </div>
+      </dl>
+    </div>
+    <div class="integration-status-card__action">
+      <label class="toggle-switch">
+        <input
+          type="checkbox"
+          data-role="integration-toggle"
+          data-slug="{{ module.slug }}"
+          {% if module.enabled %}checked{% endif %}
+          aria-label="Toggle {{ module.name }} integration"
+        />
+        <span class="toggle-slider" aria-hidden="true"></span>
+      </label>
+      <p class="integration-status-card__hint">Enable to surface this connector throughout Tactical Desk.</p>
+    </div>
+  </div>
+  <div class="form-message" data-role="integration-message" aria-live="polite"></div>
+</section>
+<section class="content-section">
+  <header class="section-header">
+    <h2>Credentials &amp; endpoints</h2>
+    <p class="subtitle">Update connection details. Values are stored encrypted and used for outbound API calls.</p>
+  </header>
+  <form id="integration-settings-form" class="integration-form" data-slug="{{ module.slug }}">
+    <div class="integration-form__grid">
+      {% for field in settings_fields %}
+      <label class="form-field">
+        <span>{{ field.label }}</span>
+        <input
+          type="{{ field.type }}"
+          name="{{ field.key }}"
+          value="{{ module.settings.get(field.key, '') }}"
+          placeholder="{{ field.placeholder }}"
+          autocomplete="off"
+        />
+      </label>
+      {% endfor %}
+    </div>
+    <div class="form-actions">
+      <button class="primary-button" type="submit">Save changes</button>
+      <div class="form-message" data-role="form-message" aria-live="polite"></div>
+    </div>
+  </form>
+</section>
+<section class="panel integration-guidance">
+  <header class="panel__header">
+    <div>
+      <h2>Security notes</h2>
+      <p>Webhook deliveries are monitored and failed attempts are retried automatically with exponential backoff.</p>
+    </div>
+  </header>
+  <div class="panel__body">
+    <ul class="guidance-list">
+      <li>Store timestamps in UTC. Tactical Desk renders them in the operator's local timezone.</li>
+      <li>Rotate secrets regularly and audit enable/disable events via the webhook operations dashboard.</li>
+      <li>Use the automation workspace to validate integration playbooks after credentials change.</li>
+    </ul>
+  </div>
+</section>
+{% endblock %}

@@ -14,10 +14,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routers import auth as auth_router
+from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
-from app.models import User
+from app.models import IntegrationModule, User
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = BASE_DIR / "web" / "templates"
@@ -36,6 +37,7 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 app.include_router(auth_router.router)
+app.include_router(integrations_router.router)
 app.include_router(maintenance_router.router)
 
 
@@ -308,11 +310,122 @@ def build_ticket_records(now_utc: datetime) -> list[dict[str, object]]:
     return seed_tickets
 
 
-def _template_context(**extra: object) -> dict[str, object]:
+DEFAULT_INTEGRATION_ICON = "🔌"
+
+DEFAULT_SETTINGS_FIELDS = [
+    {
+        "key": "base_url",
+        "label": "Base URL",
+        "type": "url",
+        "placeholder": "https://example.integration/api",
+    },
+    {
+        "key": "api_key",
+        "label": "API Key",
+        "type": "password",
+        "placeholder": "Enter the secure API key",
+    },
+    {
+        "key": "webhook_url",
+        "label": "Webhook URL",
+        "type": "url",
+        "placeholder": "https://example.integration/webhooks",
+    },
+]
+
+INTEGRATION_SETTINGS_FIELDS: dict[str, list[dict[str, str]]] = {
+    "syncro-rmm": DEFAULT_SETTINGS_FIELDS,
+    "tactical-rmm": DEFAULT_SETTINGS_FIELDS,
+    "xero": [
+        {
+            "key": "base_url",
+            "label": "Base URL",
+            "type": "url",
+            "placeholder": "https://api.xero.com",
+        },
+        {
+            "key": "client_id",
+            "label": "Client ID",
+            "type": "text",
+            "placeholder": "OAuth client identifier",
+        },
+        {
+            "key": "client_secret",
+            "label": "Client Secret",
+            "type": "password",
+            "placeholder": "Secure client secret",
+        },
+        {
+            "key": "tenant_id",
+            "label": "Tenant ID",
+            "type": "text",
+            "placeholder": "Organisation tenant identifier",
+        },
+    ],
+}
+
+
+def _format_iso(dt: datetime | None) -> str:
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _serialize_integration(module: IntegrationModule) -> dict[str, object]:
+    settings_data = dict(module.settings) if module.settings else {}
+    return {
+        "id": module.id,
+        "name": module.name,
+        "slug": module.slug,
+        "description": module.description or "",
+        "icon": module.icon or DEFAULT_INTEGRATION_ICON,
+        "enabled": bool(module.enabled),
+        "settings": settings_data,
+        "created_at_iso": _format_iso(module.created_at),
+        "updated_at_iso": _format_iso(module.updated_at),
+    }
+
+
+async def _load_enabled_integrations(session: AsyncSession) -> list[dict[str, str]]:
+    result = await session.execute(
+        select(IntegrationModule)
+        .where(IntegrationModule.enabled.is_(True))
+        .order_by(IntegrationModule.name.asc())
+    )
+    return [
+        {
+            "name": module.name,
+            "slug": module.slug,
+            "icon": module.icon or DEFAULT_INTEGRATION_ICON,
+        }
+        for module in result.scalars().all()
+    ]
+
+
+async def _list_integrations(session: AsyncSession) -> list[IntegrationModule]:
+    result = await session.execute(
+        select(IntegrationModule).order_by(IntegrationModule.name.asc())
+    )
+    return result.scalars().all()
+
+
+async def _template_context(
+    *,
+    request: Request,
+    session: AsyncSession,
+    integration_nav: list[dict[str, str]] | None = None,
+    **extra: object,
+) -> dict[str, object]:
     current_settings = get_settings()
+    if integration_nav is None:
+        integration_nav = await _load_enabled_integrations(session)
     context: dict[str, object] = {
+        "request": request,
         "app_name": current_settings.app_name,
         "current_year": datetime.now(timezone.utc).year,
+        "integration_nav": integration_nav,
     }
     context.update(extra)
     return context
@@ -336,8 +449,9 @@ async def root_route(
         page_title = "Sign in"
         page_subtitle = "Access Tactical Desk with your secure credentials."
 
-    context = _template_context(
+    context = await _template_context(
         request=request,
+        session=session,
         page_title=page_title,
         page_subtitle=page_subtitle,
         user_count=user_count,
@@ -346,7 +460,7 @@ async def root_route(
 
 
 @app.get("/dashboard", response_class=HTMLResponse, name="dashboard")
-async def dashboard(request: Request) -> HTMLResponse:
+async def dashboard(request: Request, session: AsyncSession = Depends(get_session)) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     tickets = [
         {
@@ -380,8 +494,9 @@ async def dashboard(request: Request) -> HTMLResponse:
         "last_failure": (now_utc - timedelta(minutes=47)).isoformat().replace("+00:00", "Z"),
     }
 
-    context = _template_context(
+    context = await _template_context(
         request=request,
+        session=session,
         page_title="Operations Command Center",
         page_subtitle="Unify omnichannel tickets, automation, and Tactical RMM telemetry.",
         tickets=tickets,
@@ -392,7 +507,9 @@ async def dashboard(request: Request) -> HTMLResponse:
 
 
 @app.get("/tickets", response_class=HTMLResponse, name="tickets")
-async def tickets_view(request: Request) -> HTMLResponse:
+async def tickets_view(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     seed_tickets = build_ticket_records(now_utc)
 
@@ -481,8 +598,9 @@ async def tickets_view(request: Request) -> HTMLResponse:
     priority_options = sorted({ticket["priority"] for ticket in seed_tickets})
     team_options = sorted({ticket["team"] for ticket in seed_tickets})
 
-    context = _template_context(
+    context = await _template_context(
         request=request,
+        session=session,
         page_title="Unified Ticket Workspace",
         page_subtitle="Track queues, escalations, and SLA risk across every service channel.",
         tickets=tickets,
@@ -498,7 +616,11 @@ async def tickets_view(request: Request) -> HTMLResponse:
 
 
 @app.get("/tickets/{ticket_id}", response_class=HTMLResponse, name="ticket_detail")
-async def ticket_detail_view(request: Request, ticket_id: str) -> HTMLResponse:
+async def ticket_detail_view(
+    request: Request,
+    ticket_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     seed_tickets = build_ticket_records(now_utc)
     ticket_lookup = {ticket["id"]: ticket for ticket in seed_tickets}
@@ -528,8 +650,9 @@ async def ticket_detail_view(request: Request, ticket_id: str) -> HTMLResponse:
     assignment_options = sorted({record["assignment"] for record in seed_tickets})
     queue_options = sorted({record["queue"] for record in seed_tickets})
 
-    context = _template_context(
+    context = await _template_context(
         request=request,
+        session=session,
         page_title=f"{ticket['id']} · {ticket['subject']}",
         page_subtitle="Review ticket context, conversation history, and craft a secure reply.",
         ticket={
@@ -550,7 +673,9 @@ async def ticket_detail_view(request: Request, ticket_id: str) -> HTMLResponse:
 
 
 @app.get("/analytics", response_class=HTMLResponse, name="analytics")
-async def analytics_view(request: Request) -> HTMLResponse:
+async def analytics_view(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     monthly_summary = [
         {
@@ -591,8 +716,9 @@ async def analytics_view(request: Request) -> HTMLResponse:
         },
     ]
 
-    context = _template_context(
+    context = await _template_context(
         request=request,
+        session=session,
         page_title="Analytics Observatory",
         page_subtitle="Surface operational insights, response trends, and automation ROI.",
         monthly_summary=monthly_summary,
@@ -603,7 +729,9 @@ async def analytics_view(request: Request) -> HTMLResponse:
 
 
 @app.get("/automation", response_class=HTMLResponse, name="automation")
-async def automation_view(request: Request) -> HTMLResponse:
+async def automation_view(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     orchestration_runs = [
         {
@@ -620,14 +748,21 @@ async def automation_view(request: Request) -> HTMLResponse:
         },
     ]
 
+    modules = await _list_integrations(session)
     module_toggles = [
-        {"module": "SyncroRMM", "enabled": True},
-        {"module": "TacticalRMM", "enabled": True},
-        {"module": "Xero", "enabled": False},
+        {
+            "module": module_info["name"],
+            "slug": module_info["slug"],
+            "icon": module_info["icon"],
+            "enabled": module_info["enabled"],
+            "updated_at_iso": module_info["updated_at_iso"],
+        }
+        for module_info in (_serialize_integration(module) for module in modules)
     ]
 
-    context = _template_context(
+    context = await _template_context(
         request=request,
+        session=session,
         page_title="Automation Control Tower",
         page_subtitle="Launch workflows, monitor orchestration, and govern integration access.",
         orchestration_runs=orchestration_runs,
@@ -637,8 +772,67 @@ async def automation_view(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("automation.html", context)
 
 
+@app.get("/integrations", response_class=HTMLResponse, name="integrations_index")
+async def integrations_index(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
+    modules = await _list_integrations(session)
+    serialized = [_serialize_integration(module) for module in modules]
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Integration hub",
+        page_subtitle="Enable connectors, enforce least privilege, and manage credentials in one place.",
+        integrations=serialized,
+        active_nav="integrations",
+    )
+    return templates.TemplateResponse("integrations.html", context)
+
+
+@app.get(
+    "/integrations/{slug}",
+    response_class=HTMLResponse,
+    name="integration_detail",
+)
+async def integration_detail(
+    request: Request,
+    slug: str,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    result = await session.execute(
+        select(IntegrationModule).where(IntegrationModule.slug == slug)
+    )
+    module = result.scalar_one_or_none()
+    if module is None:
+        raise HTTPException(status_code=404, detail="Integration module not found")
+
+    module_info = _serialize_integration(module)
+    settings_fields = [
+        dict(field)
+        for field in INTEGRATION_SETTINGS_FIELDS.get(
+            module.slug,
+            DEFAULT_SETTINGS_FIELDS,
+        )
+    ]
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title=f"{module.name} integration",
+        page_subtitle=module.description
+        or "Configure secure access, credentials, and automation hooks for this integration.",
+        module=module_info,
+        settings_fields=settings_fields,
+        active_nav="integrations",
+        active_integration=module.slug,
+    )
+    return templates.TemplateResponse("integration_detail.html", context)
+
+
 @app.get("/admin/maintenance", response_class=HTMLResponse, name="maintenance")
-async def maintenance(request: Request) -> HTMLResponse:
+async def maintenance(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
     scripts = [
         {
             "name": "Production install",
@@ -657,8 +851,9 @@ async def maintenance(request: Request) -> HTMLResponse:
         },
     ]
     current_settings = get_settings()
-    context = _template_context(
+    context = await _template_context(
         request=request,
+        session=session,
         page_title="Maintenance controls",
         page_subtitle="Review installer guardrails and reference approved deployment runbooks.",
         maintenance_scripts=scripts,
@@ -670,7 +865,9 @@ async def maintenance(request: Request) -> HTMLResponse:
 
 
 @app.get("/admin/webhooks", response_class=HTMLResponse, name="admin_webhooks")
-async def admin_webhooks(request: Request) -> HTMLResponse:
+async def admin_webhooks(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     webhook_failures = [
         {
@@ -688,8 +885,9 @@ async def admin_webhooks(request: Request) -> HTMLResponse:
             "next_retry": (now_utc + timedelta(minutes=3)).isoformat().replace("+00:00", "Z"),
         },
     ]
-    context = _template_context(
+    context = await _template_context(
         request=request,
+        session=session,
         page_title="Webhook operations",
         page_subtitle="Monitor outbound delivery failures and adjust retry cadence as needed.",
         webhook_failures=webhook_failures,

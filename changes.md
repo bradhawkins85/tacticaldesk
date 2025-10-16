@@ -26,3 +26,5 @@
 - 2025-10-16T03:13:09Z Feature: Reorganized admin navigation with dedicated maintenance guidance and standalone webhook monitoring workspace.
 - 2025-10-16T05:05:00Z Fix: Allowed secure update automation to execute without maintenance tokens and hardened UI feedback when output targets are missing.
 - 2025-10-16T03:09:00Z Feature: Added ticket detail workspace with dedicated history/reply layout opening in new tabs.
+- 2025-10-16T05:45:00Z Feature: Added integration enable/disable controls with dedicated settings pages and dynamic navigation updates.
+- 2025-10-16T06:00:00Z Fix: Restored missing imports for integration schemas, database migrations, and automated tests to stabilize integration toggling flows.
