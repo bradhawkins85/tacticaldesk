@@ -2,11 +2,14 @@ import asyncio
 from datetime import datetime
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.core.tickets import ticket_store
 from app.main import app
+from app.api.routers import automations as automations_router
+from app.schemas import AutomationTicketAction
 
 
 @pytest.fixture(autouse=True)
@@ -299,6 +302,31 @@ def test_event_automation_rejects_invalid_ticket_actions():
         assert response.status_code == 400
         detail = response.json().get("detail", "")
         assert "action" in detail.lower()
+
+
+def test_ticket_action_normalization_accepts_aliases_and_deduplicates():
+    normalized = automations_router._normalize_ticket_actions(
+        [
+            {"slug": "add-public-comment", "details": "Notify"},
+            {"action": "Add Public Comment", "value": "Notify"},
+            {"label": "Change Status", "details": "In Progress"},
+            AutomationTicketAction(action="change-status", value="In Progress"),
+            None,
+        ]
+    )
+
+    assert len(normalized) == 2
+    assert normalized[0].action == "add-public-comment"
+    assert normalized[0].value == "Notify"
+    assert normalized[1].action == "change-status"
+    assert normalized[1].value == "In Progress"
+
+
+def test_ticket_action_normalization_rejects_unknown_actions():
+    with pytest.raises(HTTPException):
+        automations_router._normalize_ticket_actions(
+            [{"action": "not-a-real-action", "value": "noop"}]
+        )
 
 
 def test_ticket_update_triggers_event_automation():

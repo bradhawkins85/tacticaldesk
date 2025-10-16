@@ -1151,18 +1151,45 @@
 
     let ticketActionOptions = [];
     const ticketActionLookup = new Map();
+    const ticketActionSlugLookup = new Map();
     if (ticketActionsRoot) {
       const optionsDataset = ticketActionsRoot.dataset.actionOptions;
       if (optionsDataset) {
         try {
           const parsedOptions = JSON.parse(optionsDataset);
           if (Array.isArray(parsedOptions)) {
-            ticketActionOptions = parsedOptions;
-            parsedOptions.forEach((option) => {
-              if (option && option.slug) {
-                ticketActionLookup.set(option.slug, option.name || option.slug);
-              }
-            });
+            ticketActionOptions = parsedOptions
+              .map((option) => {
+                if (!option) {
+                  return null;
+                }
+                const slug =
+                  typeof option.slug === "string"
+                    ? option.slug.trim().toLowerCase()
+                    : "";
+                if (!slug) {
+                  return null;
+                }
+                const displayName =
+                  typeof option.name === "string" && option.name.trim()
+                    ? option.name.trim()
+                    : option.label && typeof option.label === "string"
+                    ? option.label.trim()
+                    : option.slug || slug;
+                ticketActionLookup.set(slug, displayName);
+                ticketActionSlugLookup.set(slug, slug);
+                ticketActionSlugLookup.set(displayName.toLowerCase(), slug);
+                if (
+                  typeof option.label === "string" && option.label.trim()
+                ) {
+                  ticketActionSlugLookup.set(
+                    option.label.trim().toLowerCase(),
+                    slug
+                  );
+                }
+                return { slug, name: displayName };
+              })
+              .filter((option) => option !== null);
           }
         } catch (error) {
           console.warn("Unable to parse ticket action options", error);
@@ -1458,22 +1485,44 @@
         return { conditions, errors };
       }
 
+      function resolveTicketActionSlug(identifier) {
+        if (!identifier) {
+          return "";
+        }
+        const text = identifier.toString().trim();
+        if (!text) {
+          return "";
+        }
+        const lowered = text.toLowerCase();
+        if (ticketActionLookup.has(lowered)) {
+          return lowered;
+        }
+        const mapped = ticketActionSlugLookup.get(lowered);
+        if (mapped && ticketActionLookup.has(mapped)) {
+          return mapped;
+        }
+        const slugCandidate = slugifyValue(text);
+        if (slugCandidate && ticketActionLookup.has(slugCandidate)) {
+          return slugCandidate;
+        }
+        return "";
+      }
+
       function normalizeTicketAction(raw) {
         if (!raw) {
           return null;
         }
         if (typeof raw === "string") {
-          const slug = raw.trim().toLowerCase();
+          const slug = resolveTicketActionSlug(raw);
           if (!slug) {
             return null;
           }
           return { action: slug, value: "" };
         }
         if (typeof raw === "object") {
-          const slug = (raw.action || raw.slug || raw.type || "")
-            .toString()
-            .trim()
-            .toLowerCase();
+          const slug = resolveTicketActionSlug(
+            raw.action || raw.slug || raw.type || raw.name || raw.label
+          );
           if (!slug) {
             return null;
           }
@@ -1483,7 +1532,7 @@
           } else if (raw.details !== undefined && raw.details !== null) {
             text = String(raw.details);
           }
-          return { action: slug, value: text };
+          return { action: slug, value: text.trim() };
         }
         return null;
       }
@@ -1593,6 +1642,12 @@
               ? valueInput.value.trim()
               : "";
           if (!slug && !valueText) {
+            return;
+          }
+          if (slug && !ticketActionLookup.has(slug)) {
+            errors.push(
+              `Selected action is not supported for ticket action ${index + 1}.`
+            );
             return;
           }
           if (!slug) {
