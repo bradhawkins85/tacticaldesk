@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Iterable
+from urllib.parse import urlparse
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -36,6 +37,42 @@ def _clean_optional_text(value: str | None) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned or None
+
+
+def _normalize_action_endpoint(value: str | None) -> str | None:
+    cleaned = _clean_optional_text(value)
+    if cleaned is None:
+        return None
+    if len(cleaned) > 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Action endpoint must be 1024 characters or fewer",
+        )
+    parsed = urlparse(cleaned)
+    if parsed.scheme not in {"https", "http"} or not parsed.netloc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Action endpoint must be a valid HTTP or HTTPS URL",
+        )
+    return cleaned
+
+
+def _normalize_action_output_selector(value: str | None) -> str | None:
+    cleaned = _clean_optional_text(value)
+    if cleaned is None:
+        return None
+    if len(cleaned) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Action output selector must be 255 characters or fewer",
+        )
+    unsafe_characters = {"<", ">", "\"", "'"}
+    if any(char in cleaned for char in unsafe_characters):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Action output selector contains unsupported characters",
+        )
+    return cleaned
 
 
 def _ensure_required_text(value: str | None, field: str) -> str:
@@ -246,6 +283,60 @@ async def update_automation(
                     if automation.trigger is not None:
                         automation.trigger = None
                         updated = True
+
+    candidate_action_label = automation.action_label
+    candidate_action_endpoint = automation.action_endpoint
+
+    if "action_label" in data:
+        candidate_action_label = _clean_optional_text(data["action_label"])
+
+    if "action_endpoint" in data:
+        candidate_action_endpoint = _normalize_action_endpoint(
+            data["action_endpoint"]
+        )
+
+    if candidate_action_label and not candidate_action_endpoint:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Action endpoint is required when an action label is provided",
+        )
+
+    if candidate_action_endpoint and not candidate_action_label:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Action label is required when an action endpoint is provided",
+        )
+
+    if "action_label" in data and candidate_action_label != automation.action_label:
+        automation.action_label = candidate_action_label
+        updated = True
+
+    if (
+        "action_endpoint" in data
+        and candidate_action_endpoint != automation.action_endpoint
+    ):
+        automation.action_endpoint = candidate_action_endpoint
+        updated = True
+
+    if "action_output_selector" in data:
+        cleaned_selector = _normalize_action_output_selector(
+            data["action_output_selector"]
+        )
+        if cleaned_selector and not (
+            candidate_action_label and candidate_action_endpoint
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Action output selector requires an action label and endpoint",
+            )
+        if cleaned_selector != automation.action_output_selector:
+            automation.action_output_selector = cleaned_selector
+            updated = True
+
+    if candidate_action_label is None and candidate_action_endpoint is None:
+        if automation.action_output_selector is not None and "action_output_selector" not in data:
+            automation.action_output_selector = None
+            updated = True
 
     if "status" in data:
         cleaned_status = _clean_optional_text(data["status"])

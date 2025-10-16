@@ -237,6 +237,77 @@ def test_update_event_automation_trigger_filters():
         assert "Open" in html
 
 
+def test_update_event_automation_actions():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        event_items = events.json()
+        target = next(
+            item for item in event_items if item["name"] == "Incident escalation"
+        )
+        automation_id = target["id"]
+
+        payload = {
+            "action_label": "Notify incident commander",
+            "action_endpoint": "https://hooks.example.com/incident",
+            "action_output_selector": "#automation-update-output",
+        }
+
+        response = client.patch(
+            f"/api/automations/{automation_id}",
+            json=payload,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["action_label"] == payload["action_label"]
+        assert body["action_endpoint"] == payload["action_endpoint"]
+        assert body["action_output_selector"] == payload["action_output_selector"]
+
+        clear_response = client.patch(
+            f"/api/automations/{automation_id}",
+            json={"action_label": None, "action_endpoint": None},
+        )
+        assert clear_response.status_code == 200
+        cleared = clear_response.json()
+        assert cleared["action_label"] is None
+        assert cleared["action_endpoint"] is None
+        assert cleared["action_output_selector"] is None
+
+
+def test_event_automation_rejects_invalid_action_endpoint():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        automation_id = events.json()[0]["id"]
+
+        bad_endpoint = client.patch(
+            f"/api/automations/{automation_id}",
+            json={
+                "action_label": "Notify",
+                "action_endpoint": "ftp://invalid.example.com/hook",
+            },
+        )
+        assert bad_endpoint.status_code == 400
+        detail = bad_endpoint.json().get("detail", "")
+        assert "endpoint" in detail.lower()
+
+        missing_label = client.patch(
+            f"/api/automations/{automation_id}",
+            json={"action_endpoint": "https://hooks.example.com/web"},
+        )
+        assert missing_label.status_code == 400
+        missing_detail = missing_label.json().get("detail", "")
+        assert "label" in missing_detail.lower()
+
+        selector_without_action = client.patch(
+            f"/api/automations/{automation_id}",
+            json={"action_output_selector": "#result"},
+        )
+        assert selector_without_action.status_code == 400
+        selector_detail = selector_without_action.json().get("detail", "")
+        assert "selector" in selector_detail.lower()
+
+
 def test_ticket_update_triggers_event_automation():
     with TestClient(app) as client:
         events = client.get("/api/automations", params={"kind": "event"})
