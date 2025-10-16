@@ -48,3 +48,4 @@
 - 2025-10-16T10:30:00Z Fix: Separated ticket reply submission with validation, success feedback, and persisted history entries.
 - 2025-10-16T10:45:00Z Fix: Displayed newest ticket conversation entries first for easier review of recent replies.
 - 2025-10-16T11:30:00Z Feature: Added cron-driven scheduled automation editor and event trigger selector with validation and migrations.
+- 2025-10-16T12:30:00Z Feature: Enabled AND/OR trigger filters for event automations with updated API, UI controls, and regression coverage.

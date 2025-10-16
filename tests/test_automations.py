@@ -112,6 +112,55 @@ def test_event_automation_trigger_validation():
         detail = response.json().get("detail")
         assert "trigger" in detail.lower()
 
+        filters_response = client.patch(
+            f"/api/automations/{automation_id}",
+            json={
+                "trigger_filters": {
+                    "match": "any",
+                    "conditions": ["Unsupported"],
+                }
+            },
+        )
+        assert filters_response.status_code == 400
+        filter_detail = filters_response.json().get("detail")
+        assert "trigger" in filter_detail.lower()
+
+
+def test_update_event_automation_trigger_filters():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        event_items = events.json()
+        target = next(
+            item for item in event_items if item["name"] == "Incident escalation"
+        )
+        automation_id = target["id"]
+
+        payload = {
+            "trigger_filters": {
+                "match": "all",
+                "conditions": [
+                    "Ticket Created",
+                    "Ticket Status Changed",
+                ],
+            }
+        }
+
+        update = client.patch(
+            f"/api/automations/{automation_id}",
+            json=payload,
+        )
+        assert update.status_code == 200
+        body = update.json()
+        assert body["trigger_filters"]["match"] == "all"
+        assert body["trigger_filters"]["conditions"] == payload["trigger_filters"][
+            "conditions"
+        ]
+        assert body["trigger"] is None
+
+        html = client.get("/automation").text
+        assert "ALL: Ticket Created, Ticket Status Changed" in html
+
 
 def test_automation_edit_page_loads():
     with TestClient(app) as client:

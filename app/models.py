@@ -95,6 +95,11 @@ class Automation(Base):
     cadence: str | None = Column(String(255), nullable=True)
     cron_expression: str | None = Column(String(255), nullable=True)
     trigger: str | None = Column(String(255), nullable=True)
+    trigger_filters: dict | None = Column(
+        MutableDict.as_mutable(JSON),
+        nullable=True,
+        default=None,
+    )
     status: str | None = Column(String(64), nullable=True)
     next_run_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
     last_run_at: datetime | None = Column(DateTime(timezone=True), nullable=True)

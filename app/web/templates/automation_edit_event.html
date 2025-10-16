@@ -20,7 +20,12 @@
     </div>
   </header>
   <div class="panel__body">
-    <form data-role="automation-edit-form" autocomplete="off">
+    <form
+      data-role="automation-edit-form"
+      data-trigger-filters='{{ automation.trigger_filters | tojson | safe }}'
+      data-trigger-value="{{ automation.trigger or '' }}"
+      autocomplete="off"
+    >
       <p class="automation-editor__hint">
         Triggers map to Tactical Desk events such as ticket creation, updates, and resolution workflows.
       </p>
@@ -52,13 +57,33 @@
           <textarea id="automation-description" name="description" rows="4" maxlength="2048">{{ automation.description or '' }}</textarea>
         </div>
         <div class="form-field">
-          <label for="automation-trigger">Trigger</label>
-          <select id="automation-trigger" name="trigger" required>
-            <option value="">Select an event trigger</option>
+          <label for="automation-trigger-match">Trigger logic</label>
+          {% set selected_match = automation.trigger_filters.match if automation.trigger_filters else 'any' %}
+          <select id="automation-trigger-match" name="trigger_match">
+            <option value="any" {% if selected_match != 'all' %}selected{% endif %}>
+              Match any selected trigger (OR)
+            </option>
+            <option value="all" {% if selected_match == 'all' %}selected{% endif %}>
+              Require all selected triggers (AND)
+            </option>
+          </select>
+        </div>
+        <div class="form-field automation-editor__grid-item--full">
+          <label for="automation-trigger">Triggers</label>
+          {% set selected_conditions = automation.trigger_filters.conditions if automation.trigger_filters else [] %}
+          <select
+            id="automation-trigger"
+            name="trigger"
+            multiple
+            size="6"
+            data-role="automation-trigger-select"
+          >
             {% for trigger in event_trigger_options %}
-            <option value="{{ trigger }}" {% if automation.trigger == trigger %}selected{% endif %}>{{ trigger }}</option>
+            {% set is_selected = trigger in selected_conditions or automation.trigger == trigger %}
+            <option value="{{ trigger }}" {% if is_selected %}selected{% endif %}>{{ trigger }}</option>
             {% endfor %}
           </select>
+          <p class="form-help">Use Ctrl/Cmd + click to choose multiple triggers.</p>
         </div>
         <div class="form-field">
           <label for="automation-status">Status label</label>

@@ -472,6 +472,12 @@ body.has-open-modal {
   color: var(--color-muted);
 }
 
+.form-help {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+
 .form-field--inline {
   align-items: flex-start;
 }

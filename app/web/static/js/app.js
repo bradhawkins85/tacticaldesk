@@ -876,6 +876,7 @@
     const descriptionInput = form?.querySelector("#automation-description");
     const cronInput = form?.querySelector("#automation-cron-expression");
     const triggerInput = form?.querySelector("#automation-trigger");
+    const triggerMatchInput = form?.querySelector("#automation-trigger-match");
     const statusInput = form?.querySelector("#automation-status");
     const nextRunInput = form?.querySelector("#automation-next-run");
     const lastRunInput = form?.querySelector("#automation-last-run");
@@ -894,6 +895,45 @@
           input.value = isoToLocalInputValue(isoValue);
         }
       });
+
+      let initialTriggerFilters = null;
+      const filtersDataset = form.dataset.triggerFilters;
+      if (filtersDataset) {
+        try {
+          initialTriggerFilters = JSON.parse(filtersDataset);
+        } catch (error) {
+          console.warn("Unable to parse trigger filters", error);
+        }
+      }
+
+      if (
+        triggerInput instanceof HTMLSelectElement &&
+        triggerInput.multiple
+      ) {
+        const selectedConditions = Array.isArray(
+          initialTriggerFilters?.conditions
+        )
+          ? initialTriggerFilters.conditions
+          : [];
+        const singleTrigger = form.dataset.triggerValue || "";
+        const valuesToSelect = selectedConditions.length
+          ? selectedConditions
+          : singleTrigger
+          ? [singleTrigger]
+          : [];
+        const selectedSet = new Set(valuesToSelect);
+        Array.from(triggerInput.options).forEach((option) => {
+          option.selected = selectedSet.has(option.value);
+        });
+      }
+
+      if (triggerMatchInput instanceof HTMLSelectElement) {
+        const matchValue =
+          initialTriggerFilters && initialTriggerFilters.match === "all"
+            ? "all"
+            : "any";
+        triggerMatchInput.value = matchValue;
+      }
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -937,7 +977,30 @@
           payload.cron_expression = cronInput.value?.trim() || null;
         }
 
-        if (triggerInput) {
+        if (triggerInput instanceof HTMLSelectElement && triggerInput.multiple) {
+          const selectedValues = Array.from(triggerInput.selectedOptions)
+            .map((option) => option.value)
+            .filter((value) => value);
+          if (selectedValues.length === 1) {
+            payload.trigger = selectedValues[0];
+          } else {
+            payload.trigger = null;
+          }
+
+          if (selectedValues.length > 0) {
+            const matchValue =
+              triggerMatchInput instanceof HTMLSelectElement &&
+              triggerMatchInput.value === "all"
+                ? "all"
+                : "any";
+            payload.trigger_filters = {
+              match: matchValue,
+              conditions: selectedValues,
+            };
+          } else {
+            payload.trigger_filters = null;
+          }
+        } else if (triggerInput) {
           payload.trigger = triggerInput.value?.trim() || null;
         }
 
@@ -977,8 +1040,28 @@
             if (cronInput) {
               cronInput.value = updated.cron_expression || "";
             }
-            if (triggerInput) {
+            if (
+              triggerInput instanceof HTMLSelectElement &&
+              triggerInput.multiple
+            ) {
+              const updatedConditions = Array.isArray(
+                updated.trigger_filters?.conditions
+              )
+                ? updated.trigger_filters.conditions
+                : updated.trigger
+                ? [updated.trigger]
+                : [];
+              const conditionSet = new Set(updatedConditions);
+              Array.from(triggerInput.options).forEach((option) => {
+                option.selected = conditionSet.has(option.value);
+              });
+            } else if (triggerInput) {
               triggerInput.value = updated.trigger || "";
+            }
+            if (triggerMatchInput instanceof HTMLSelectElement) {
+              const updatedMatch =
+                updated.trigger_filters?.match === "all" ? "all" : "any";
+              triggerMatchInput.value = updatedMatch;
             }
             if (statusInput) {
               statusInput.value = updated.status || "";
@@ -999,6 +1082,12 @@
               lastTriggerInput.value = triggerIso
                 ? isoToLocalInputValue(triggerIso)
                 : "";
+            }
+            if (form) {
+              form.dataset.triggerFilters = JSON.stringify(
+                updated.trigger_filters ?? null
+              );
+              form.dataset.triggerValue = updated.trigger || "";
             }
           }
 
