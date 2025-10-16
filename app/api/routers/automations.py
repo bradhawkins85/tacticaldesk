@@ -9,10 +9,18 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.automations import EVENT_TRIGGER_SET
+from app.core.automations import (
+    EVENT_AUTOMATION_ACTION_SLUGS,
+    EVENT_TRIGGER_SET,
+)
 from app.core.db import get_session
 from app.models import Automation, utcnow
-from app.schemas import AutomationRead, AutomationTriggerFilter, AutomationUpdate
+from app.schemas import (
+    AutomationRead,
+    AutomationTicketAction,
+    AutomationTriggerFilter,
+    AutomationUpdate,
+)
 
 router = APIRouter(prefix="/api/automations", tags=["Automations"])
 
@@ -124,6 +132,57 @@ def _normalize_trigger_filters(
             detail="Unsupported automation trigger in filters",
         )
     return filters
+
+
+def _normalize_ticket_actions(
+    value: list[AutomationTicketAction | dict | None] | AutomationTicketAction | dict | None,
+) -> list[AutomationTicketAction]:
+    if value is None:
+        return []
+
+    items: list[AutomationTicketAction] = []
+    raw_items: list[AutomationTicketAction | dict | None]
+    if isinstance(value, AutomationTicketAction):
+        raw_items = [value]
+    elif isinstance(value, dict):
+        raw_items = [value]
+    else:
+        raw_items = list(value)
+
+    if not raw_items:
+        return []
+
+    for item in raw_items:
+        if item is None:
+            continue
+        try:
+            action = (
+                item
+                if isinstance(item, AutomationTicketAction)
+                else AutomationTicketAction.parse_obj(item)
+            )
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid ticket action payload",
+            ) from exc
+        if action.action not in EVENT_AUTOMATION_ACTION_SLUGS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported automation action",
+            )
+        items.append(action)
+
+    deduped: list[AutomationTicketAction] = []
+    seen: set[tuple[str, str]] = set()
+    for action in items:
+        key = (action.action, action.value)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(action)
+
+    return deduped
 
 
 async def _get_automation(session: AsyncSession, automation_id: int) -> Automation:
@@ -246,6 +305,23 @@ async def update_automation(
                     if automation.trigger is not None:
                         automation.trigger = None
                         updated = True
+
+    if "ticket_actions" in data:
+        raw_actions = data["ticket_actions"]
+        actions = _normalize_ticket_actions(raw_actions)
+        current_actions: list[dict[str, str]] = []
+        if automation.ticket_actions:
+            for entry in automation.ticket_actions:
+                try:
+                    action_model = AutomationTicketAction.parse_obj(entry)
+                    current_actions.append(action_model.dict())
+                except ValidationError:
+                    continue
+
+        serialized_actions = [action.dict() for action in actions]
+        if serialized_actions != current_actions:
+            automation.ticket_actions = serialized_actions
+            updated = True
 
     if "status" in data:
         cleaned_status = _clean_optional_text(data["status"])

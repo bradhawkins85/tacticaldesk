@@ -1921,6 +1921,71 @@ body.has-open-modal {
     padding: 0;
 }
 
+.ticket-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ticket-actions__controls {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ticket-actions__filter {
+    max-width: 280px;
+    width: 100%;
+}
+
+.ticket-actions__table-wrapper {
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background-color: var(--color-surface-elevated);
+}
+
+.ticket-actions__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ticket-actions__table th,
+.ticket-actions__table td {
+    padding: 0.75rem;
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ticket-actions__table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.ticket-action__select {
+    width: 100%;
+}
+
+.ticket-action__value-wrapper {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.ticket-action__value {
+    width: 100%;
+    resize: vertical;
+}
+
+.ticket-action__remove {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.ticket-action.is-hidden {
+    display: none;
+}
+
 .automation-action-catalog {
     border: 1px solid var(--color-border);
     border-radius: 0.75rem;
