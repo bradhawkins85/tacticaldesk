@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block header_actions %}
+<a class="secondary-button" href="{{ url_for('tickets') }}" target="_self">Back to tickets</a>
+{% endblock %}
+{% block content %}
+<div class="ticket-detail" data-ticket-id="{{ ticket.id }}">
+  <section class="ticket-detail__overview" aria-labelledby="ticket-overview-title">
+    <header class="ticket-detail__overview-header">
+      <h2 id="ticket-overview-title">Ticket details</h2>
+      <div class="ticket-detail__timestamps">
+        <span>
+          Created
+          <time data-role="local-datetime" datetime="{{ ticket.created_at_iso }}">{{ ticket.created_at_iso }}</time>
+        </span>
+        <span>
+          Last updated
+          <time data-role="local-datetime" datetime="{{ ticket.updated_at_iso }}">{{ ticket.updated_at_iso }}</time>
+        </span>
+        {% if ticket.due_at_iso %}
+        <span>
+          Due
+          <time data-role="local-datetime" datetime="{{ ticket.due_at_iso }}">{{ ticket.due_at_iso }}</time>
+        </span>
+        {% endif %}
+      </div>
+    </header>
+    <form class="ticket-detail__form" method="post" action="#" aria-describedby="ticket-detail-note">
+      <p id="ticket-detail-note" class="ticket-detail__note">
+        Update the ticket metadata and save to apply changes across collaborative workspaces.
+      </p>
+      <div class="ticket-detail__grid">
+        <label class="ticket-detail__field">
+          <span>Subject</span>
+          <input type="text" name="subject" value="{{ ticket.subject }}" autocomplete="off" />
+        </label>
+        <label class="ticket-detail__field">
+          <span>Customer</span>
+          <input type="text" name="customer" value="{{ ticket.customer }}" autocomplete="off" />
+        </label>
+        <label class="ticket-detail__field">
+          <span>Customer email</span>
+          <input type="email" name="customer_email" value="{{ ticket.customer_email }}" autocomplete="off" />
+        </label>
+        <label class="ticket-detail__field">
+          <span>Status</span>
+          <select name="status">
+            {% for status in ticket_status_options %}
+            <option value="{{ status }}"{% if status == ticket.status %} selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Priority</span>
+          <select name="priority">
+            {% for priority in ticket_priority_options %}
+            <option value="{{ priority }}"{% if priority == ticket.priority %} selected{% endif %}>{{ priority }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Team</span>
+          <select name="team">
+            {% for team in ticket_team_options %}
+            <option value="{{ team }}"{% if team == ticket.team %} selected{% endif %}>{{ team }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Assignment</span>
+          <select name="assignment">
+            {% for assignment in ticket_assignment_options %}
+            <option value="{{ assignment }}"{% if assignment == ticket.assignment %} selected{% endif %}>{{ assignment }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Queue</span>
+          <select name="queue">
+            {% for queue in ticket_queue_options %}
+            <option value="{{ queue }}"{% if queue == ticket.queue %} selected{% endif %}>{{ queue }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Category</span>
+          <input type="text" name="category" value="{{ ticket.category }}" autocomplete="off" />
+        </label>
+      </div>
+      <label class="ticket-detail__field ticket-detail__field--textarea">
+        <span>Summary</span>
+        <textarea name="summary" rows="3">{{ ticket.summary }}</textarea>
+      </label>
+      <div class="ticket-detail__meta">
+        <div>
+          <h3>Labels</h3>
+          <div class="ticket-detail__chips">
+            {% if ticket.labels %}
+            {% for label in ticket.labels %}
+            <span class="ticket-chip">{{ label }}</span>
+            {% endfor %}
+            {% else %}
+            <span class="ticket-detail__empty">No labels assigned</span>
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <h3>Watchers</h3>
+          <div class="ticket-detail__chips">
+            {% if ticket.watchers %}
+            {% for watcher in ticket.watchers %}
+            <span class="ticket-chip">{{ watcher }}</span>
+            {% endfor %}
+            {% else %}
+            <span class="ticket-detail__empty">No watchers subscribed</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="ticket-detail__actions">
+        <button type="submit" class="primary-button">Save changes</button>
+        <button type="reset" class="secondary-button">Reset</button>
+      </div>
+    </form>
+  </section>
+  <section class="ticket-detail__body">
+    <div class="ticket-detail__history" aria-labelledby="ticket-history-title">
+      <h2 id="ticket-history-title">Conversation history</h2>
+      <ol class="ticket-history">
+        {% for entry in ticket.history %}
+        <li class="ticket-history__item ticket-history__item--{{ entry.direction }}">
+          <div class="ticket-history__header">
+            <span class="ticket-history__actor">{{ entry.actor }}</span>
+            <span class="ticket-history__channel">{{ entry.channel }}</span>
+            <time data-role="local-datetime" datetime="{{ entry.timestamp_iso }}">{{ entry.timestamp_iso }}</time>
+          </div>
+          <p class="ticket-history__summary">{{ entry.summary }}</p>
+          <div class="ticket-history__body">{{ entry.body | replace('\n', '<br />') | safe }}</div>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+    <aside class="ticket-detail__reply" aria-labelledby="ticket-reply-title">
+      <h2 id="ticket-reply-title">Reply to ticket</h2>
+      <form class="ticket-reply-form" method="post" action="#">
+        <label class="ticket-detail__field">
+          <span>To</span>
+          <input type="email" name="to" value="{{ ticket.customer_email }}" autocomplete="off" />
+        </label>
+        <label class="ticket-detail__field">
+          <span>CC</span>
+          <input type="text" name="cc" placeholder="Add teammates" autocomplete="off" />
+        </label>
+        <label class="ticket-detail__field">
+          <span>Reply template</span>
+          <select name="template">
+            <option value="custom" selected>Custom reply</option>
+            <option value="acknowledge">Acknowledge receipt</option>
+            <option value="status-update">Status update</option>
+            <option value="resolution">Resolution notice</option>
+          </select>
+        </label>
+        <label class="ticket-detail__field ticket-detail__field--textarea">
+          <span>Message</span>
+          <textarea name="message" rows="8" placeholder="Compose your reply">Hi {{ ticket.customer }},\n\n</textarea>
+        </label>
+        <div class="ticket-reply-form__controls">
+          <label class="ticket-detail__field ticket-detail__field--checkbox">
+            <input type="checkbox" name="public_reply" checked />
+            <span>Send as public reply</span>
+          </label>
+          <label class="ticket-detail__field ticket-detail__field--checkbox">
+            <input type="checkbox" name="add_signature" checked />
+            <span>Append signature</span>
+          </label>
+        </div>
+        <button type="submit" class="primary-button ticket-reply-form__submit">Send reply</button>
+      </form>
+    </aside>
+  </section>
+</div>
+{% endblock %}
