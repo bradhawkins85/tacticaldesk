@@ -5,10 +5,9 @@ from asyncio.subprocess import PIPE
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.core.config import get_settings
-from app.core.security import require_maintenance_token
 
 router = APIRouter(prefix="/maintenance", tags=["Maintenance"])
 SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
@@ -44,7 +43,7 @@ async def _run_script(script_name: str) -> dict[str, Any]:
 
 
 @router.get("/scripts")
-async def list_scripts(_: None = Depends(require_maintenance_token)) -> dict[str, Any]:
+async def list_scripts() -> dict[str, Any]:
     available = [
         {
             "name": "Production install",
@@ -66,18 +65,18 @@ async def list_scripts(_: None = Depends(require_maintenance_token)) -> dict[str
 
 
 @router.post("/install")
-async def trigger_install(_: None = Depends(require_maintenance_token)) -> dict[str, Any]:
+async def trigger_install() -> dict[str, Any]:
     result = await _run_script("install.sh")
     return {"status": "completed", "result": result}
 
 
 @router.post("/update")
-async def trigger_update(_: None = Depends(require_maintenance_token)) -> dict[str, Any]:
+async def trigger_update() -> dict[str, Any]:
     result = await _run_script("update.sh")
     return {"status": "completed", "result": result}
 
 
 @router.post("/install-dev")
-async def trigger_dev_install(_: None = Depends(require_maintenance_token)) -> dict[str, Any]:
+async def trigger_dev_install() -> dict[str, Any]:
     result = await _run_script("install_dev.sh")
     return {"status": "completed", "result": result}
