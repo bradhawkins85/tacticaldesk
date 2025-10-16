@@ -468,6 +468,21 @@ async def maintenance(request: Request) -> HTMLResponse:
             "description": "Deploy an isolated testing stack backed by a dedicated SQLite database.",
         },
     ]
+    current_settings = get_settings()
+    context = _template_context(
+        request=request,
+        page_title="Maintenance controls",
+        page_subtitle="Review installer guardrails and reference approved deployment runbooks.",
+        maintenance_scripts=scripts,
+        installers_enabled=current_settings.enable_installers,
+        active_nav="admin",
+        active_admin="maintenance",
+    )
+    return templates.TemplateResponse("maintenance.html", context)
+
+
+@app.get("/admin/webhooks", response_class=HTMLResponse, name="admin_webhooks")
+async def admin_webhooks(request: Request) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     webhook_failures = [
         {
@@ -485,17 +500,15 @@ async def maintenance(request: Request) -> HTMLResponse:
             "next_retry": (now_utc + timedelta(minutes=3)).isoformat().replace("+00:00", "Z"),
         },
     ]
-    current_settings = get_settings()
     context = _template_context(
         request=request,
-        page_title="Automation & Deployment",
-        page_subtitle="Trigger provisioning workflows and monitor maintenance automation.",
-        maintenance_scripts=scripts,
-        installers_enabled=current_settings.enable_installers,
+        page_title="Webhook operations",
+        page_subtitle="Monitor outbound delivery failures and adjust retry cadence as needed.",
         webhook_failures=webhook_failures,
         active_nav="admin",
+        active_admin="webhooks",
     )
-    return templates.TemplateResponse("maintenance.html", context)
+    return templates.TemplateResponse("admin_webhooks.html", context)
 
 
 @app.get("/health", tags=["System"])

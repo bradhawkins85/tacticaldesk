@@ -10,97 +10,63 @@
   <section class="panel">
     <header class="panel__header">
       <div>
-        <h2>Deployment orchestrator</h2>
-        <p>Execute provisioning workflows directly from Tactical Desk. Actions remain gated by the installer lock to prevent
-          unauthorized execution.</p>
+        <h2>Installer guardrails</h2>
+        <p>Review lock status and deployment guidance before scheduling any platform maintenance.</p>
       </div>
     </header>
     <div class="panel__body">
-      <div class="table-actions">
-        <input type="search" placeholder="Filter scripts" data-role="table-filter" aria-label="Filter deployment scripts" />
-      </div>
-      <div class="table-wrapper">
-        <table data-role="sortable-table" class="data-table" aria-describedby="deployment-help">
-          <thead>
-            <tr>
-              <th scope="col" data-sort-key="name">Script</th>
-              <th scope="col" data-sort-key="description">Description</th>
-              <th scope="col">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for script in maintenance_scripts %}
-            <tr>
-              <td data-sort-value="{{ script.name }}">{{ script.name }}</td>
-              <td>{{ script.description }}</td>
-              <td>
-                <button class="button" type="button" data-action="maintenance-run" data-endpoint="/maintenance/{{ script.slug }}" {% if not installers_enabled %}disabled{% endif %}>
-                  Run
-                </button>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="log-console" aria-live="polite">
-        <h3>Latest execution</h3>
-        <pre data-role="maintenance-output">Awaiting execution…</pre>
+      <div class="guidance-grid" role="list">
+        <article class="guidance-card" role="listitem">
+          <h3>Lock enforcement</h3>
+          <p>
+            Installer lock is currently <strong>{% if installers_enabled %}disabled{% else %}enforced{% endif %}</strong>.
+            Toggle the <code>TACTICAL_DESK_ENABLE_INSTALLERS</code> environment variable to change state. Ensure only
+            super administrators have shell access to adjust the flag.
+          </p>
+        </article>
+        <article class="guidance-card" role="listitem">
+          <h3>Service account hygiene</h3>
+          <p>
+            Confirm SSH keys and deployment credentials remain scoped to least privilege before unlocking installers. Rotate
+            credentials immediately after maintenance to limit exposure.
+          </p>
+        </article>
+        <article class="guidance-card" role="listitem">
+          <h3>Audit expectations</h3>
+          <p>
+            Document every installer toggle in the changelog and retain CLI transcripts for compliance. Failed attempts should
+            be reviewed and reported to the security team within 24 hours.
+          </p>
+        </article>
       </div>
     </div>
-    <footer class="panel__footer" id="deployment-help">
+    <footer class="panel__footer">
       <p>
-        When installers are locked, outbound commands are blocked. Toggle <code>TACTICAL_DESK_ENABLE_INSTALLERS</code> in your
-        environment file to permit remote execution.
+        Tactical Desk automatically provisions both production and development services through hardened scripts. Execute them
+        via approved CI or shell workflows using the endpoints referenced below.
       </p>
     </footer>
   </section>
 
-  <section class="panel" id="webhook-monitor">
+  <section class="panel">
     <header class="panel__header">
       <div>
-        <h2>Webhook retry monitor</h2>
-        <p>Track failed outbound notifications and confirm that automatic retries are scheduled.</p>
+        <h2>Installer runbook references</h2>
+        <p>Use authenticated API calls or server-side scripts to trigger these automated runbooks.</p>
       </div>
     </header>
     <div class="panel__body">
-      <div class="table-actions">
-        <input type="search" placeholder="Filter webhooks" data-role="table-filter" aria-label="Filter webhook events" />
-      </div>
-      <div class="table-wrapper">
-        <table data-role="sortable-table" class="data-table">
-          <thead>
-            <tr>
-              <th scope="col" data-sort-key="id">Webhook ID</th>
-              <th scope="col" data-sort-key="endpoint">Endpoint</th>
-              <th scope="col" data-sort-key="status">Status</th>
-              <th scope="col" data-sort-key="last_attempt">Last attempt</th>
-              <th scope="col" data-sort-key="next_retry">Next retry</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for event in webhook_failures %}
-            <tr>
-              <td data-sort-value="{{ event.id }}">{{ event.id }}</td>
-              <td>{{ event.endpoint }}</td>
-              <td>{{ event.status|title }}</td>
-              <td
-                data-sort-value="{{ event.last_attempt }}"
-                data-format="datetime"
-              >
-                {{ event.last_attempt }}
-              </td>
-              <td
-                data-sort-value="{{ event.next_retry }}"
-                data-format="datetime"
-              >
-                {{ event.next_retry }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      <ul class="runbook-list">
+        {% for script in maintenance_scripts %}
+        <li class="runbook-item">
+          <div class="runbook-summary">
+            <h3>{{ script.name }}</h3>
+            <p>{{ script.description }}</p>
+          </div>
+          <code class="runbook-endpoint">POST /maintenance/{{ script.slug }}</code>
+        </li>
+        {% endfor %}
+      </ul>
     </div>
   </section>
 {% endblock %}

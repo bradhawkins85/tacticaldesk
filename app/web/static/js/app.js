@@ -217,8 +217,14 @@
   document.addEventListener("click", (event) => {
     const webhookAdminButton = event.target.closest("[data-action='view-webhook-admin']");
     if (webhookAdminButton) {
-      const targetUrl = webhookAdminButton.getAttribute("data-href") || "/admin/maintenance#webhook-monitor";
+      const targetUrl = webhookAdminButton.getAttribute("data-href") || "/admin/webhooks";
       window.location.href = targetUrl;
+      return;
+    }
+
+    const webhookRefreshButton = event.target.closest("[data-action='webhook-refresh']");
+    if (webhookRefreshButton) {
+      window.location.reload();
       return;
     }
 
