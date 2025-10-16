@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block header_actions %}
+<button class="secondary-button" type="button" data-action="export-analytics">Export</button>
+<button class="secondary-button" type="button" data-action="schedule-report">Schedule report</button>
+{% endblock %}
+{% block content %}
+<section class="content-section">
+  <header class="section-header">
+    <h2>Monthly performance</h2>
+    <p class="subtitle">Evaluate close rates, speed to response, and satisfaction trends.</p>
+  </header>
+  <div class="table-toolbar">
+    <label class="filter">
+      <span>Filter</span>
+      <input type="search" placeholder="Search months" data-role="table-filter" aria-controls="monthly-table" />
+    </label>
+  </div>
+  <div class="table-wrapper">
+    <table id="monthly-table" class="data-table" data-role="sortable-table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="month">Month</th>
+          <th scope="col" data-sort-key="tickets_closed">Tickets closed</th>
+          <th scope="col" data-sort-key="first_response_minutes">Median first response (min)</th>
+          <th scope="col" data-sort-key="customer_sat">Customer satisfaction (%)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in monthly_summary %}
+        <tr>
+          <td data-label="Month">{{ row.month }}</td>
+          <td data-label="Tickets closed" data-sort-value="{{ row.tickets_closed }}">{{ row.tickets_closed }}</td>
+          <td data-label="Median first response (min)" data-sort-value="{{ row.first_response_minutes }}">{{ row.first_response_minutes }}</td>
+          <td data-label="Customer satisfaction (%)" data-sort-value="{{ row.customer_sat }}">{{ row.customer_sat }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="content-section">
+  <header class="section-header">
+    <h2>Automation ROI</h2>
+    <p class="subtitle">Quantify hours returned to the service desk by orchestrated workflows.</p>
+  </header>
+  <div class="table-toolbar">
+    <label class="filter">
+      <span>Filter</span>
+      <input type="search" placeholder="Search playbooks" data-role="table-filter" aria-controls="automation-table" />
+    </label>
+  </div>
+  <div class="table-wrapper">
+    <table id="automation-table" class="data-table" data-role="sortable-table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="playbook">Playbook</th>
+          <th scope="col" data-sort-key="saves_hours">Hours saved (30d)</th>
+          <th scope="col" data-sort-key="last_run">Last run</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for playbook in automation_roi %}
+        <tr>
+          <td data-label="Playbook">{{ playbook.playbook }}</td>
+          <td data-label="Hours saved (30d)" data-sort-value="{{ playbook.saves_hours }}">{{ playbook.saves_hours }}</td>
+          <td data-label="Last run" data-sort-value="{{ playbook.last_run_iso }}">{{ playbook.last_run_iso }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

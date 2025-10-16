@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block header_actions %}
+<button class="primary-button" type="button" data-action="launch-runbook">Launch runbook</button>
+<button class="secondary-button" type="button" data-action="view-logs">View logs</button>
+{% endblock %}
+{% block content %}
+<section class="content-section">
+  <header class="section-header">
+    <h2>Orchestration runs</h2>
+    <p class="subtitle">Observe workflow execution and confirm remediation timelines.</p>
+  </header>
+  <div class="table-toolbar">
+    <label class="filter">
+      <span>Filter</span>
+      <input type="search" placeholder="Search workflows" data-role="table-filter" aria-controls="orchestration-table" />
+    </label>
+  </div>
+  <div class="table-wrapper">
+    <table id="orchestration-table" class="data-table" data-role="sortable-table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="workflow">Workflow</th>
+          <th scope="col" data-sort-key="status">Status</th>
+          <th scope="col" data-sort-key="duration_minutes">Duration (min)</th>
+          <th scope="col" data-sort-key="finished">Last completed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in orchestration_runs %}
+        <tr>
+          <td data-label="Workflow">{{ run.workflow }}</td>
+          <td data-label="Status"><span class="badge status-{{ run.status | lower }}">{{ run.status }}</span></td>
+          <td data-label="Duration (min)" data-sort-value="{{ run.duration_minutes }}">{{ run.duration_minutes }}</td>
+          <td data-label="Last completed" data-sort-value="{{ run.finished_iso }}">{{ run.finished_iso or "In progress" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="content-section">
+  <header class="section-header">
+    <h2>Integration modules</h2>
+    <p class="subtitle">Control which external systems Tactical Desk connects to for automation.</p>
+  </header>
+  <div class="table-toolbar">
+    <label class="filter">
+      <span>Filter</span>
+      <input type="search" placeholder="Search modules" data-role="table-filter" aria-controls="modules-table" />
+    </label>
+  </div>
+  <div class="table-wrapper">
+    <table id="modules-table" class="data-table" data-role="sortable-table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="module">Module</th>
+          <th scope="col" data-sort-key="enabled">Enabled</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for module in module_toggles %}
+        <tr>
+          <td data-label="Module">{{ module.module }}</td>
+          <td data-label="Enabled" data-sort-value="{{ 1 if module.enabled else 0 }}">
+            <span class="badge {{ 'status-open' if module.enabled else 'status-waiting' }}">{{ 'Enabled' if module.enabled else 'Disabled' }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

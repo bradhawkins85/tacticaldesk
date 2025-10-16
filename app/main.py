@@ -115,8 +115,163 @@ async def dashboard(request: Request) -> HTMLResponse:
         page_subtitle="Unify omnichannel tickets, automation, and Tactical RMM telemetry.",
         tickets=tickets,
         webhook_metrics=webhook_metrics,
+        active_nav="dashboard",
     )
     return templates.TemplateResponse("dashboard.html", context)
+
+
+@app.get("/tickets", response_class=HTMLResponse, name="tickets")
+async def tickets_view(request: Request) -> HTMLResponse:
+    now_utc = datetime.now(timezone.utc)
+    queue_health = [
+        {
+            "queue": "Critical response",
+            "open": 7,
+            "waiting": 2,
+            "sla_breaches": 1,
+            "oldest_iso": (now_utc - timedelta(hours=3, minutes=41)).isoformat().replace("+00:00", "Z"),
+        },
+        {
+            "queue": "Service requests",
+            "open": 18,
+            "waiting": 6,
+            "sla_breaches": 0,
+            "oldest_iso": (now_utc - timedelta(hours=1, minutes=5)).isoformat().replace("+00:00", "Z"),
+        },
+        {
+            "queue": "Automation handoff",
+            "open": 5,
+            "waiting": 1,
+            "sla_breaches": 0,
+            "oldest_iso": (now_utc - timedelta(minutes=47)).isoformat().replace("+00:00", "Z"),
+        },
+    ]
+
+    escalation_pipeline = [
+        {
+            "ticket": "INC-4821",
+            "owner": "Tier 2",
+            "next_step": "Vendor engagement",
+            "eta_iso": (now_utc + timedelta(hours=2)).isoformat().replace("+00:00", "Z"),
+        },
+        {
+            "ticket": "SR-1954",
+            "owner": "Automation",
+            "next_step": "Awaiting customer MFA reset",
+            "eta_iso": (now_utc + timedelta(hours=5, minutes=30)).isoformat().replace("+00:00", "Z"),
+        },
+        {
+            "ticket": "CHG-2240",
+            "owner": "Change advisory",
+            "next_step": "CAB approval window",
+            "eta_iso": (now_utc + timedelta(days=1, hours=3)).isoformat().replace("+00:00", "Z"),
+        },
+    ]
+
+    context = _template_context(
+        request=request,
+        page_title="Unified Ticket Workspace",
+        page_subtitle="Track queues, escalations, and SLA risk across every service channel.",
+        queue_health=queue_health,
+        escalation_pipeline=escalation_pipeline,
+        active_nav="tickets",
+    )
+    return templates.TemplateResponse("tickets.html", context)
+
+
+@app.get("/analytics", response_class=HTMLResponse, name="analytics")
+async def analytics_view(request: Request) -> HTMLResponse:
+    now_utc = datetime.now(timezone.utc)
+    monthly_summary = [
+        {
+            "month": "January",
+            "tickets_closed": 482,
+            "first_response_minutes": 28,
+            "customer_sat": 96,
+        },
+        {
+            "month": "February",
+            "tickets_closed": 455,
+            "first_response_minutes": 31,
+            "customer_sat": 94,
+        },
+        {
+            "month": "March",
+            "tickets_closed": 501,
+            "first_response_minutes": 26,
+            "customer_sat": 97,
+        },
+    ]
+
+    automation_roi = [
+        {
+            "playbook": "Patch orchestration",
+            "saves_hours": 86,
+            "last_run_iso": (now_utc - timedelta(hours=6, minutes=12)).isoformat().replace("+00:00", "Z"),
+        },
+        {
+            "playbook": "User provisioning",
+            "saves_hours": 54,
+            "last_run_iso": (now_utc - timedelta(days=1, hours=2)).isoformat().replace("+00:00", "Z"),
+        },
+        {
+            "playbook": "Backup validation",
+            "saves_hours": 39,
+            "last_run_iso": (now_utc - timedelta(days=2, hours=5)).isoformat().replace("+00:00", "Z"),
+        },
+    ]
+
+    context = _template_context(
+        request=request,
+        page_title="Analytics Observatory",
+        page_subtitle="Surface operational insights, response trends, and automation ROI.",
+        monthly_summary=monthly_summary,
+        automation_roi=automation_roi,
+        active_nav="analytics",
+    )
+    return templates.TemplateResponse("analytics.html", context)
+
+
+@app.get("/automation", response_class=HTMLResponse, name="automation")
+async def automation_view(request: Request) -> HTMLResponse:
+    now_utc = datetime.now(timezone.utc)
+    orchestration_runs = [
+        {
+            "workflow": "Critical patch rollup",
+            "status": "Completed",
+            "duration_minutes": 18,
+            "finished_iso": (now_utc - timedelta(minutes=22)).isoformat().replace("+00:00", "Z"),
+        },
+        {
+            "workflow": "Endpoint isolation",
+            "status": "Running",
+            "duration_minutes": 7,
+            "finished_iso": "",
+        },
+        {
+            "workflow": "Axcelerate sync",
+            "status": "Queued",
+            "duration_minutes": 0,
+            "finished_iso": "",
+        },
+    ]
+
+    module_toggles = [
+        {"module": "SyncroRMM", "enabled": True},
+        {"module": "Axcelerate", "enabled": False},
+        {"module": "TacticalRMM", "enabled": True},
+        {"module": "Xero", "enabled": False},
+    ]
+
+    context = _template_context(
+        request=request,
+        page_title="Automation Control Tower",
+        page_subtitle="Launch workflows, monitor orchestration, and govern integration access.",
+        orchestration_runs=orchestration_runs,
+        module_toggles=module_toggles,
+        active_nav="automation",
+    )
+    return templates.TemplateResponse("automation.html", context)
 
 
 @app.get("/admin/maintenance", response_class=HTMLResponse, name="maintenance")
@@ -163,6 +318,7 @@ async def maintenance(request: Request) -> HTMLResponse:
         maintenance_scripts=scripts,
         installers_enabled=current_settings.enable_installers,
         webhook_failures=webhook_failures,
+        active_nav="admin",
     )
     return templates.TemplateResponse("maintenance.html", context)
 

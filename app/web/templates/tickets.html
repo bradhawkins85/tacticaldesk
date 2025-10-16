@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block header_actions %}
+<button class="primary-button" type="button" data-action="new-ticket">Log ticket</button>
+<button class="secondary-button" type="button" data-action="assign">Bulk assign</button>
+{% endblock %}
+{% block content %}
+<section class="content-section">
+  <header class="section-header">
+    <h2>Queue health</h2>
+    <p class="subtitle">Understand workload distribution and SLA exposure before escalations occur.</p>
+  </header>
+  <div class="table-toolbar">
+    <label class="filter">
+      <span>Filter</span>
+      <input type="search" placeholder="Search queues" data-role="table-filter" aria-controls="queue-table" />
+    </label>
+  </div>
+  <div class="table-wrapper">
+    <table id="queue-table" class="data-table" data-role="sortable-table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="queue">Queue</th>
+          <th scope="col" data-sort-key="open">Open</th>
+          <th scope="col" data-sort-key="waiting">Waiting</th>
+          <th scope="col" data-sort-key="sla_breaches">SLA breaches</th>
+          <th scope="col" data-sort-key="oldest">Oldest ticket</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for queue in queue_health %}
+        <tr>
+          <td data-label="Queue">{{ queue.queue }}</td>
+          <td data-label="Open" data-sort-value="{{ queue.open }}">{{ queue.open }}</td>
+          <td data-label="Waiting" data-sort-value="{{ queue.waiting }}">{{ queue.waiting }}</td>
+          <td data-label="SLA breaches" data-sort-value="{{ queue.sla_breaches }}">{{ queue.sla_breaches }}</td>
+          <td data-label="Oldest ticket" data-sort-value="{{ queue.oldest_iso }}">{{ queue.oldest_iso }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="content-section">
+  <header class="section-header">
+    <h2>Escalation pipeline</h2>
+    <p class="subtitle">Coordinate upcoming escalations and proactively communicate next actions.</p>
+  </header>
+  <div class="table-toolbar">
+    <label class="filter">
+      <span>Filter</span>
+      <input type="search" placeholder="Search escalations" data-role="table-filter" aria-controls="escalation-table" />
+    </label>
+  </div>
+  <div class="table-wrapper">
+    <table id="escalation-table" class="data-table" data-role="sortable-table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="ticket">Ticket</th>
+          <th scope="col" data-sort-key="owner">Owner</th>
+          <th scope="col" data-sort-key="next_step">Next step</th>
+          <th scope="col" data-sort-key="eta">Next update</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for escalation in escalation_pipeline %}
+        <tr>
+          <td data-label="Ticket">{{ escalation.ticket }}</td>
+          <td data-label="Owner">{{ escalation.owner }}</td>
+          <td data-label="Next step">{{ escalation.next_step }}</td>
+          <td data-label="Next update" data-sort-value="{{ escalation.eta_iso }}">{{ escalation.eta_iso }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
