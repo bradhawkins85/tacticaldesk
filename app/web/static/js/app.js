@@ -109,6 +109,28 @@
   const sortableTables = Array.from(document.querySelectorAll("[data-role='sortable-table']"));
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
+  function updateTableRowVisibility(row) {
+    if (!row) {
+      return;
+    }
+    const matchesFilter = row.dataset.filterVisible !== "false";
+    const matchesSearch = row.dataset.searchVisible !== "false";
+    row.style.display = matchesFilter && matchesSearch ? "" : "none";
+  }
+
+  function ensureVisibilityFlags(row) {
+    if (!row) {
+      return;
+    }
+    if (!Object.prototype.hasOwnProperty.call(row.dataset, "filterVisible")) {
+      row.dataset.filterVisible = "true";
+    }
+    if (!Object.prototype.hasOwnProperty.call(row.dataset, "searchVisible")) {
+      row.dataset.searchVisible = "true";
+    }
+    updateTableRowVisibility(row);
+  }
+
   sortableTables.forEach((table) => {
     const headers = table.tHead ? Array.from(table.tHead.rows[0].cells) : [];
     headers.forEach((header, headerIndex) => {
@@ -148,19 +170,148 @@
   });
 
   document.querySelectorAll("[data-role='table-filter']").forEach((filterInput) => {
-    const container = filterInput.closest(".panel, .card, .table-container") || document;
+    const container =
+      filterInput.closest(
+        ".ticket-board, .ticket-table-container, .panel, .card, .table-container"
+      ) || document;
     const table = container.querySelector("[data-role='sortable-table']");
-    if (!table) {
+    if (!table || !table.tBodies.length) {
       return;
     }
+    const getRows = () => Array.from(table.tBodies[0].rows);
+    getRows().forEach(ensureVisibilityFlags);
     filterInput.addEventListener("input", () => {
       const query = filterInput.value.toLowerCase();
-      Array.from(table.tBodies[0].rows).forEach((row) => {
+      getRows().forEach((row) => {
         const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(query) ? "" : "none";
+        row.dataset.searchVisible = text.includes(query) ? "true" : "false";
+        updateTableRowVisibility(row);
       });
     });
   });
+
+  const ticketTable = document.querySelector("[data-ticket-table='true']");
+  const ticketFilterButtons = Array.from(document.querySelectorAll("[data-action='ticket-filter']"));
+
+  if (ticketTable && ticketTable.tBodies.length) {
+    const ticketRows = Array.from(ticketTable.tBodies[0].rows);
+    ticketRows.forEach(ensureVisibilityFlags);
+
+    ticketFilterButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const filterKey = button.dataset.filter || "all";
+        ticketFilterButtons.forEach((btn) => btn.classList.toggle("is-active", btn === button));
+        ticketRows.forEach((row) => {
+          const keys = (row.dataset.filterKeys || "")
+            .split(/\s+/)
+            .map((value) => value.trim())
+            .filter(Boolean);
+          const matches = filterKey === "all" || keys.includes(filterKey);
+          row.dataset.filterVisible = matches ? "true" : "false";
+          updateTableRowVisibility(row);
+        });
+      });
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    const refreshButton = event.target.closest("[data-action='ticket-refresh']");
+    if (refreshButton) {
+      window.location.reload();
+      return;
+    }
+
+    const selectAllButton = event.target.closest("[data-action='ticket-select-all']");
+    if (selectAllButton && ticketTable) {
+      const checkboxes = Array.from(ticketTable.querySelectorAll("tbody input[type='checkbox']"));
+      if (checkboxes.length) {
+        const shouldSelect = checkboxes.some((checkbox) => !checkbox.checked);
+        checkboxes.forEach((checkbox) => {
+          checkbox.checked = shouldSelect;
+        });
+      }
+    }
+  });
+
+  const ticketUpdateDialog = document.getElementById("ticket-update-dialog");
+  const ticketUpdateForm = ticketUpdateDialog?.querySelector("[data-role='ticket-update-form']");
+  const ticketUpdateSummary = ticketUpdateDialog?.querySelector("[data-role='ticket-update-summary']");
+  const ticketUpdateStatus = ticketUpdateDialog?.querySelector("[data-role='ticket-update-status']");
+  const ticketUpdatePriority = ticketUpdateDialog?.querySelector("[data-role='ticket-update-priority']");
+  const ticketUpdateTeam = ticketUpdateDialog?.querySelector("[data-role='ticket-update-team']");
+  const ticketUpdateNotes = ticketUpdateDialog?.querySelector("[data-role='ticket-update-notes']");
+  const ticketUpdateFeedback = ticketUpdateDialog?.querySelector("[data-role='ticket-update-feedback']");
+  let activeTicketId = null;
+
+  function closeTicketDialog() {
+    if (!ticketUpdateDialog) {
+      return;
+    }
+    if (typeof ticketUpdateDialog.close === "function") {
+      ticketUpdateDialog.close();
+    } else {
+      ticketUpdateDialog.removeAttribute("open");
+    }
+  }
+
+  document.addEventListener("click", (event) => {
+    const updateButton = event.target.closest("[data-action='ticket-update']");
+    if (updateButton && ticketUpdateDialog) {
+      activeTicketId = updateButton.dataset.ticketId || null;
+      if (ticketUpdateSummary) {
+        const parts = [updateButton.dataset.ticketId, updateButton.dataset.ticketSubject]
+          .filter(Boolean)
+          .join(" · ");
+        ticketUpdateSummary.textContent = parts;
+      }
+      if (ticketUpdateStatus && updateButton.dataset.ticketStatus) {
+        ticketUpdateStatus.value = updateButton.dataset.ticketStatus;
+      }
+      if (ticketUpdatePriority && updateButton.dataset.ticketPriority) {
+        ticketUpdatePriority.value = updateButton.dataset.ticketPriority;
+      }
+      if (ticketUpdateTeam && updateButton.dataset.ticketTeam) {
+        ticketUpdateTeam.value = updateButton.dataset.ticketTeam;
+      }
+      if (ticketUpdateNotes) {
+        ticketUpdateNotes.value = "";
+      }
+      if (ticketUpdateFeedback) {
+        ticketUpdateFeedback.textContent = "";
+        ticketUpdateFeedback.classList.remove("error", "success");
+      }
+      ticketUpdateDialog.dataset.updateEndpoint = updateButton.dataset.updateEndpoint || "";
+      if (typeof ticketUpdateDialog.showModal === "function") {
+        ticketUpdateDialog.showModal();
+      } else {
+        ticketUpdateDialog.setAttribute("open", "open");
+      }
+    }
+
+    const closeButton = event.target.closest("[data-action='ticket-update-close']");
+    if (closeButton) {
+      closeTicketDialog();
+    }
+  });
+
+  if (ticketUpdateForm) {
+    ticketUpdateForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!ticketUpdateFeedback) {
+        closeTicketDialog();
+        return;
+      }
+      ticketUpdateFeedback.classList.remove("error");
+      ticketUpdateFeedback.classList.add("success");
+      const endpoint = ticketUpdateDialog?.dataset.updateEndpoint || "";
+      ticketUpdateFeedback.textContent = endpoint
+        ? `Ticket ${activeTicketId || ""} staged for update via ${endpoint}.`
+        : `Ticket ${activeTicketId || ""} staged for update.`;
+      setTimeout(() => {
+        closeTicketDialog();
+      }, 900);
+    });
+  }
 
   const maintenanceOutput = document.querySelector("[data-role='maintenance-output']");
   const maintenanceTokenField = document.getElementById("maintenance-token");
