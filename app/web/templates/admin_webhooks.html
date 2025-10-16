@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block header_actions %}
+  <button class="secondary-button" type="button" data-action="webhook-refresh">
+    Refresh
+  </button>
+{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <header class="panel__header">
+      <div>
+        <h2>Webhook retry monitor</h2>
+        <p>Track failed outbound notifications and confirm that automatic retries are scheduled.</p>
+      </div>
+    </header>
+    <div class="panel__body">
+      <div class="table-actions">
+        <input type="search" placeholder="Filter webhooks" data-role="table-filter" aria-label="Filter webhook events" />
+      </div>
+      <div class="table-wrapper">
+        <table data-role="sortable-table" class="data-table">
+          <thead>
+            <tr>
+              <th scope="col" data-sort-key="id">Webhook ID</th>
+              <th scope="col" data-sort-key="endpoint">Endpoint</th>
+              <th scope="col" data-sort-key="status">Status</th>
+              <th scope="col" data-sort-key="last_attempt">Last attempt</th>
+              <th scope="col" data-sort-key="next_retry">Next retry</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in webhook_failures %}
+            <tr>
+              <td data-sort-value="{{ event.id }}">{{ event.id }}</td>
+              <td>{{ event.endpoint }}</td>
+              <td>{{ event.status|title }}</td>
+              <td
+                data-sort-value="{{ event.last_attempt }}"
+                data-format="datetime"
+              >
+                {{ event.last_attempt }}
+              </td>
+              <td
+                data-sort-value="{{ event.next_retry }}"
+                data-format="datetime"
+              >
+                {{ event.next_retry }}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5">All outbound webhooks are healthy.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="panel__header">
+      <div>
+        <h2>Retry policy</h2>
+        <p>Retries follow an exponential backoff and are capped to protect upstream services.</p>
+      </div>
+    </header>
+    <div class="panel__body">
+      <ul class="runbook-list">
+        <li class="runbook-item">
+          <div class="runbook-summary">
+            <h3>Initial delay</h3>
+            <p>First retry occurs 5 minutes after a failure, expanding to 30 minutes for persistent errors.</p>
+          </div>
+        </li>
+        <li class="runbook-item">
+          <div class="runbook-summary">
+            <h3>Maximum attempts</h3>
+            <p>Events are retried up to 12 times before escalation to the automation team.</p>
+          </div>
+        </li>
+        <li class="runbook-item">
+          <div class="runbook-summary">
+            <h3>Manual intervention</h3>
+            <p>Use the Tactical Desk API to pause retries while investigating and resume once the upstream service is stable.</p>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </section>
+{% endblock %}

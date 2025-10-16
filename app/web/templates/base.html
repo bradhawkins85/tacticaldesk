@@ -48,14 +48,29 @@
             <span class="nav-icon" aria-hidden="true">🤖</span>
             <span>Automation</span>
           </a>
-          <a
-            class="nav-link{% if current_nav == 'admin' %} is-active{% endif %}"
-            href="{{ url_for('maintenance') }}"
-            {% if current_nav == 'admin' %}aria-current="page"{% endif %}
-          >
-            <span class="nav-icon" aria-hidden="true">🛡️</span>
-            <span>Admin</span>
-          </a>
+          {% set current_admin = active_admin | default('', true) %}
+          <div class="nav-group" role="group" aria-labelledby="admin-nav-heading">
+            <p id="admin-nav-heading" class="nav-heading{% if current_admin %} is-active{% endif %}">
+              <span class="nav-icon" aria-hidden="true">🛡️</span>
+              <span>Admin</span>
+            </p>
+            <a
+              class="nav-sublink{% if current_admin == 'maintenance' %} is-active{% endif %}"
+              href="{{ url_for('maintenance') }}"
+              {% if current_admin == 'maintenance' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">🛠️</span>
+              <span>Maintenance</span>
+            </a>
+            <a
+              class="nav-sublink{% if current_admin == 'webhooks' %} is-active{% endif %}"
+              href="{{ url_for('admin_webhooks') }}"
+              {% if current_admin == 'webhooks' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">🔁</span>
+              <span>Webhooks</span>
+            </a>
+          </div>
         </nav>
         <footer class="sidebar-footer">
           <p>&copy; {{ app_name }} {{ current_year }}</p>
