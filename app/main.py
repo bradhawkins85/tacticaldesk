@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routers import auth as auth_router
 from app.api.routers import maintenance as maintenance_router
 from app.core.config import get_settings
-from app.core.db import create_engine, get_session, init_db
+from app.core.db import dispose_engine, get_engine, get_session
 from app.models import User
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -24,10 +24,9 @@ STATIC_DIR = BASE_DIR / "web" / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    engine = create_engine()
-    await init_db(engine)
+    await get_engine()
     yield
-    await engine.dispose()
+    await dispose_engine()
 
 
 settings = get_settings()

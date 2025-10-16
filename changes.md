@@ -8,3 +8,4 @@
 - 2025-10-16T00:15:24Z Fix: Prevent update script from reinstalling requirements and restarting service when code is unchanged.
 - 2025-10-16T00:19:54Z Fix: Ensure update script checks for --app-dir flag without invoking grep option parsing errors.
 - 2025-10-16T00:25:00Z Fix: Added missing email-validator dependency to restore application startup.
+- 2025-10-16T00:40:00Z Fix: Stabilized database initialization by reusing a shared async engine and running migrations before serving requests.
