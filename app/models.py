@@ -84,6 +84,23 @@ class Organization(Base):
     )
 
 
+class Automation(Base):
+    __tablename__ = "automations"
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    name: str = Column(String(255), nullable=False)
+    description: str | None = Column(Text, nullable=True)
+    playbook: str = Column(String(255), nullable=False)
+    kind: str = Column(String(32), nullable=False, index=True)
+    cadence: str | None = Column(String(255), nullable=True)
+    trigger: str | None = Column(String(255), nullable=True)
+    status: str | None = Column(String(64), nullable=True)
+    next_run_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
+    last_run_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
+    last_trigger_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
+    action_label: str | None = Column(String(255), nullable=True)
+    action_endpoint: str | None = Column(String(1024), nullable=True)
+    action_output_selector: str | None = Column(String(255), nullable=True)
 class Contact(Base):
     __tablename__ = "contacts"
 
