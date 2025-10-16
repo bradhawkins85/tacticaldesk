@@ -42,10 +42,7 @@
         <thead>
           <tr>
             <th scope="col" data-sort-key="name">Organisation</th>
-            <th scope="col" data-sort-key="contact">Primary contact</th>
             <th scope="col" data-sort-key="status">Status</th>
-            <th scope="col" data-sort-key="created">Created</th>
-            <th scope="col" data-sort-key="updated">Updated</th>
             <th scope="col" class="table-actions">Actions</th>
           </tr>
         </thead>
@@ -62,17 +59,6 @@
           >
             <td data-sort-value="{{ org.name|lower }}">
               <div class="organization-name">{{ org.name }}</div>
-              <div class="organization-slug">{{ org.slug }}</div>
-              {% if org.description %}
-              <div class="organization-description">{{ org.description }}</div>
-              {% endif %}
-            </td>
-            <td data-sort-value="{{ org.contact_email or '' }}">
-              {% if org.contact_email %}
-              <a class="organization-contact" href="mailto:{{ org.contact_email }}">{{ org.contact_email }}</a>
-              {% else %}
-              <span class="organization-contact organization-contact--empty">Not provided</span>
-              {% endif %}
             </td>
             <td data-sort-value="{{ 'archived' if org.is_archived else 'active' }}">
               <span
@@ -81,12 +67,6 @@
               >
                 {{ 'Archived' if org.is_archived else 'Active' }}
               </span>
-            </td>
-            <td data-sort-value="{{ org.created_at_iso }}" data-format="datetime">
-              {{ org.created_at_iso }}
-            </td>
-            <td data-sort-value="{{ org.updated_at_iso }}" data-format="datetime">
-              {{ org.updated_at_iso }}
             </td>
             <td class="table-actions">
               <div class="organization-actions">
@@ -117,7 +97,7 @@
           {% endfor %}
           {% else %}
           <tr class="organization-empty">
-            <td colspan="6">No organisations found yet. Create the first tenant to get started.</td>
+            <td colspan="3">No organisations found yet. Create the first tenant to get started.</td>
           </tr>
           {% endif %}
         </tbody>
