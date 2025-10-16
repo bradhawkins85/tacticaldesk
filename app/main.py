@@ -8,6 +8,7 @@ from urllib.parse import parse_qs
 import re
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
@@ -34,6 +35,7 @@ from app.core.automations import (
 )
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
+from app.core.automation_dispatcher import automation_dispatcher
 from app.core.tickets import ticket_store
 from app.models import (
     Automation,
@@ -275,6 +277,174 @@ def describe_age(delta: timedelta) -> str:
     return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
 
 
+async def _fetch_ticket_records(now_utc: datetime) -> list[dict[str, object]]:
+    seed_tickets = build_ticket_records(now_utc)
+    return await ticket_store.apply_overrides(seed_tickets)
+
+
+def _enrich_ticket_record(
+    ticket: dict[str, object], now_utc: datetime
+) -> dict[str, object]:
+    base = dict(ticket)
+    last_reply_dt = base.get("last_reply_dt")
+    if isinstance(last_reply_dt, datetime):
+        if last_reply_dt.tzinfo is None:
+            last_reply_dt = last_reply_dt.replace(tzinfo=timezone.utc)
+    else:
+        last_reply_dt = now_utc
+    base["last_reply_dt"] = last_reply_dt
+    last_reply_iso = (
+        last_reply_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+    age_delta = now_utc - last_reply_dt
+
+    status_value = str(base.get("status", ""))
+    priority_value = str(base.get("priority", ""))
+    assignment_value = str(base.get("assignment", ""))
+    queue_value = str(base.get("queue", ""))
+    team_value = str(base.get("team", ""))
+    category_value = str(base.get("category", ""))
+
+    filter_tokens = {
+        "all",
+        f"status-{slugify(status_value)}",
+        f"priority-{slugify(priority_value)}",
+        f"assignment-{slugify(assignment_value)}",
+        f"queue-{slugify(queue_value)}",
+        f"team-{slugify(team_value)}",
+        f"category-{slugify(category_value)}",
+    }
+    if base.get("is_starred"):
+        filter_tokens.add("flagged")
+    if base.get("assets_visible"):
+        filter_tokens.add("assets-visible")
+
+    labels = base.get("labels") or []
+    if not isinstance(labels, list):
+        labels = []
+    base["labels"] = labels
+    if "channel" not in base:
+        base["channel"] = "Portal"
+
+    enriched = {
+        **base,
+        "last_reply_iso": last_reply_iso,
+        "age_display": describe_age(age_delta),
+        "filter_tokens": sorted(filter_tokens),
+        "status_token": slugify(status_value),
+        "priority_token": slugify(priority_value),
+        "assignment_token": slugify(assignment_value),
+    }
+    return enriched
+
+
+async def _build_ticket_listing_context(
+    *,
+    request: Request,
+    session: AsyncSession,
+    now_utc: datetime,
+    tickets_raw: list[dict[str, object]],
+    new_ticket_form: dict[str, str] | None = None,
+    new_ticket_errors: list[str] | None = None,
+    open_modal: bool = False,
+) -> dict[str, object]:
+    status_counter: Counter[str] = Counter()
+    assignment_counter: Counter[str] = Counter()
+    queue_counter: Counter[str] = Counter()
+
+    enriched_tickets: list[dict[str, object]] = []
+    for ticket in tickets_raw:
+        enriched = _enrich_ticket_record(ticket, now_utc)
+        enriched_tickets.append(enriched)
+        status_counter.update([str(enriched.get("status", ""))])
+        assignment_counter.update([str(enriched.get("assignment", ""))])
+        queue_counter.update([str(enriched.get("queue", ""))])
+
+    ticket_filter_groups = [
+        {
+            "title": "Tickets",
+            "filters": [
+                {"key": "all", "label": "All", "icon": "📋", "count": len(enriched_tickets)},
+                {"key": "status-open", "label": "Open", "icon": "🟢", "count": status_counter.get("Open", 0)},
+                {"key": "status-pending", "label": "Pending", "icon": "🕒", "count": status_counter.get("Pending", 0)},
+                {"key": "status-answered", "label": "Answered", "icon": "✉️", "count": status_counter.get("Answered", 0)},
+                {"key": "status-resolved", "label": "Resolved", "icon": "✅", "count": status_counter.get("Resolved", 0)},
+                {"key": "status-closed", "label": "Closed", "icon": "📁", "count": status_counter.get("Closed", 0)},
+                {"key": "status-spam", "label": "Spam", "icon": "🚫", "count": status_counter.get("Spam", 0)},
+            ],
+        },
+        {
+            "title": "New",
+            "filters": [
+                {"key": "assignment-unassigned", "label": "Unassigned", "icon": "🆕", "count": assignment_counter.get("Unassigned", 0)},
+                {"key": "assignment-my-tickets", "label": "My tickets", "icon": "👤", "count": assignment_counter.get("My tickets", 0)},
+                {"key": "assignment-shared", "label": "Shared", "icon": "👥", "count": assignment_counter.get("Shared", 0)},
+                {"key": "assignment-trashed", "label": "Trashed", "icon": "🗑️", "count": assignment_counter.get("Trashed", 0)},
+            ],
+        },
+        {
+            "title": "Queues",
+            "filters": [
+                {"key": f"queue-{slugify(name)}", "label": name, "icon": "🗂️", "count": queue_counter.get(name, 0)}
+                for name in sorted(name for name in queue_counter if name)
+            ],
+        },
+    ]
+
+    ticket_sort_options = [
+        {"value": "last-replied", "label": "Last replied"},
+        {"value": "newest", "label": "Newest"},
+        {"value": "oldest", "label": "Oldest"},
+        {"value": "priority", "label": "Priority"},
+    ]
+
+    asset_view_options = [
+        {"value": "workspace", "label": "Workspace assets"},
+        {"value": "related", "label": "Related assets"},
+        {"value": "all", "label": "All assets"},
+    ]
+
+    status_options = sorted({str(ticket.get("status")) for ticket in tickets_raw if ticket.get("status")})
+    priority_options = sorted({str(ticket.get("priority")) for ticket in tickets_raw if ticket.get("priority")})
+    team_options = sorted({str(ticket.get("team")) for ticket in tickets_raw if ticket.get("team")})
+    assignment_options = sorted({str(ticket.get("assignment")) for ticket in tickets_raw if ticket.get("assignment")})
+    queue_options = sorted({str(ticket.get("queue")) for ticket in tickets_raw if ticket.get("queue")})
+
+    default_form = {field: "" for field in TICKET_FORM_FIELDS}
+    if status_options:
+        default_form["status"] = status_options[0]
+    if priority_options:
+        default_form["priority"] = priority_options[0]
+    if team_options:
+        default_form["team"] = team_options[0]
+    if assignment_options:
+        default_form["assignment"] = assignment_options[0]
+    if queue_options:
+        default_form["queue"] = queue_options[0]
+    default_form.update(new_ticket_form or {})
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Unified Ticket Workspace",
+        page_subtitle="Track queues, escalations, and SLA risk across every service channel.",
+        tickets=enriched_tickets,
+        ticket_filter_groups=ticket_filter_groups,
+        ticket_sort_options=ticket_sort_options,
+        asset_view_options=asset_view_options,
+        ticket_status_options=status_options,
+        ticket_priority_options=priority_options,
+        ticket_team_options=team_options,
+        ticket_assignment_options=assignment_options,
+        ticket_queue_options=queue_options,
+        new_ticket_form=default_form,
+        new_ticket_errors=new_ticket_errors or [],
+        open_ticket_modal=open_modal,
+        active_nav="tickets",
+    )
+    return context
+
+
 def _format_field_label(field_name: str) -> str:
     return field_name.replace("_", " ").capitalize()
 
@@ -366,6 +536,7 @@ async def _prepare_ticket_detail_context(
     reply_form_data: dict[str, str] | None = None,
     reply_form_errors: list[str] | None = None,
     reply_saved: bool = False,
+    created: bool = False,
 ) -> dict[str, object]:
     seed_tickets = build_ticket_records(now_utc)
     seed_tickets = await ticket_store.apply_overrides(seed_tickets)
@@ -475,6 +646,7 @@ async def _prepare_ticket_detail_context(
         "reply_form_data": default_reply_form,
         "reply_form_errors": reply_form_errors or [],
         "reply_form_saved": reply_saved,
+        "ticket_created": created,
     }
 
 
@@ -1117,109 +1289,129 @@ async def tickets_view(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
-    seed_tickets = build_ticket_records(now_utc)
-    seed_tickets = await ticket_store.apply_overrides(seed_tickets)
-
-    status_counter: Counter[str] = Counter()
-    assignment_counter: Counter[str] = Counter()
-    queue_counter: Counter[str] = Counter()
-
-    tickets: list[dict[str, object]] = []
-    for ticket in seed_tickets:
-        last_reply_iso = ticket["last_reply_dt"].isoformat().replace("+00:00", "Z")
-        age_delta = now_utc - ticket["last_reply_dt"]
-        filter_tokens = {
-            "all",
-            f"status-{slugify(ticket['status'])}",
-            f"priority-{slugify(ticket['priority'])}",
-            f"assignment-{slugify(ticket['assignment'])}",
-            f"queue-{slugify(ticket['queue'])}",
-            f"team-{slugify(ticket['team'])}",
-            f"category-{slugify(ticket['category'])}",
-        }
-        if ticket.get("is_starred"):
-            filter_tokens.add("flagged")
-        if ticket.get("assets_visible"):
-            filter_tokens.add("assets-visible")
-
-        enriched_ticket = {
-            **ticket,
-            "last_reply_iso": last_reply_iso,
-            "age_display": describe_age(age_delta),
-            "filter_tokens": sorted(filter_tokens),
-            "status_token": slugify(ticket["status"]),
-            "priority_token": slugify(ticket["priority"]),
-            "assignment_token": slugify(ticket["assignment"]),
-        }
-        tickets.append(enriched_ticket)
-
-        status_counter.update([ticket["status"]])
-        assignment_counter.update([ticket["assignment"]])
-        queue_counter.update([ticket["queue"]])
-
-    ticket_filter_groups = [
-        {
-            "title": "Tickets",
-            "filters": [
-                {"key": "all", "label": "All", "icon": "📋", "count": len(tickets)},
-                {"key": "status-open", "label": "Open", "icon": "🟢", "count": status_counter.get("Open", 0)},
-                {"key": "status-pending", "label": "Pending", "icon": "🕒", "count": status_counter.get("Pending", 0)},
-                {"key": "status-answered", "label": "Answered", "icon": "✉️", "count": status_counter.get("Answered", 0)},
-                {"key": "status-resolved", "label": "Resolved", "icon": "✅", "count": status_counter.get("Resolved", 0)},
-                {"key": "status-closed", "label": "Closed", "icon": "📁", "count": status_counter.get("Closed", 0)},
-                {"key": "status-spam", "label": "Spam", "icon": "🚫", "count": status_counter.get("Spam", 0)},
-            ],
-        },
-        {
-            "title": "New",
-            "filters": [
-                {"key": "assignment-unassigned", "label": "Unassigned", "icon": "🆕", "count": assignment_counter.get("Unassigned", 0)},
-                {"key": "assignment-my-tickets", "label": "My tickets", "icon": "👤", "count": assignment_counter.get("My tickets", 0)},
-                {"key": "assignment-shared", "label": "Shared", "icon": "👥", "count": assignment_counter.get("Shared", 0)},
-                {"key": "assignment-trashed", "label": "Trashed", "icon": "🗑️", "count": assignment_counter.get("Trashed", 0)},
-            ],
-        },
-        {
-            "title": "Queues",
-            "filters": [
-                {"key": f"queue-{slugify(name)}", "label": name, "icon": "🗂️", "count": queue_counter.get(name, 0)}
-                for name in sorted(queue_counter)
-            ],
-        },
-    ]
-
-    ticket_sort_options = [
-        {"value": "last-replied", "label": "Last replied"},
-        {"value": "newest", "label": "Newest"},
-        {"value": "oldest", "label": "Oldest"},
-        {"value": "priority", "label": "Priority"},
-    ]
-
-    asset_view_options = [
-        {"value": "workspace", "label": "Workspace assets"},
-        {"value": "related", "label": "Related assets"},
-        {"value": "all", "label": "All assets"},
-    ]
-
-    status_options = sorted({ticket["status"] for ticket in seed_tickets})
-    priority_options = sorted({ticket["priority"] for ticket in seed_tickets})
-    team_options = sorted({ticket["team"] for ticket in seed_tickets})
-
-    context = await _template_context(
+    seed_tickets = await _fetch_ticket_records(now_utc)
+    open_modal = request.query_params.get("new") == "1"
+    context = await _build_ticket_listing_context(
         request=request,
         session=session,
-        page_title="Unified Ticket Workspace",
-        page_subtitle="Track queues, escalations, and SLA risk across every service channel.",
-        tickets=tickets,
-        ticket_filter_groups=ticket_filter_groups,
-        ticket_sort_options=ticket_sort_options,
-        asset_view_options=asset_view_options,
-        ticket_status_options=status_options,
-        ticket_priority_options=priority_options,
-        ticket_team_options=team_options,
-        active_nav="tickets",
+        now_utc=now_utc,
+        tickets_raw=seed_tickets,
+        open_modal=open_modal,
     )
     return templates.TemplateResponse("tickets.html", context)
+
+
+@app.post("/tickets", response_class=HTMLResponse, name="ticket_create")
+async def ticket_create_view(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> Response:
+    now_utc = datetime.now(timezone.utc)
+    accepts_json = "application/json" in request.headers.get("accept", "").lower()
+    content_type = request.headers.get("content-type", "").lower()
+    expects_json = accepts_json or content_type.startswith("application/json")
+
+    if content_type.startswith("application/json"):
+        try:
+            payload_data = await request.json()
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid JSON payload.",
+            ) from exc
+        if not isinstance(payload_data, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid JSON payload.",
+            )
+        raw_form = {field: str(payload_data.get(field, "")) for field in TICKET_FORM_FIELDS}
+    else:
+        raw_form = await _extract_form_data(request, TICKET_FORM_FIELDS)
+
+    sanitized_form = {field: raw_form.get(field, "").strip() for field in TICKET_FORM_FIELDS}
+
+    try:
+        payload = TicketUpdate(**sanitized_form)
+    except ValidationError as exc:
+        error_messages = _format_validation_errors(exc)
+        if expects_json:
+            detail_message = " ".join(error_messages) if error_messages else "Invalid ticket submission."
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content={"detail": detail_message, "errors": error_messages},
+            )
+
+        seed_tickets = await _fetch_ticket_records(now_utc)
+        context = await _build_ticket_listing_context(
+            request=request,
+            session=session,
+            now_utc=now_utc,
+            tickets_raw=seed_tickets,
+            new_ticket_form=sanitized_form,
+            new_ticket_errors=error_messages,
+            open_modal=True,
+        )
+        return templates.TemplateResponse(
+            "tickets.html",
+            context,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+    seed_tickets = await _fetch_ticket_records(now_utc)
+    existing_ids = [ticket["id"] for ticket in seed_tickets]
+    created_ticket = await ticket_store.create_ticket(
+        **payload.dict(),
+        existing_ids=existing_ids,
+    )
+    enriched_ticket = _enrich_ticket_record(created_ticket, now_utc)
+
+    await automation_dispatcher.dispatch(
+        event_type="Ticket Created",
+        ticket_id=enriched_ticket["id"],
+        payload={
+            "status": enriched_ticket.get("status"),
+            "priority": enriched_ticket.get("priority"),
+            "team": enriched_ticket.get("team"),
+            "assignment": enriched_ticket.get("assignment"),
+        },
+    )
+
+    detail_url = request.url_for("ticket_detail", ticket_id=enriched_ticket["id"])
+    redirect_url = f"{detail_url}?created=1"
+
+    if expects_json:
+        response_payload = {
+            "detail": "Ticket created successfully.",
+            "ticket_id": enriched_ticket["id"],
+            "ticket": {
+                "id": enriched_ticket["id"],
+                "subject": enriched_ticket.get("subject", ""),
+                "customer": enriched_ticket.get("customer", ""),
+                "customer_email": enriched_ticket.get("customer_email", ""),
+                "status": enriched_ticket.get("status", ""),
+                "priority": enriched_ticket.get("priority", ""),
+                "team": enriched_ticket.get("team", ""),
+                "assignment": enriched_ticket.get("assignment", ""),
+                "queue": enriched_ticket.get("queue", ""),
+                "category": enriched_ticket.get("category", ""),
+                "summary": enriched_ticket.get("summary", ""),
+                "channel": enriched_ticket.get("channel", ""),
+                "labels": enriched_ticket.get("labels", []),
+                "filter_tokens": enriched_ticket.get("filter_tokens", []),
+                "status_token": enriched_ticket.get("status_token", ""),
+                "priority_token": enriched_ticket.get("priority_token", ""),
+                "assignment_token": enriched_ticket.get("assignment_token", ""),
+                "last_reply_iso": enriched_ticket.get("last_reply_iso", ""),
+                "age_display": enriched_ticket.get("age_display", ""),
+                "detail_url": redirect_url,
+            },
+            "redirect_url": redirect_url,
+        }
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content=response_payload,
+        )
+
+    return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/tickets/{ticket_id}", response_class=HTMLResponse, name="ticket_detail")
@@ -1235,6 +1427,7 @@ async def ticket_detail_view(
         ticket_id=ticket_id,
         saved=request.query_params.get("saved") == "1",
         reply_saved=request.query_params.get("reply") == "1",
+        created=request.query_params.get("created") == "1",
     )
     context = await _template_context(session=session, **context)
     return templates.TemplateResponse("ticket_detail.html", context)

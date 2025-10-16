@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.automation_dispatcher import automation_dispatcher
 from app.core.tickets import ticket_store
 from app.main import app
 
@@ -12,6 +13,48 @@ def reset_ticket_overrides():
     asyncio.run(ticket_store.reset())
     yield
     asyncio.run(ticket_store.reset())
+
+
+@pytest.fixture(autouse=True)
+def reset_automation_events():
+    asyncio.run(automation_dispatcher.reset())
+    yield
+    asyncio.run(automation_dispatcher.reset())
+
+
+def test_ticket_create_dispatches_automation_event():
+    with TestClient(app) as client:
+        payload = {
+            "subject": "Inventory sync outage",
+            "customer": "Quest Logistics",
+            "customer_email": "ops@quest-logistics.example",
+            "status": "Open",
+            "priority": "High",
+            "team": "Tier 1",
+            "assignment": "Unassigned",
+            "queue": "Critical response",
+            "category": "Support",
+            "summary": "Warehouse scanners are unable to sync inventory updates to ERP.",
+        }
+
+        response = client.post("/tickets", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["ticket_id"].startswith("TD-")
+        assert data["detail"] == "Ticket created successfully."
+        assert data["redirect_url"]
+
+        detail_response = client.get(data["redirect_url"])
+        assert detail_response.status_code == 200
+        html = detail_response.text
+        assert payload["subject"] in html
+        assert "Ticket created successfully." in html
+
+        events = asyncio.run(automation_dispatcher.list_events())
+        assert any(
+            event.event_type == "Ticket Created" and event.ticket_id == data["ticket_id"]
+            for event in events
+        )
 
 
 def test_ticket_update_persists_overrides():
