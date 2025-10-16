@@ -24,12 +24,13 @@
 <div class="ticket-workspace" role="region" aria-label="Ticket workspace">
   <aside class="ticket-sidebar" aria-label="Ticket filters">
     {% for group in ticket_filter_groups %}
+    {% set is_first_group = loop.first %}
     <div class="ticket-sidebar__group">
       <h3 class="ticket-sidebar__title">{{ group.title }}</h3>
       <div class="ticket-sidebar__items">
         {% for filter in group.filters %}
         <button
-          class="ticket-filter-button{% if loop.first and loop.parent.first %} is-active{% endif %}"
+          class="ticket-filter-button{% if is_first_group and loop.first %} is-active{% endif %}"
           type="button"
           data-action="ticket-filter"
           data-filter="{{ filter.key }}"
