@@ -18,6 +18,7 @@
       <div class="table-actions">
         <input type="search" placeholder="Filter webhooks" data-role="table-filter" aria-label="Filter webhook events" />
       </div>
+      <div class="form-message" data-role="webhook-message" aria-live="polite"></div>
       <div class="table-wrapper">
         <table data-role="sortable-table" class="data-table">
           <thead>
@@ -27,30 +28,61 @@
               <th scope="col" data-sort-key="status">Status</th>
               <th scope="col" data-sort-key="last_attempt">Last attempt</th>
               <th scope="col" data-sort-key="next_retry">Next retry</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {% for event in webhook_failures %}
-            <tr>
+            <tr data-webhook-row="{{ event.id }}">
               <td data-sort-value="{{ event.id }}">{{ event.id }}</td>
               <td>{{ event.endpoint }}</td>
-              <td>{{ event.status|title }}</td>
-              <td
+              <td data-cell="status" data-sort-value="{{ event.status }}">{{ event.status_label }}</td>
+              <td data-cell="last_attempt"
                 data-sort-value="{{ event.last_attempt }}"
-                data-format="datetime"
+                {% if event.last_attempt %}data-format="datetime"{% endif %}
               >
-                {{ event.last_attempt }}
+                {{ event.last_attempt or "—" }}
               </td>
-              <td
+              <td data-cell="next_retry"
                 data-sort-value="{{ event.next_retry }}"
-                data-format="datetime"
+                {% if event.next_retry %}data-format="datetime"{% endif %}
               >
-                {{ event.next_retry }}
+                {{ event.next_retry or "Paused" }}
+              </td>
+              <td class="table-actions__cell">
+                <div class="table-actions__group">
+                  <button
+                    class="secondary-button"
+                    type="button"
+                    data-action="webhook-pause"
+                    data-webhook-id="{{ event.id }}"
+                    {% if event.status == 'paused' %}hidden{% endif %}
+                  >
+                    Pause
+                  </button>
+                  <button
+                    class="secondary-button"
+                    type="button"
+                    data-action="webhook-resume"
+                    data-webhook-id="{{ event.id }}"
+                    {% if event.status != 'paused' %}hidden{% endif %}
+                  >
+                    Resume
+                  </button>
+                  <button
+                    class="secondary-button danger"
+                    type="button"
+                    data-action="webhook-delete"
+                    data-webhook-id="{{ event.id }}"
+                  >
+                    Delete
+                  </button>
+                </div>
               </td>
             </tr>
             {% else %}
-            <tr>
-              <td colspan="5">All outbound webhooks are healthy.</td>
+            <tr data-role="webhook-empty">
+              <td colspan="6">All outbound webhooks are healthy.</td>
             </tr>
             {% endfor %}
           </tbody>

@@ -68,6 +68,15 @@ class Organization(Base):
     description: str | None = Column(Text, nullable=True)
     contact_email: str | None = Column(String(255), nullable=True)
     is_archived: bool = Column(Boolean, default=False, nullable=False)
+class WebhookDelivery(Base):
+    __tablename__ = "webhook_deliveries"
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    event_id: str = Column(String(128), nullable=False, unique=True, index=True)
+    endpoint: str = Column(String(2048), nullable=False)
+    status: str = Column(String(32), nullable=False, default="retrying")
+    last_attempt_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
+    next_retry_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
     created_at: datetime = Column(
         DateTime(timezone=True),
         nullable=False,

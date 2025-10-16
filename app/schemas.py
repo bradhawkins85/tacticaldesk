@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, EmailStr, Field
@@ -105,6 +106,20 @@ class OrganizationRead(BaseModel):
     description: Optional[str]
     contact_email: Optional[str]
     is_archived: bool
+class WebhookStatus(str, Enum):
+    RETRYING = "retrying"
+    PAUSED = "paused"
+    FAILED = "failed"
+    DELIVERED = "delivered"
+
+
+class WebhookDeliveryRead(BaseModel):
+    id: int
+    event_id: str
+    endpoint: str
+    status: WebhookStatus
+    last_attempt_at: Optional[datetime]
+    next_retry_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
