@@ -46,6 +46,7 @@ from app.schemas import (
     TicketUpdate,
     WebhookStatus,
 )
+from app.services import dispatch_ticket_event
 from pydantic import ValidationError
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -194,6 +195,20 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
         "delete_endpoint": delete_endpoint,
         "supports_manual_run": automation.kind == "scheduled",
     }
+
+
+def _derive_ticket_update_event_type(
+    ticket_before: dict[str, object], ticket_after: dict[str, object]
+) -> str:
+    previous_status = str(ticket_before.get("status", "")) if ticket_before else ""
+    new_status = str(ticket_after.get("status", "")) if ticket_after else ""
+    previous_normalized = previous_status.strip().casefold()
+    new_normalized = new_status.strip().casefold()
+    if previous_normalized and new_normalized and previous_normalized != new_normalized:
+        if new_normalized in {"resolved", "closed"}:
+            return "Ticket Resolved"
+        return "Ticket Status Changed"
+    return "Ticket Updated by Technician"
 
 
 async def _load_automation(
@@ -1138,7 +1153,22 @@ async def ticket_update_view(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
-    await ticket_store.update_ticket(ticket_id, **payload.dict())
+    ticket_before = dict(ticket_lookup[ticket_id])
+    ticket_update_payload = payload.dict()
+    override = await ticket_store.update_ticket(ticket_id, **ticket_update_payload)
+
+    ticket_after = dict(ticket_before)
+    ticket_after.update(override)
+    ticket_after["id"] = ticket_id
+
+    event_type = _derive_ticket_update_event_type(ticket_before, ticket_after)
+    await dispatch_ticket_event(
+        session,
+        event_type=event_type,
+        ticket_before=ticket_before,
+        ticket_after=ticket_after,
+        ticket_payload=ticket_update_payload,
+    )
 
     redirect_url = request.url_for("ticket_detail", ticket_id=ticket_id)
     redirect_url = f"{redirect_url}?saved=1"
