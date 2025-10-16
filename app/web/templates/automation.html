@@ -31,7 +31,13 @@
           <td data-label="Workflow">{{ run.workflow }}</td>
           <td data-label="Status"><span class="badge status-{{ run.status | lower }}">{{ run.status }}</span></td>
           <td data-label="Duration (min)" data-sort-value="{{ run.duration_minutes }}">{{ run.duration_minutes }}</td>
-          <td data-label="Last completed" data-sort-value="{{ run.finished_iso }}">{{ run.finished_iso or "In progress" }}</td>
+          <td
+            data-label="Last completed"
+            data-sort-value="{{ run.finished_iso }}"
+            {% if run.finished_iso %}data-format="datetime"{% endif %}
+          >
+            {{ run.finished_iso or "In progress" }}
+          </td>
         </tr>
         {% endfor %}
       </tbody>

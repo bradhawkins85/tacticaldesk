@@ -63,7 +63,13 @@
         <tr>
           <td data-label="Playbook">{{ playbook.playbook }}</td>
           <td data-label="Hours saved (30d)" data-sort-value="{{ playbook.saves_hours }}">{{ playbook.saves_hours }}</td>
-          <td data-label="Last run" data-sort-value="{{ playbook.last_run_iso }}">{{ playbook.last_run_iso }}</td>
+          <td
+            data-label="Last run"
+            data-sort-value="{{ playbook.last_run_iso }}"
+            data-format="datetime"
+          >
+            {{ playbook.last_run_iso }}
+          </td>
         </tr>
         {% endfor %}
       </tbody>

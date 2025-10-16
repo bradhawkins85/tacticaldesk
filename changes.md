@@ -15,4 +15,6 @@
 - 2025-10-16T02:10:00Z Feature: Redesigned Unified Ticket Workspace with interactive filters, sortable ticket table, and update workflow drawer.
 - 2025-10-16T02:26:00Z Fix: Wired dashboard webhook admin button to maintenance view and anchored monitoring panel for direct navigation.
 - 2025-10-16T02:30:00Z Fix: Resolved ticket filter rendering crash by removing unsafe loop.parent usage in templates.
+- 2025-10-16T02:55:00Z Fix: Scoped client-side datetime formatting so ticket age and other relative values remain aligned with their headers.
+- 2025-10-16T03:15:00Z Fix: Corrected ticket table row alignment so selection controls and ID values line up consistently.
 - 2025-10-16T02:55:00Z Feature: Added secure lifecycle automation controls so operators can trigger app updates directly from the Automation Control Tower.
