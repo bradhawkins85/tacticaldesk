@@ -320,9 +320,6 @@ class AutomationUpdate(BaseModel):
             " multiple trigger conditions using match 'any' (OR) or 'all' (AND)."
         ),
     )
-    action_label: Optional[str] = Field(default=None, max_length=255)
-    action_endpoint: Optional[str] = Field(default=None, max_length=1024)
-    action_output_selector: Optional[str] = Field(default=None, max_length=255)
 
 
 class AutomationRead(BaseModel):

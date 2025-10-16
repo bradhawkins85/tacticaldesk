@@ -85,45 +85,6 @@
             </option>
           </select>
         </div>
-        <div class="form-field">
-          <label for="automation-action-label">Action label</label>
-          <input
-            id="automation-action-label"
-            name="action_label"
-            type="text"
-            maxlength="255"
-            value="{{ automation.action_label or '' }}"
-            placeholder="Install security patches"
-          />
-          <small class="form-help">Describe the maintenance or deployment action executed after this run.</small>
-        </div>
-        <div class="form-field">
-          <label for="automation-action-endpoint">Action endpoint</label>
-          <input
-            id="automation-action-endpoint"
-            name="action_endpoint"
-            type="url"
-            maxlength="1024"
-            value="{{ automation.action_endpoint or '' }}"
-            placeholder="https://hooks.example.com/maintenance"
-            inputmode="url"
-            autocomplete="off"
-          />
-          <small class="form-help">HTTPS webhook endpoint invoked once the cron job fires.</small>
-        </div>
-        <div class="form-field automation-editor__grid-item--full">
-          <label for="automation-action-output-selector">Action output selector</label>
-          <input
-            id="automation-action-output-selector"
-            name="action_output_selector"
-            type="text"
-            maxlength="255"
-            value="{{ automation.action_output_selector or '' }}"
-            placeholder="#automation-update-output"
-            autocomplete="off"
-          />
-          <small class="form-help">Optional CSS selector used to capture webhook response data for dashboard reporting.</small>
-        </div>
         <div class="form-field automation-editor__grid-item--full">
           <label>Conditions</label>
           <div

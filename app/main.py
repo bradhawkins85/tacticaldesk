@@ -161,16 +161,13 @@ def _automation_datetime_to_iso(value: datetime | None) -> str | None:
 
 def _automation_to_view_model(automation: Automation) -> dict[str, object]:
     action = None
-    output_selector: str | None = automation.action_output_selector or None
     if automation.action_label and automation.action_endpoint:
         action = {
             "label": automation.action_label,
             "endpoint": automation.action_endpoint,
-            "output_selector": output_selector or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
+            "output_selector": automation.action_output_selector
+            or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
         }
-        output_selector = action["output_selector"]
-    else:
-        output_selector = output_selector or ""
 
     manual_run_endpoint: str | None = None
     if automation.kind == "scheduled":
@@ -227,7 +224,8 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
         "action": action,
         "action_label": automation.action_label,
         "action_endpoint": automation.action_endpoint,
-        "action_output_selector": output_selector,
+        "action_output_selector": automation.action_output_selector
+        or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
         "manual_run_endpoint": manual_run_endpoint,
         "delete_endpoint": delete_endpoint,
         "supports_manual_run": automation.kind == "scheduled",
