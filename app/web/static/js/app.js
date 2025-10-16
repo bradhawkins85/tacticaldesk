@@ -322,14 +322,37 @@
 
   const maintenanceButtons = document.querySelectorAll("[data-action='maintenance-run']");
 
+  function resolveMaintenanceOutput(button) {
+    const explicitSelector = button.dataset.output;
+    if (explicitSelector) {
+      const target = document.querySelector(explicitSelector);
+      if (target) {
+        return target;
+      }
+    }
+
+    const scopedContainer = button.closest("[data-maintenance-container]") || button.parentElement;
+    if (scopedContainer) {
+      const existing = scopedContainer.querySelector("[data-role='maintenance-output']");
+      if (existing) {
+        return existing;
+      }
+      const created = document.createElement("pre");
+      created.dataset.role = "maintenance-output";
+      created.textContent = "Awaiting execution…";
+      scopedContainer.appendChild(created);
+      return created;
+    }
+    return null;
+  }
+
   maintenanceButtons.forEach((button) => {
     button.addEventListener("click", async () => {
-      const outputSelector = button.dataset.output || "[data-role='maintenance-output']";
-      const maintenanceOutput = document.querySelector(outputSelector);
+      const maintenanceOutput = resolveMaintenanceOutput(button);
 
       if (!maintenanceOutput) {
-        console.warn("Maintenance action missing output element", {
-          outputSelector,
+        console.warn("Maintenance action missing output target", {
+          button,
         });
         return;
       }
@@ -340,16 +363,31 @@
         return;
       }
 
+      const tokenFieldSelector = button.dataset.tokenField;
+      let tokenValue = "";
+      if (tokenFieldSelector) {
+        const tokenField = document.querySelector(tokenFieldSelector);
+        tokenValue = tokenField?.value?.trim() ?? "";
+      }
+
       maintenanceOutput.textContent = `Executing ${endpoint}…`;
       button.disabled = true;
 
       try {
-        const response = await fetch(endpoint, {
+        const headers = {
+          Accept: "application/json",
+        };
+        const fetchOptions = {
           method: "POST",
-          headers: {
-            "Accept": "application/json",
-          },
-        });
+          headers,
+          credentials: "same-origin",
+        };
+        if (tokenValue) {
+          headers["Content-Type"] = "application/json";
+          fetchOptions.body = JSON.stringify({ token: tokenValue });
+        }
+
+        const response = await fetch(endpoint, fetchOptions);
         const payload = await response.json().catch(() => ({ detail: "No response payload" }));
         if (!response.ok) {
           throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed");

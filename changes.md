@@ -23,3 +23,5 @@
 - 2025-10-16T04:30:00Z Fix: Removed maintenance token guardrails and UI dependencies so maintenance automation can run without shared secrets.
 - 2025-10-16T03:45:00Z Fix: Realigned ticket selection column borders so row dividers line up with the ID column separators.
 
+- 2025-10-16T05:05:00Z Fix: Allowed secure update automation to execute without maintenance tokens and hardened UI feedback when output targets are missing.
+
