@@ -23,3 +23,5 @@
 - 2025-10-16T04:30:00Z Fix: Removed maintenance token guardrails and UI dependencies so maintenance automation can run without shared secrets.
 - 2025-10-16T03:45:00Z Fix: Realigned ticket selection column borders so row dividers line up with the ID column separators.
 
+
+- 2025-10-16T03:09:00Z Feature: Added ticket detail workspace with dedicated history/reply layout opening in new tabs.

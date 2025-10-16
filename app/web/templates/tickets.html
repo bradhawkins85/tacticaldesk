@@ -97,7 +97,14 @@
               </div>
             </td>
             <td data-label="ID">
-              <a href="#" class="ticket-id">{{ ticket.id }}</a>
+              <a
+                href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}"
+                class="ticket-id"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ ticket.id }}
+              </a>
             </td>
             <td data-label="Subject">
               <div class="ticket-subject">
@@ -129,19 +136,14 @@
             <td data-label="Team">{{ ticket.team }}</td>
             <td data-label="Category">{{ ticket.category }}</td>
             <td data-label="Update" class="ticket-table__actions">
-              <button
+              <a
                 class="button button--ghost"
-                type="button"
-                data-action="ticket-update"
-                data-ticket-id="{{ ticket.id }}"
-                data-ticket-subject="{{ ticket.subject }}"
-                data-ticket-status="{{ ticket.status }}"
-                data-ticket-priority="{{ ticket.priority }}"
-                data-ticket-team="{{ ticket.team }}"
-                data-update-endpoint="{{ ticket.update_endpoint }}"
+                href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 Update
-              </button>
+              </a>
             </td>
           </tr>
           {% endfor %}
@@ -150,47 +152,4 @@
     </div>
   </section>
 </div>
-<dialog id="ticket-update-dialog" class="ticket-update-dialog" aria-labelledby="ticket-update-title">
-  <form method="dialog" class="ticket-update-dialog__form" data-role="ticket-update-form">
-    <header class="ticket-update-dialog__header">
-      <h2 id="ticket-update-title">Update ticket</h2>
-      <p class="ticket-update-dialog__subtitle" data-role="ticket-update-summary"></p>
-    </header>
-    <div class="ticket-update-dialog__body">
-      <label class="ticket-update-field">
-        <span>Status</span>
-        <select name="status" data-role="ticket-update-status">
-          {% for status in ticket_status_options %}
-          <option value="{{ status }}">{{ status }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="ticket-update-field">
-        <span>Priority</span>
-        <select name="priority" data-role="ticket-update-priority">
-          {% for priority in ticket_priority_options %}
-          <option value="{{ priority }}">{{ priority }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="ticket-update-field">
-        <span>Team</span>
-        <select name="team" data-role="ticket-update-team">
-          {% for team in ticket_team_options %}
-          <option value="{{ team }}">{{ team }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="ticket-update-field">
-        <span>Notes</span>
-        <textarea name="notes" rows="3" placeholder="Add a customer facing update" data-role="ticket-update-notes"></textarea>
-      </label>
-      <p class="form-feedback" data-role="ticket-update-feedback" aria-live="polite"></p>
-    </div>
-    <footer class="ticket-update-dialog__footer">
-      <button type="submit" class="primary-button">Save changes</button>
-      <button type="button" class="secondary-button" data-action="ticket-update-close">Cancel</button>
-    </footer>
-  </form>
-</dialog>
 {% endblock %}
