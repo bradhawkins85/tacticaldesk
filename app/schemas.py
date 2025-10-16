@@ -122,7 +122,7 @@ class AutomationUpdate(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     description: Optional[str] = Field(default=None, max_length=2048)
     playbook: Optional[str] = Field(default=None, max_length=255, min_length=1)
-    cadence: Optional[str] = Field(default=None, max_length=255)
+    cron_expression: Optional[str] = Field(default=None, max_length=255)
     trigger: Optional[str] = Field(default=None, max_length=255)
     status: Optional[str] = Field(default=None, max_length=64)
     next_run_at: Optional[datetime] = None
@@ -136,7 +136,7 @@ class AutomationRead(BaseModel):
     description: Optional[str]
     playbook: str
     kind: str
-    cadence: Optional[str]
+    cron_expression: Optional[str]
     trigger: Optional[str]
     status: Optional[str]
     next_run_at: Optional[datetime]

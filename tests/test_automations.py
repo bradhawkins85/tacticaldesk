@@ -44,7 +44,7 @@ def test_update_scheduled_automation():
         payload = {
             "name": "Lifecycle automation (patched)",
             "description": "Updated secure update automation.",
-            "cadence": "Daily at 04:00 UTC",
+            "cron_expression": "0 4 * * *",
             "next_run_at": "2025-12-01T04:00:00Z",
             "last_run_at": "2025-11-30T04:00:00Z",
         }
@@ -52,12 +52,27 @@ def test_update_scheduled_automation():
         assert update.status_code == 200
         body = update.json()
         assert body["name"] == payload["name"]
-        assert body["cadence"] == payload["cadence"]
+        assert body["cron_expression"] == payload["cron_expression"]
         assert body["next_run_at"].startswith("2025-12-01T04:00:00")
 
         html = client.get("/automation").text
         assert "Lifecycle automation (patched)" in html
-        assert "Daily at 04:00 UTC" in html
+        assert "0 4 * * *" in html
+
+
+def test_scheduled_automation_rejects_invalid_cron():
+    with TestClient(app) as client:
+        scheduled = client.get("/api/automations", params={"kind": "scheduled"})
+        assert scheduled.status_code == 200
+        automation_id = scheduled.json()[0]["id"]
+
+        response = client.patch(
+            f"/api/automations/{automation_id}",
+            json={"cron_expression": "invalid"},
+        )
+        assert response.status_code == 400
+        detail = response.json().get("detail")
+        assert "Cron expression" in detail
 
 
 def test_update_event_automation_status():
@@ -83,6 +98,21 @@ def test_update_event_automation_status():
         assert "2025" in html
 
 
+def test_event_automation_trigger_validation():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        automation_id = events.json()[0]["id"]
+
+        response = client.patch(
+            f"/api/automations/{automation_id}",
+            json={"trigger": "Unsupported"},
+        )
+        assert response.status_code == 400
+        detail = response.json().get("detail")
+        assert "trigger" in detail.lower()
+
+
 def test_automation_edit_page_loads():
     with TestClient(app) as client:
         response = client.get("/api/automations")
@@ -94,5 +124,6 @@ def test_automation_edit_page_loads():
         page = client.get(f"/automation/{automation_id}")
         assert page.status_code == 200
         html = page.text
-        assert "Automation editor" in html
+        assert "automation-edit-page" in html
+        assert "automation-editor__kind" in html
         assert "data-role=\"automation-edit-page\"" in html

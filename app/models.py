@@ -93,6 +93,7 @@ class Automation(Base):
     playbook: str = Column(String(255), nullable=False)
     kind: str = Column(String(32), nullable=False, index=True)
     cadence: str | None = Column(String(255), nullable=True)
+    cron_expression: str | None = Column(String(255), nullable=True)
     trigger: str | None = Column(String(255), nullable=True)
     status: str | None = Column(String(64), nullable=True)
     next_run_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
