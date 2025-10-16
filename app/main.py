@@ -16,9 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routers import auth as auth_router
 from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
+from app.api.routers import webhooks as webhooks_router
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
-from app.models import IntegrationModule, User
+from app.models import IntegrationModule, User, WebhookDelivery, utcnow
+from app.schemas import WebhookStatus
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = BASE_DIR / "web" / "templates"
@@ -39,6 +41,7 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 app.include_router(auth_router.router)
 app.include_router(integrations_router.router)
 app.include_router(maintenance_router.router)
+app.include_router(webhooks_router.router)
 
 
 def slugify(value: str) -> str:
@@ -864,27 +867,61 @@ async def maintenance(
     return templates.TemplateResponse("maintenance.html", context)
 
 
+def _format_iso(dt: datetime | None) -> str | None:
+    if dt is None:
+        return None
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _serialize_webhook(delivery: WebhookDelivery) -> dict[str, object]:
+    status_label = delivery.status.replace("_", " ").title()
+    return {
+        "id": delivery.event_id,
+        "event_id": delivery.event_id,
+        "endpoint": delivery.endpoint,
+        "status": delivery.status,
+        "status_label": status_label,
+        "last_attempt": _format_iso(delivery.last_attempt_at),
+        "next_retry": _format_iso(delivery.next_retry_at),
+    }
+
+
+async def _ensure_demo_webhooks(session: AsyncSession) -> list[WebhookDelivery]:
+    result = await session.execute(select(WebhookDelivery))
+    existing = result.scalars().all()
+    if existing:
+        return existing
+
+    now = utcnow()
+    deliveries = [
+        WebhookDelivery(
+            event_id="whk-512",
+            endpoint="https://hooks.tacticalrmm.local/notify",
+            status=WebhookStatus.RETRYING.value,
+            last_attempt_at=now - timedelta(minutes=5),
+            next_retry_at=now + timedelta(minutes=5),
+        ),
+        WebhookDelivery(
+            event_id="whk-511",
+            endpoint="https://hooks.syncro.local/tickets",
+            status=WebhookStatus.PAUSED.value,
+            last_attempt_at=now - timedelta(hours=1, minutes=12),
+            next_retry_at=None,
+        ),
+    ]
+    session.add_all(deliveries)
+    await session.commit()
+    for delivery in deliveries:
+        await session.refresh(delivery)
+    return deliveries
+
+
 @app.get("/admin/webhooks", response_class=HTMLResponse, name="admin_webhooks")
 async def admin_webhooks(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
-    now_utc = datetime.now(timezone.utc)
-    webhook_failures = [
-        {
-            "id": "whk-512",
-            "endpoint": "https://hooks.tacticalrmm.local/notify",
-            "status": "retrying",
-            "last_attempt": (now_utc - timedelta(minutes=5)).isoformat().replace("+00:00", "Z"),
-            "next_retry": (now_utc + timedelta(minutes=5)).isoformat().replace("+00:00", "Z"),
-        },
-        {
-            "id": "whk-511",
-            "endpoint": "https://hooks.syncro.local/tickets",
-            "status": "paused",
-            "last_attempt": (now_utc - timedelta(hours=1, minutes=12)).isoformat().replace("+00:00", "Z"),
-            "next_retry": (now_utc + timedelta(minutes=3)).isoformat().replace("+00:00", "Z"),
-        },
-    ]
+    deliveries = await _ensure_demo_webhooks(session)
+    webhook_failures = [_serialize_webhook(delivery) for delivery in deliveries]
     context = await _template_context(
         request=request,
         session=session,
