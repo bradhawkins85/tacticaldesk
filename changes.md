@@ -44,3 +44,4 @@
 - 2025-10-16T09:20:00Z Feature: Relocated organisation create/edit flows to dedicated pages with validated server-side forms and simplified archival controls.
 - 2025-10-16T07:07:52Z Fix: Enabled ticket detail form submissions with validation feedback, persisted overrides, and regression coverage for ticket updates.
 - 2025-10-16T09:20:00Z Feature: Moved automation editing into a dedicated editor page with updated client workflow and regression coverage.
+- 2025-10-16T07:20:40Z Fix: Simplified organisation registry table by removing slug, description, contact, and timestamp columns from the listing view.
