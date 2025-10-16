@@ -24,7 +24,24 @@
         {% endif %}
       </div>
     </header>
-    <form class="ticket-detail__form" method="post" action="#" aria-describedby="ticket-detail-note">
+    {% if form_saved %}
+    <div class="alert alert--success" role="status">Ticket changes saved successfully.</div>
+    {% endif %}
+    {% if form_errors %}
+    <div class="alert alert--error" role="alert">
+      <ul>
+        {% for message in form_errors %}
+        <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <form
+      class="ticket-detail__form"
+      method="post"
+      action="{{ url_for('ticket_update', ticket_id=ticket.id) }}"
+      aria-describedby="ticket-detail-note"
+    >
       <p id="ticket-detail-note" class="ticket-detail__note">
         Update the ticket metadata and save to apply changes across collaborative workspaces.
       </p>
