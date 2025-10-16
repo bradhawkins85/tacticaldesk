@@ -727,6 +727,14 @@
 
   const organizationForm = document.getElementById("organization-form");
   if (organizationForm && organizationTableBody) {
+    const organizationModal = document.querySelector("[data-role='organization-modal']");
+    const organizationModalBackdrop = organizationModal?.querySelector(
+      "[data-role='organization-modal-backdrop']"
+    );
+    const organizationModalCloseButtons = organizationModal
+      ? organizationModal.querySelectorAll("[data-action='organization-modal-close']")
+      : [];
+    let organizationModalLastFocus = null;
     const organizationPanel = organizationTableBody.closest(".panel");
     const organizationSearchInput = organizationPanel
       ? organizationPanel.querySelector("[data-role='table-filter']")
@@ -752,6 +760,59 @@
     const newButton = document.querySelector("[data-action='organization-new']");
     const resetButton = organizationForm.querySelector("[data-action='organization-reset']");
     let slugManuallyEdited = false;
+
+    function isOrganizationModalOpen() {
+      return organizationModal?.classList.contains("is-visible") ?? false;
+    }
+
+    function openOrganizationModal() {
+      if (!organizationModal || isOrganizationModalOpen()) {
+        return;
+      }
+      const activeElement = document.activeElement;
+      organizationModalLastFocus =
+        activeElement instanceof HTMLElement ? activeElement : null;
+      organizationModal.classList.add("is-visible");
+      organizationModal.setAttribute("aria-hidden", "false");
+      document.body.classList.add("has-open-modal");
+    }
+
+    function closeOrganizationModal({ resetForm = true } = {}) {
+      if (!organizationModal || !isOrganizationModalOpen()) {
+        return;
+      }
+      organizationModal.classList.remove("is-visible");
+      organizationModal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("has-open-modal");
+      if (resetForm) {
+        setFormMode("create", null, { focus: false });
+      }
+      if (organizationModalLastFocus && typeof organizationModalLastFocus.focus === "function") {
+        organizationModalLastFocus.focus();
+      }
+      organizationModalLastFocus = null;
+    }
+
+    if (organizationModalBackdrop) {
+      organizationModalBackdrop.addEventListener("click", () => {
+        closeOrganizationModal();
+      });
+    }
+
+    if (organizationModalCloseButtons.length) {
+      organizationModalCloseButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          closeOrganizationModal();
+        });
+      });
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && isOrganizationModalOpen()) {
+        event.preventDefault();
+        closeOrganizationModal();
+      }
+    });
 
     function slugifyOrganization(value) {
       return value
@@ -917,7 +978,8 @@
       }
     }
 
-    function setFormMode(mode, data) {
+    function setFormMode(mode, data, options = {}) {
+      const { focus = true } = options;
       organizationForm.dataset.mode = mode;
       if (mode === "edit" && data) {
         organizationForm.dataset.organizationId = String(data.id);
@@ -954,7 +1016,7 @@
       if (messageTarget) {
         setStatusMessage(messageTarget, "");
       }
-      if (nameInput) {
+      if (focus && nameInput) {
         nameInput.focus();
       }
     }
@@ -1009,6 +1071,7 @@
 
     if (newButton) {
       newButton.addEventListener("click", () => {
+        openOrganizationModal();
         setFormMode("create");
       });
     }
@@ -1092,6 +1155,7 @@
         }
         try {
           const data = JSON.parse(row.dataset.organization || "{}");
+          openOrganizationModal();
           setFormMode("edit", data);
         } catch (error) {
           console.error("Unable to parse organization dataset", error);
