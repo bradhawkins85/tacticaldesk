@@ -874,7 +874,7 @@
     const nameInput = form?.querySelector("#automation-name");
     const playbookInput = form?.querySelector("#automation-playbook");
     const descriptionInput = form?.querySelector("#automation-description");
-    const cadenceInput = form?.querySelector("#automation-cadence");
+    const cronInput = form?.querySelector("#automation-cron-expression");
     const triggerInput = form?.querySelector("#automation-trigger");
     const statusInput = form?.querySelector("#automation-status");
     const nextRunInput = form?.querySelector("#automation-next-run");
@@ -931,13 +931,31 @@
           name: nameValue,
           playbook: playbookValue,
           description: descriptionInput?.value?.trim() || null,
-          cadence: cadenceInput?.value?.trim() || null,
-          trigger: triggerInput?.value?.trim() || null,
-          status: statusInput?.value?.trim() || null,
-          next_run_at: localInputToIso(nextRunInput?.value),
-          last_run_at: localInputToIso(lastRunInput?.value),
-          last_trigger_at: localInputToIso(lastTriggerInput?.value),
         };
+
+        if (cronInput) {
+          payload.cron_expression = cronInput.value?.trim() || null;
+        }
+
+        if (triggerInput) {
+          payload.trigger = triggerInput.value?.trim() || null;
+        }
+
+        if (statusInput) {
+          payload.status = statusInput.value?.trim() || null;
+        }
+
+        if (nextRunInput) {
+          payload.next_run_at = localInputToIso(nextRunInput.value);
+        }
+
+        if (lastRunInput) {
+          payload.last_run_at = localInputToIso(lastRunInput.value);
+        }
+
+        if (lastTriggerInput) {
+          payload.last_trigger_at = localInputToIso(lastTriggerInput.value);
+        }
 
         setAutomationFormMessage(messageTarget, "Updating automation…");
         const previousLabel = submitButton.textContent;
@@ -956,8 +974,8 @@
             if (descriptionInput) {
               descriptionInput.value = updated.description || "";
             }
-            if (cadenceInput) {
-              cadenceInput.value = updated.cadence || "";
+            if (cronInput) {
+              cronInput.value = updated.cron_expression || "";
             }
             if (triggerInput) {
               triggerInput.value = updated.trigger || "";

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Iterable
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.automations import EVENT_TRIGGER_SET
 from app.core.db import get_session
 from app.models import Automation, utcnow
 from app.schemas import AutomationRead, AutomationUpdate
@@ -42,6 +44,38 @@ def _ensure_required_text(value: str | None, field: str) -> str:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"{field} cannot be empty",
         )
+    return cleaned
+
+
+CRON_PART_PATTERN = re.compile(r"^[\w*/,-]+$", re.IGNORECASE)
+
+
+def _normalize_cron_expression(
+    value: str | None, *, allow_empty: bool = True
+) -> str | None:
+    cleaned = _clean_optional_text(value)
+    if cleaned is None:
+        if allow_empty:
+            return None
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cron expression cannot be empty",
+        )
+
+    parts = cleaned.split()
+    if len(parts) not in {5, 6}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cron expression must include 5 or 6 segments",
+        )
+
+    for part in parts:
+        if not CRON_PART_PATTERN.match(part):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cron expression contains invalid characters",
+            )
+
     return cleaned
 
 
@@ -114,14 +148,31 @@ async def update_automation(
             automation.playbook = cleaned_playbook
             updated = True
 
-    if "cadence" in data:
-        cleaned_cadence = _clean_optional_text(data["cadence"])
-        if cleaned_cadence != automation.cadence:
-            automation.cadence = cleaned_cadence
+    if "cron_expression" in data:
+        cleaned_cron = _normalize_cron_expression(
+            data["cron_expression"],
+            allow_empty=automation.kind != "scheduled",
+        )
+        if automation.kind == "scheduled" and cleaned_cron is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cron expression is required for scheduled automations",
+            )
+        if cleaned_cron != automation.cron_expression:
+            automation.cron_expression = cleaned_cron
             updated = True
 
     if "trigger" in data:
         cleaned_trigger = _clean_optional_text(data["trigger"])
+        if (
+            automation.kind == "event"
+            and cleaned_trigger is not None
+            and cleaned_trigger not in EVENT_TRIGGER_SET
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported automation trigger",
+            )
         if cleaned_trigger != automation.trigger:
             automation.trigger = cleaned_trigger
             updated = True

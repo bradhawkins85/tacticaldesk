@@ -12,14 +12,18 @@
 >
   <header class="panel__header">
     <div class="panel__intro">
-      <span class="automation-editor__kind">{{ automation.kind | title }} automation</span>
+      <span class="automation-editor__kind">Event-based automation</span>
       <h2 class="panel__title">{{ automation.name }}</h2>
-      <p class="panel__subtitle">Update metadata, scheduling, and trigger details for this automation.</p>
+      <p class="panel__subtitle">
+        Choose application events that should trigger this playbook and review recent signal delivery.
+      </p>
     </div>
   </header>
   <div class="panel__body">
     <form data-role="automation-edit-form" autocomplete="off">
-      <p class="automation-editor__hint">Timestamps are saved in UTC and rendered in your local timezone.</p>
+      <p class="automation-editor__hint">
+        Triggers map to Tactical Desk events such as ticket creation, updates, and resolution workflows.
+      </p>
       <div class="automation-editor__grid">
         <div class="form-field">
           <label for="automation-name">Name</label>
@@ -45,61 +49,29 @@
         </div>
         <div class="form-field automation-editor__grid-item--full">
           <label for="automation-description">Description</label>
-          <textarea id="automation-description" name="description" rows="4" maxlength="2048">{{ automation.description }}</textarea>
+          <textarea id="automation-description" name="description" rows="4" maxlength="2048">{{ automation.description or '' }}</textarea>
         </div>
-        <div class="form-field" data-automation-section="scheduled">
-          <label for="automation-cadence">Cadence</label>
-          <input
-            id="automation-cadence"
-            name="cadence"
-            type="text"
-            maxlength="255"
-            value="{{ automation.cadence or '' }}"
-          />
-        </div>
-        <div class="form-field" data-automation-section="event">
+        <div class="form-field">
           <label for="automation-trigger">Trigger</label>
-          <input
-            id="automation-trigger"
-            name="trigger"
-            type="text"
-            maxlength="255"
-            value="{{ automation.trigger or '' }}"
-          />
+          <select id="automation-trigger" name="trigger" required>
+            <option value="">Select an event trigger</option>
+            {% for trigger in event_trigger_options %}
+            <option value="{{ trigger }}" {% if automation.trigger == trigger %}selected{% endif %}>{{ trigger }}</option>
+            {% endfor %}
+          </select>
         </div>
-        <div class="form-field" data-automation-section="event">
-          <label for="automation-status">Status</label>
+        <div class="form-field">
+          <label for="automation-status">Status label</label>
           <input
             id="automation-status"
             name="status"
             type="text"
             maxlength="64"
             value="{{ automation.status or '' }}"
+            placeholder="Active"
           />
         </div>
-        <div class="form-field" data-automation-section="scheduled">
-          <label for="automation-next-run">Next run</label>
-          <input
-            id="automation-next-run"
-            name="next_run_at"
-            type="datetime-local"
-            step="60"
-            data-automation-datetime
-            data-iso-value="{{ automation.next_run_iso or '' }}"
-          />
-        </div>
-        <div class="form-field" data-automation-section="scheduled">
-          <label for="automation-last-run">Last run</label>
-          <input
-            id="automation-last-run"
-            name="last_run_at"
-            type="datetime-local"
-            step="60"
-            data-automation-datetime
-            data-iso-value="{{ automation.last_run_iso or '' }}"
-          />
-        </div>
-        <div class="form-field" data-automation-section="event">
+        <div class="form-field">
           <label for="automation-last-trigger">Last triggered</label>
           <input
             id="automation-last-trigger"
