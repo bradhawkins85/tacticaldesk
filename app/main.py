@@ -22,6 +22,7 @@ from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
 from app.api.routers import organizations as organizations_router
 from app.api.routers import webhooks as webhooks_router
+from app.core.automations import EVENT_TRIGGER_OPTIONS
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
 from app.core.tickets import ticket_store
@@ -134,7 +135,7 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
         "description": automation.description or "",
         "playbook": automation.playbook,
         "kind": automation.kind,
-        "cadence": automation.cadence,
+        "cron_expression": automation.cron_expression,
         "trigger": automation.trigger,
         "status": automation.status,
         "next_run_iso": _automation_datetime_to_iso(automation.next_run_at),
@@ -146,6 +147,18 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
         "action_output_selector": automation.action_output_selector
         or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
     }
+
+
+async def _load_automation(
+    session: AsyncSession, automation_id: int
+) -> Automation:
+    result = await session.execute(
+        select(Automation).where(Automation.id == automation_id)
+    )
+    automation = result.scalar_one_or_none()
+    if automation is None:
+        raise HTTPException(status_code=404, detail="Automation not found")
+    return automation
 
 
 def describe_age(delta: timedelta) -> str:
@@ -1245,17 +1258,21 @@ async def automation_view(
     return templates.TemplateResponse("automation.html", context)
 
 
-@app.get("/automation/{automation_id}", response_class=HTMLResponse, name="automation_edit")
-async def automation_edit_view(
+CRON_REFERENCE_URL = "https://crontab.guru/"
+
+
+@app.get(
+    "/automation/scheduled/{automation_id}",
+    response_class=HTMLResponse,
+    name="automation_edit_scheduled",
+)
+async def automation_edit_scheduled_view(
     request: Request,
     automation_id: int,
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
-    result = await session.execute(
-        select(Automation).where(Automation.id == automation_id)
-    )
-    automation = result.scalar_one_or_none()
-    if automation is None:
+    automation = await _load_automation(session, automation_id)
+    if automation.kind != "scheduled":
         raise HTTPException(status_code=404, detail="Automation not found")
 
     automation_view = _automation_to_view_model(automation)
@@ -1263,15 +1280,68 @@ async def automation_edit_view(
     context = await _template_context(
         request=request,
         session=session,
-        page_title="Automation editor",
+        page_title="Scheduled automation editor",
         page_subtitle=(
-            f"Review and adjust configuration for {automation_view['name']}."
+            f"Define secure cron scheduling for {automation_view['name']}."
         ),
         active_nav="admin",
         active_admin="automation",
         automation=automation_view,
+        cron_reference_url=CRON_REFERENCE_URL,
     )
-    return templates.TemplateResponse("automation_edit.html", context)
+    return templates.TemplateResponse("automation_edit_scheduled.html", context)
+
+
+@app.get(
+    "/automation/event/{automation_id}",
+    response_class=HTMLResponse,
+    name="automation_edit_event",
+)
+async def automation_edit_event_view(
+    request: Request,
+    automation_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    automation = await _load_automation(session, automation_id)
+    if automation.kind != "event":
+        raise HTTPException(status_code=404, detail="Automation not found")
+
+    automation_view = _automation_to_view_model(automation)
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Event automation editor",
+        page_subtitle=(
+            f"Map platform signals to responsive actions for {automation_view['name']}."
+        ),
+        active_nav="admin",
+        active_admin="automation",
+        automation=automation_view,
+        event_trigger_options=EVENT_TRIGGER_OPTIONS,
+    )
+    return templates.TemplateResponse("automation_edit_event.html", context)
+
+
+@app.get("/automation/{automation_id}", response_class=HTMLResponse, name="automation_edit")
+async def automation_edit_redirect(
+    request: Request,
+    automation_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    automation = await _load_automation(session, automation_id)
+    if automation.kind == "scheduled":
+        target = request.url_for(
+            "automation_edit_scheduled", automation_id=str(automation.id)
+        )
+    elif automation.kind == "event":
+        target = request.url_for(
+            "automation_edit_event", automation_id=str(automation.id)
+        )
+    else:
+        raise HTTPException(status_code=404, detail="Automation not found")
+
+    return RedirectResponse(target, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
 @app.get("/integrations", response_class=HTMLResponse, name="integrations_index")

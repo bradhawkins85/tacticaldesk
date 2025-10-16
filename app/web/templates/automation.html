@@ -28,7 +28,7 @@
           <tr>
             <th scope="col" data-sort-key="name">Automation</th>
             <th scope="col" data-sort-key="playbook">Playbook</th>
-            <th scope="col" data-sort-key="cadence">Cadence</th>
+            <th scope="col" data-sort-key="cron">Cron schedule</th>
             <th scope="col" data-sort-key="next_run">Next run</th>
             <th scope="col" data-sort-key="last_run">Last run</th>
             <th scope="col">Actions</th>
@@ -49,7 +49,9 @@
               </div>
             </th>
             <td data-cell="playbook" data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
-            <td data-cell="cadence" data-sort-value="{{ automation.cadence or '' }}">{{ automation.cadence or '—' }}</td>
+            <td data-cell="cron" data-sort-value="{{ automation.cron_expression or '' }}">
+              {{ automation.cron_expression or '—' }}
+            </td>
             <td data-cell="next_run" data-sort-value="{{ automation.next_run_iso or '' }}">
               {% if automation.next_run_iso %}
               <time data-role="local-datetime" datetime="{{ automation.next_run_iso }}">{{ automation.next_run_iso }}</time>
@@ -80,7 +82,7 @@
               {% endif %}
               <a
                 class="secondary-button"
-                href="{{ url_for('automation_edit', automation_id=automation.id) }}"
+                href="{{ url_for('automation_edit_scheduled', automation_id=automation.id) }}"
               >
                 Edit
               </a>
@@ -160,7 +162,7 @@
             <td class="automation-actions" data-cell="actions">
               <a
                 class="secondary-button"
-                href="{{ url_for('automation_edit', automation_id=automation.id) }}"
+                href="{{ url_for('automation_edit_event', automation_id=automation.id) }}"
               >
                 Edit
               </a>

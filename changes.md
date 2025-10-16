@@ -46,3 +46,5 @@
 - 2025-10-16T09:20:00Z Feature: Moved automation editing into a dedicated editor page with updated client workflow and regression coverage.
 - 2025-10-16T07:20:40Z Fix: Simplified organisation registry table by removing slug, description, contact, and timestamp columns from the listing view.
 - 2025-10-16T10:30:00Z Fix: Separated ticket reply submission with validation, success feedback, and persisted history entries.
+
+- 2025-10-16T11:30:00Z Feature: Added cron-driven scheduled automation editor and event trigger selector with validation and migrations.
