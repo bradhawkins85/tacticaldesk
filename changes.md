@@ -13,3 +13,4 @@
 - 2025-10-16T01:10:00Z Fix: Guarded password length and switched to native bcrypt hashing to prevent admin setup failures from bcrypt 72-byte limits.
 - 2025-10-16T01:28:00Z Fix: Restored sidebar navigation with dedicated ticket, analytics, and automation workspaces and highlighted active views.
 - 2025-10-16T02:10:00Z Feature: Redesigned Unified Ticket Workspace with interactive filters, sortable ticket table, and update workflow drawer.
+- 2025-10-16T02:30:00Z Fix: Resolved ticket filter rendering crash by removing unsafe loop.parent usage in templates.
