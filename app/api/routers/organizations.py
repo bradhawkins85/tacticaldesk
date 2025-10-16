@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.core.tickets import ticket_store
 from app.models import Contact, Organization, utcnow
 from app.schemas import (
     ContactCreate,
@@ -170,6 +171,30 @@ async def update_organization(
         await session.refresh(organization)
 
     return OrganizationRead.from_orm(organization)
+
+
+@router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_organization(
+    organization_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    organization = await _get_organization_by_id(organization_id, session)
+    contacts_result = await session.execute(
+        select(Contact).where(Contact.organization_id == organization.id)
+    )
+    contacts = contacts_result.scalars().all()
+    contact_emails = [contact.email for contact in contacts if contact.email]
+    if organization.contact_email:
+        contact_emails.append(organization.contact_email)
+
+    await ticket_store.delete_tickets_for_organization(
+        organization_name=organization.name,
+        contact_emails=contact_emails,
+    )
+
+    await session.delete(organization)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{organization_id}/contacts", response_model=list[ContactRead])

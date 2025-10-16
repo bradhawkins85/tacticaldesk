@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from html import escape
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Set
 import re
 import asyncio
 
@@ -102,6 +102,22 @@ class TicketStore:
         self._created: Dict[str, StoredTicketRecord] = {}
         self._sequence_floor = 5000
         self._ticket_sequence = self._sequence_floor
+        self._deleted_customers: Set[str] = set()
+        self._deleted_emails: Set[str] = set()
+
+    def _normalized(self, value: str | None) -> str:
+        if not value:
+            return ""
+        return value.strip().lower()
+
+    def _is_deleted(self, customer: str | None, customer_email: str | None) -> bool:
+        customer_key = self._normalized(customer)
+        email_key = self._normalized(customer_email)
+        if customer_key and customer_key in self._deleted_customers:
+            return True
+        if email_key and email_key in self._deleted_emails:
+            return True
+        return False
 
     def _extract_ticket_number(self, ticket_id: str) -> int:
         match = re.search(r"(\d+)$", ticket_id)
@@ -138,7 +154,17 @@ class TicketStore:
                     merged.append(dict(ticket))
                     continue
                 merged.append({**ticket, **override.as_dict()})
-            return merged
+            filtered: list[dict[str, object]] = []
+            for ticket in merged:
+                customer = ticket.get("customer")
+                customer_email = ticket.get("customer_email")
+                if self._is_deleted(
+                    customer if isinstance(customer, str) else None,
+                    customer_email if isinstance(customer_email, str) else None,
+                ):
+                    continue
+                filtered.append(ticket)
+            return filtered
 
     async def get_override(self, ticket_id: str) -> dict[str, object] | None:
         async with self._lock:
@@ -283,6 +309,37 @@ class TicketStore:
             self._replies.clear()
             self._created.clear()
             self._ticket_sequence = self._sequence_floor
+            self._deleted_customers.clear()
+            self._deleted_emails.clear()
+
+    async def delete_tickets_for_organization(
+        self,
+        *,
+        organization_name: str,
+        contact_emails: Iterable[str] | None = None,
+    ) -> None:
+        """Remove tickets tied to the provided organization metadata."""
+        async with self._lock:
+            normalized_name = self._normalized(organization_name)
+            if normalized_name:
+                self._deleted_customers.add(normalized_name)
+
+            normalized_emails: Set[str] = set()
+            for email in contact_emails or []:
+                normalized = self._normalized(email)
+                if normalized:
+                    normalized_emails.add(normalized)
+            self._deleted_emails.update(normalized_emails)
+
+            for ticket_id, record in list(self._created.items()):
+                if self._is_deleted(record.customer, record.customer_email):
+                    self._created.pop(ticket_id, None)
+                    self._replies.pop(ticket_id, None)
+
+            for ticket_id, override in list(self._overrides.items()):
+                if self._is_deleted(override.customer, override.customer_email):
+                    self._overrides.pop(ticket_id, None)
+                    self._replies.pop(ticket_id, None)
 
 
 ticket_store = TicketStore()

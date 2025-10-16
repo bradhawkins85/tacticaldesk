@@ -1,10 +1,21 @@
+import asyncio
 import sqlite3
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.core.tickets import ticket_store
 from app.main import app
+from app.main import build_ticket_records
+
+
+@pytest.fixture(autouse=True)
+def reset_ticket_store():
+    asyncio.run(ticket_store.reset())
+    yield
+    asyncio.run(ticket_store.reset())
 
 
 @pytest.fixture(autouse=True)
@@ -135,3 +146,76 @@ def test_migration_recovers_missing_organization_columns(tmp_path):
 
     assert "created_at" in columns
     assert "updated_at" in columns
+
+
+def test_delete_organization_cascades_contacts_and_tickets():
+    with TestClient(app) as client:
+        create_payload = {
+            "name": "Arc Light Solutions",
+            "slug": "arc-light-solutions",
+            "contact_email": "support@arclight.example",
+            "description": "Premium managed services tenant.",
+        }
+        create_response = client.post("/api/organizations", json=create_payload)
+        assert create_response.status_code == 201
+        organization_id = create_response.json()["id"]
+
+        contact_payload = {
+            "name": "Elena Rivera",
+            "job_title": "Operations Director",
+            "email": "escalations@arclight.example",
+        }
+        contact_response = client.post(
+            f"/api/organizations/{organization_id}/contacts",
+            json=contact_payload,
+        )
+        assert contact_response.status_code == 201
+
+        ticket_payload = {
+            "subject": "License provisioning failure",
+            "customer": "Arc Light Solutions",
+            "customer_email": "escalations@arclight.example",
+            "status": "Open",
+            "priority": "High",
+            "team": "Tier 2",
+            "assignment": "Escalations",
+            "queue": "Critical response",
+            "category": "Support",
+            "summary": "Agents report license activation timeout when onboarding new hires.",
+        }
+        ticket_response = client.post("/tickets", json=ticket_payload)
+        assert ticket_response.status_code == 201
+        created_ticket = ticket_response.json()
+        ticket_id = created_ticket["ticket_id"]
+
+        now_before = datetime.now(timezone.utc)
+        tickets_before = asyncio.run(
+            ticket_store.apply_overrides(build_ticket_records(now_before))
+        )
+        assert any(ticket["id"] == ticket_id for ticket in tickets_before)
+
+        delete_response = client.delete(f"/api/organizations/{organization_id}")
+        assert delete_response.status_code == 204
+
+        get_response = client.get(f"/api/organizations/{organization_id}")
+        assert get_response.status_code == 404
+
+        contacts_response = client.get(
+            f"/api/organizations/{organization_id}/contacts"
+        )
+        assert contacts_response.status_code == 404
+
+        now_after = datetime.now(timezone.utc)
+        tickets_after = asyncio.run(
+            ticket_store.apply_overrides(build_ticket_records(now_after))
+        )
+        assert all(
+            ticket.get("customer") != "Arc Light Solutions" for ticket in tickets_after
+        )
+        assert all(
+            ticket.get("customer_email") != "escalations@arclight.example"
+            for ticket in tickets_after
+        )
+
+        ticket_detail = client.get(f"/tickets/{ticket_id}")
+        assert ticket_detail.status_code == 404

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 _BASE_EVENT_TRIGGERS: tuple[str, ...] = (
     "Ticket Created",
     "Ticket Updated by Technician",
@@ -40,6 +42,12 @@ EVENT_TRIGGER_OPTIONS: tuple[str, ...] = _BASE_EVENT_TRIGGERS + _CONDITION_TRIGG
 
 EVENT_TRIGGER_SET: frozenset[str] = frozenset(EVENT_TRIGGER_OPTIONS)
 
+
+def _slugify_action(value: str) -> str:
+    tokens = re.findall(r"[a-z0-9]+", value.lower())
+    return "-".join(tokens) or "action"
+
+
 EVENT_AUTOMATION_ACTIONS: tuple[str, ...] = (
     "Add Private Comment",
     "Add Public Comment",
@@ -61,6 +69,19 @@ EVENT_AUTOMATION_ACTIONS: tuple[str, ...] = (
     "SMS Public Comment",
     "Send Manual SMS",
     "Update Ticket",
+)
+
+EVENT_AUTOMATION_ACTION_CHOICES: tuple[dict[str, str], ...] = tuple(
+    {"name": action, "slug": _slugify_action(action)}
+    for action in EVENT_AUTOMATION_ACTIONS
+)
+
+EVENT_AUTOMATION_ACTION_LOOKUP: dict[str, str] = {
+    choice["slug"]: choice["name"] for choice in EVENT_AUTOMATION_ACTION_CHOICES
+}
+
+EVENT_AUTOMATION_ACTION_SLUGS: frozenset[str] = frozenset(
+    EVENT_AUTOMATION_ACTION_LOOKUP
 )
 
 VALUE_REQUIRED_TRIGGER_OPTIONS: frozenset[str] = frozenset(

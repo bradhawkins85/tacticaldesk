@@ -237,6 +237,70 @@ def test_update_event_automation_trigger_filters():
         assert "Open" in html
 
 
+def test_update_event_automation_ticket_actions():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        event_items = events.json()
+        target = next(
+            item for item in event_items if item["name"] == "Incident escalation"
+        )
+        automation_id = target["id"]
+
+        payload = {
+            "ticket_actions": [
+                {
+                    "action": "add-public-comment",
+                    "value": "Notify stakeholders within 1 hour.",
+                },
+                {"action": "change-status", "value": "In Progress"},
+            ]
+        }
+
+        response = client.patch(
+            f"/api/automations/{automation_id}",
+            json=payload,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["ticket_actions"]) == 2
+        assert body["ticket_actions"][0]["action"] == "add-public-comment"
+        assert (
+            body["ticket_actions"][0]["value"]
+            == "Notify stakeholders within 1 hour."
+        )
+
+        html = client.get(f"/automation/event/{automation_id}")
+        assert html.status_code == 200
+        assert "add-public-comment" in html.text
+        assert "Notify stakeholders within 1 hour." in html.text
+
+        refreshed = client.get("/api/automations", params={"kind": "event"})
+        assert refreshed.status_code == 200
+        updated = next(item for item in refreshed.json() if item["id"] == automation_id)
+        assert len(updated["ticket_actions"]) == 2
+        assert updated["ticket_actions"][1]["action"] == "change-status"
+
+
+def test_event_automation_rejects_invalid_ticket_actions():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        automation_id = events.json()[0]["id"]
+
+        response = client.patch(
+            f"/api/automations/{automation_id}",
+            json={
+                "ticket_actions": [
+                    {"action": "unsupported-action", "value": "Test"},
+                ]
+            },
+        )
+        assert response.status_code == 400
+        detail = response.json().get("detail", "")
+        assert "action" in detail.lower()
+
+
 def test_ticket_update_triggers_event_automation():
     with TestClient(app) as client:
         events = client.get("/api/automations", params={"kind": "event"})

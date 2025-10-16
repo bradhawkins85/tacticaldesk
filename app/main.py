@@ -27,7 +27,7 @@ from app.api.routers import maintenance as maintenance_router
 from app.api.routers import organizations as organizations_router
 from app.api.routers import webhooks as webhooks_router
 from app.core.automations import (
-    EVENT_AUTOMATION_ACTIONS,
+    EVENT_AUTOMATION_ACTION_CHOICES,
     EVENT_TRIGGER_OPTIONS,
     TRIGGER_OPERATOR_OPTIONS,
     VALUE_REQUIRED_TRIGGER_OPTIONS,
@@ -46,6 +46,7 @@ from app.models import (
     utcnow,
 )
 from app.schemas import (
+    AutomationTicketAction,
     AutomationTriggerFilter,
     OrganizationCreate,
     OrganizationUpdate,
@@ -177,6 +178,15 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
 
     filters_dict: dict[str, object] | None = None
     filters_model: AutomationTriggerFilter | None = None
+    action_models: list[AutomationTicketAction] = []
+    if automation.ticket_actions:
+        for entry in automation.ticket_actions:
+            try:
+                model = AutomationTicketAction.parse_obj(entry)
+            except ValidationError:
+                continue
+            action_models.append(model)
+
     if automation.trigger_filters:
         try:
             filters_model = AutomationTriggerFilter.parse_obj(automation.trigger_filters)
@@ -217,6 +227,7 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
         "next_run_iso": _automation_datetime_to_iso(automation.next_run_at),
         "last_run_iso": _automation_datetime_to_iso(automation.last_run_at),
         "last_trigger_iso": _automation_datetime_to_iso(automation.last_trigger_at),
+        "ticket_actions": [model.dict() for model in action_models],
         "action": action,
         "action_label": automation.action_label,
         "action_endpoint": automation.action_endpoint,

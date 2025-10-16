@@ -49,18 +49,19 @@
 - 2025-10-16T10:45:00Z Fix: Displayed newest ticket conversation entries first for easier review of recent replies.
 - 2025-10-16T11:30:00Z Feature: Added cron-driven scheduled automation editor and event trigger selector with validation and migrations.
 - 2025-10-16T12:30:00Z Feature: Enabled AND/OR trigger filters for event automations with updated API, UI controls, and regression coverage.
-
 - 2025-10-16T10:07:38Z Feature: Refactored event automation editor with additive trigger condition builder and dynamic UI controls.
 - 2025-10-16T10:40:26Z Feature: Added conditional ticket status change trigger builder with table layout, operator/value controls, and API validation.
 - 2025-10-16T12:45:00Z Feature: Added icon-based automation controls with manual run and delete APIs plus UI feedback updates.
 - 2025-10-16T13:30:00Z Feature: Expanded trigger condition catalog and enabled scheduled automation condition builder with backend validation.
 - 2025-10-16T14:45:00Z Feature: Added ticket creation modal, backend endpoint, and automation dispatching for new tickets.
-
 - 2025-10-16T14:15:00Z Feature: Added ticket event dispatcher to evaluate automation filters and record trigger activity.
 - 2025-10-16T13:45:00Z Feature: Documented event automation action catalog with filterable UI reference and contextual identifiers.
 - 2025-10-16T14:30:00Z Feature: Added playbook management API, admin UI, and regression tests with automation linkage safeguards.
 - 2025-10-16T14:15:00Z Feature: Added embedded CURD Swagger documentation workspace with admin navigation link and OpenAPI export tools.
 - 2025-10-16T11:22:28Z Fix: Renamed CURD API Docs references to API Docs for accurate terminology.
+- 2025-10-16T15:20:00Z Feature: Enabled organisation deletion with cascading contact/ticket cleanup, defaulted registry filters to Active, and updated admin warnings.
 - 2025-10-16T15:05:00Z Fix: Converted the secure update playbook into a platform maintenance action so the update button no longer registers a run-secure-update playbook.
 - 2025-10-16T15:00:00Z Fix: Removed the Maintenance admin menu entry to streamline available navigation options.
 - 2025-10-16T16:30:00Z Feature: Replaced the Playbook catalogue with runbook label management APIs, UI tooling, and refreshed regression coverage.
+- 2025-10-16T12:49:07Z Feature: Added ticket action assignment builder with backend validation, UI editor, migration, and tests.
+- 2025-10-16T13:02:35Z Fix: Removed event automation available ticket action catalog to streamline the editor layout.

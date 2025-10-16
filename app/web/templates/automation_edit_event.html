@@ -24,6 +24,7 @@
       data-role="automation-edit-form"
       data-trigger-filters='{{ automation.trigger_filters | tojson | safe }}'
       data-trigger-value="{{ automation.trigger or '' }}"
+      data-ticket-actions='{{ automation.ticket_actions | tojson | safe }}'
       autocomplete="off"
     >
       <p class="automation-editor__hint">
@@ -158,6 +159,83 @@
               + Add new condition
             </button>
             <p class="form-help">Start with one condition and add more as needed.</p>
+          </div>
+        </div>
+        <div class="form-field automation-editor__grid-item--full">
+          <label>Ticket actions</label>
+          <div
+            class="ticket-actions"
+            data-role="ticket-actions"
+            data-action-options='{{ automation_actions | tojson | safe }}'
+          >
+            <div class="ticket-actions__controls">
+              <input
+                type="search"
+                class="ticket-actions__filter"
+                placeholder="Filter actions"
+                data-role="ticket-action-filter"
+                aria-label="Filter ticket actions"
+              />
+            </div>
+            <div class="ticket-actions__table-wrapper">
+              <table class="ticket-actions__table">
+                <thead>
+                  <tr>
+                    <th scope="col">Action</th>
+                    <th scope="col">Details</th>
+                  </tr>
+                </thead>
+                <tbody class="ticket-actions__list" data-role="ticket-action-list"></tbody>
+              </table>
+            </div>
+            <template data-role="ticket-action-template">
+              <tr class="ticket-action" data-role="ticket-action">
+                <td data-column="action">
+                  <select
+                    class="ticket-action__select"
+                    data-role="ticket-action-select"
+                    aria-label="Ticket action"
+                    required
+                  >
+                    <option value="">Select an action</option>
+                    {% for option in automation_actions %}
+                    <option value="{{ option.slug }}">{{ option.name }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td data-column="value">
+                  <div class="ticket-action__value-wrapper">
+                    <textarea
+                      class="ticket-action__value"
+                      data-role="ticket-action-value"
+                      rows="3"
+                      maxlength="4096"
+                      placeholder="Enter action details"
+                      aria-label="Action details"
+                      required
+                    ></textarea>
+                    <button
+                      type="button"
+                      class="icon-button ticket-action__remove"
+                      data-action="remove-ticket-action"
+                      aria-label="Remove ticket action"
+                    >
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+            <button
+              type="button"
+              class="link-button ticket-actions__add"
+              data-action="add-ticket-action"
+            >
+              + Add ticket action
+            </button>
+            <p class="form-help">
+              Assign one or more actions to execute after the trigger conditions are met.
+            </p>
           </div>
         </div>
         <div class="form-field">
