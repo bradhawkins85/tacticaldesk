@@ -69,23 +69,51 @@
             <td class="automation-actions" data-cell="actions">
               {% if automation.action %}
               <button
-                class="primary-button"
+                class="icon-button icon-button--play"
                 type="button"
                 data-action="maintenance-run"
                 data-endpoint="{{ automation.action.endpoint }}"
                 data-output="{{ automation.action.output_selector }}"
+                aria-label="Run {{ automation.name }}"
+                title="Run {{ automation.action.label }}"
               >
-                {{ automation.action.label }}
+                ▶
               </button>
-              {% else %}
+              {% elif automation.manual_run_endpoint %}
+              <button
+                class="icon-button icon-button--play"
+                type="button"
+                data-action="automation-run"
+                data-endpoint="{{ automation.manual_run_endpoint }}"
+                data-feedback="#automation-update-output"
+                aria-label="Run {{ automation.name }}"
+                title="Run {{ automation.name }} manually"
+              >
+                ▶
+              </button>
+              {% endif %}
+              {% if not automation.action %}
               <span class="automation-status-tag">Monitored</span>
               {% endif %}
               <a
-                class="secondary-button"
+                class="icon-button icon-button--edit"
                 href="{{ url_for('automation_edit_scheduled', automation_id=automation.id) }}"
+                aria-label="Edit {{ automation.name }}"
+                title="Edit {{ automation.name }}"
               >
-                Edit
+                ✏️
               </a>
+              <button
+                class="icon-button icon-button--danger"
+                type="button"
+                data-action="automation-delete"
+                data-endpoint="{{ automation.delete_endpoint }}"
+                data-feedback="#automation-update-output"
+                aria-label="Delete {{ automation.name }}"
+                title="Delete {{ automation.name }}"
+              >
+                ✖
+              </button>
             </td>
           </tr>
           {% endfor %}
@@ -161,11 +189,24 @@
             </td>
             <td class="automation-actions" data-cell="actions">
               <a
-                class="secondary-button"
+                class="icon-button icon-button--edit"
                 href="{{ url_for('automation_edit_event', automation_id=automation.id) }}"
+                aria-label="Edit {{ automation.name }}"
+                title="Edit {{ automation.name }}"
               >
-                Edit
+                ✏️
               </a>
+              <button
+                class="icon-button icon-button--danger"
+                type="button"
+                data-action="automation-delete"
+                data-endpoint="{{ automation.delete_endpoint }}"
+                data-feedback="#automation-update-output"
+                aria-label="Delete {{ automation.name }}"
+                title="Delete {{ automation.name }}"
+              >
+                ✖
+              </button>
             </td>
           </tr>
           {% endfor %}

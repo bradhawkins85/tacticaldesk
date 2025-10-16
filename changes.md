@@ -52,3 +52,4 @@
 
 - 2025-10-16T10:07:38Z Feature: Refactored event automation editor with additive trigger condition builder and dynamic UI controls.
 - 2025-10-16T10:40:26Z Feature: Added conditional ticket status change trigger builder with table layout, operator/value controls, and API validation.
+- 2025-10-16T12:45:00Z Feature: Added icon-based automation controls with manual run and delete APIs plus UI feedback updates.

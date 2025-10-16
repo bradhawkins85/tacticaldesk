@@ -327,6 +327,38 @@ body.has-open-modal {
   place-items: center;
 }
 
+.icon-button--play {
+  background: var(--color-primary);
+  border: none;
+  color: var(--color-primary-contrast);
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+}
+
+.icon-button--play:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px rgba(37, 99, 235, 0.28);
+}
+
+.icon-button--edit {
+  color: var(--color-text);
+}
+
+.icon-button--edit:hover {
+  transform: translateY(-1px);
+}
+
+.icon-button--danger {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+.icon-button--danger:hover {
+  background: var(--color-danger);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 .primary-button {
   background: var(--color-primary);
   color: var(--color-primary-contrast);

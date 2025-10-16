@@ -133,6 +133,16 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
             or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
         }
 
+    manual_run_endpoint: str | None = None
+    if automation.kind == "scheduled":
+        manual_run_endpoint = app.url_path_for(
+            "run_automation", automation_id=str(automation.id)
+        )
+
+    delete_endpoint = app.url_path_for(
+        "delete_automation", automation_id=str(automation.id)
+    )
+
     filters_dict: dict[str, object] | None = None
     filters_model: AutomationTriggerFilter | None = None
     if automation.trigger_filters:
@@ -180,6 +190,9 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
         "action_endpoint": automation.action_endpoint,
         "action_output_selector": automation.action_output_selector
         or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
+        "manual_run_endpoint": manual_run_endpoint,
+        "delete_endpoint": delete_endpoint,
+        "supports_manual_run": automation.kind == "scheduled",
     }
 
 
