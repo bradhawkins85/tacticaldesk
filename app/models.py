@@ -59,6 +59,15 @@ class IntegrationModule(Base):
     )
 
 
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    name: str = Column(String(255), nullable=False)
+    slug: str = Column(String(255), nullable=False, unique=True, index=True)
+    description: str | None = Column(Text, nullable=True)
+    contact_email: str | None = Column(String(255), nullable=True)
+    is_archived: bool = Column(Boolean, default=False, nullable=False)
 class WebhookDelivery(Base):
     __tablename__ = "webhook_deliveries"
 

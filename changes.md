@@ -30,6 +30,7 @@
 - 2025-10-16T06:00:00Z Fix: Restored missing imports for integration schemas, database migrations, and automated tests to stabilize integration toggling flows.
 - 2025-10-16T03:22:48Z Feature: Automated .env.example generation and verification against configuration defaults.
 - 2025-10-16T05:45:00Z Fix: Corrected secure update script discovery to point maintenance API at the repository-level scripts directory.
+- 2025-10-16T06:45:00Z Feature: Added organisation management workspace with CRUD APIs, UI controls, and archival workflows.
 - 2025-10-16T06:45:00Z Feature: Added webhook pause/resume/delete controls with database-backed monitoring API and UI actions.
 - 2025-10-16T05:01:29Z Fix: Relocated automation and integrations menus under the Admin section to streamline navigation hierarchy.
 - 2025-10-16T05:14:31Z Feature: Repositioned Integration Modules beneath Webhooks and added a Manage submenu entry for integrations oversight.

@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block header_actions %}
+<button class="button" type="button" data-action="organization-new">
+  <span aria-hidden="true">➕</span>
+  <span>Create organisation</span>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="organization-workspace">
+  <section class="panel">
+    <div class="panel__header organization-panel__header">
+      <div class="panel__intro">
+        <h2 class="panel__title">Organisation registry</h2>
+        <p class="panel__subtitle">
+          Review every tenant, manage onboarding details, and archive inactive organisations without
+          losing their historical footprint.
+        </p>
+      </div>
+      <div class="panel__filters">
+        <label class="form-field form-field--inline" for="organization-status-filter">
+          <span class="form-field__label">Status</span>
+          <select id="organization-status-filter" data-role="organization-status-filter">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div class="table-actions">
+      <input
+        type="search"
+        placeholder="Search organisations"
+        aria-label="Search organisations"
+        data-role="table-filter"
+      />
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table" data-role="sortable-table" data-organization-table="true">
+        <thead>
+          <tr>
+            <th scope="col" data-sort-key="name">Organisation</th>
+            <th scope="col" data-sort-key="contact">Primary contact</th>
+            <th scope="col" data-sort-key="status">Status</th>
+            <th scope="col" data-sort-key="created">Created</th>
+            <th scope="col" data-sort-key="updated">Updated</th>
+            <th scope="col" class="table-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody data-role="organization-table-body">
+          {% if organizations %}
+          {% for org in organizations %}
+          <tr
+            data-organization-row
+            data-organization='{{ org | tojson }}'
+            data-organization-id="{{ org.id }}"
+            data-status="{{ 'archived' if org.is_archived else 'active' }}"
+            data-filter-visible="true"
+            data-search-visible="true"
+          >
+            <td data-sort-value="{{ org.name|lower }}">
+              <div class="organization-name">{{ org.name }}</div>
+              <div class="organization-slug">{{ org.slug }}</div>
+              {% if org.description %}
+              <div class="organization-description">{{ org.description }}</div>
+              {% endif %}
+            </td>
+            <td data-sort-value="{{ org.contact_email or '' }}">
+              {% if org.contact_email %}
+              <a class="organization-contact" href="mailto:{{ org.contact_email }}">{{ org.contact_email }}</a>
+              {% else %}
+              <span class="organization-contact organization-contact--empty">Not provided</span>
+              {% endif %}
+            </td>
+            <td data-sort-value="{{ 'archived' if org.is_archived else 'active' }}">
+              <span
+                class="status-pill {% if org.is_archived %}status-pill--archived{% else %}status-pill--success{% endif %}"
+                data-role="organization-status-label"
+              >
+                {{ 'Archived' if org.is_archived else 'Active' }}
+              </span>
+            </td>
+            <td data-sort-value="{{ org.created_at_iso }}" data-format="datetime">
+              {{ org.created_at_iso }}
+            </td>
+            <td data-sort-value="{{ org.updated_at_iso }}" data-format="datetime">
+              {{ org.updated_at_iso }}
+            </td>
+            <td class="table-actions">
+              <div class="organization-actions">
+                <button
+                  type="button"
+                  class="button button--ghost"
+                  data-action="edit-organization"
+                  data-organization-id="{{ org.id }}"
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  type="button"
+                  class="button button--ghost"
+                  data-action="toggle-organization-archive"
+                  data-organization-id="{{ org.id }}"
+                >
+                  {{ 'Restore' if org.is_archived else 'Archive' }}
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr class="organization-empty">
+            <td colspan="6">No organisations found yet. Create the first tenant to get started.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <aside class="panel organization-form" data-role="organization-form-panel">
+    <div class="panel__intro">
+      <h2 class="panel__title" data-role="organization-form-title">Create new organisation</h2>
+      <p class="panel__subtitle" data-role="organization-form-subtitle">
+        Capture the organisation name, assign a slug for API usage, and optionally record the
+        operations contact.
+      </p>
+    </div>
+    <form id="organization-form" autocomplete="off" data-mode="create">
+      <div class="form-field">
+        <label for="organization-name">Name</label>
+        <input id="organization-name" name="name" type="text" required maxlength="255" />
+      </div>
+      <div class="form-field">
+        <label for="organization-slug">Slug</label>
+        <input
+          id="organization-slug"
+          name="slug"
+          type="text"
+          required
+          maxlength="255"
+          pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        />
+        <small class="form-field__hint">Lowercase letters, numbers, and hyphens only.</small>
+      </div>
+      <div class="form-field">
+        <label for="organization-contact">Primary contact email</label>
+        <input id="organization-contact" name="contact_email" type="email" maxlength="255" />
+      </div>
+      <div class="form-field">
+        <label for="organization-description">Description</label>
+        <textarea id="organization-description" name="description" rows="4" maxlength="2048"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="button" type="submit" data-role="organization-submit-label">
+          Create organisation
+        </button>
+        <button class="button button--ghost" type="button" data-action="organization-reset">
+          Reset form
+        </button>
+      </div>
+      <p class="form-feedback" data-role="organization-message" role="status"></p>
+    </form>
+  </aside>
+</div>
+{% endblock %}

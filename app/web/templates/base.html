@@ -63,6 +63,14 @@
               <span>Maintenance</span>
             </a>
             <a
+              class="nav-sublink{% if current_admin == 'organisations' %} is-active{% endif %}"
+              href="{{ url_for('admin_organisations') }}"
+              {% if current_admin == 'organisations' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">🏢</span>
+              <span>Organisations</span>
+            </a>
+            <a
               class="nav-sublink{% if current_admin == 'webhooks' %} is-active{% endif %}"
               href="{{ url_for('admin_webhooks') }}"
               {% if current_admin == 'webhooks' %}aria-current="page"{% endif %}

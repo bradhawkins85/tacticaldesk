@@ -16,6 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routers import auth as auth_router
 from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
+from app.api.routers import organizations as organizations_router
+from app.core.config import get_settings
+from app.core.db import dispose_engine, get_engine, get_session
+from app.models import IntegrationModule, Organization, User
 from app.api.routers import webhooks as webhooks_router
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
@@ -41,6 +45,7 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 app.include_router(auth_router.router)
 app.include_router(integrations_router.router)
 app.include_router(maintenance_router.router)
+app.include_router(organizations_router.router)
 app.include_router(webhooks_router.router)
 
 
@@ -391,6 +396,19 @@ def _serialize_integration(module: IntegrationModule) -> dict[str, object]:
     }
 
 
+def _serialize_organization(organization: Organization) -> dict[str, object]:
+    return {
+        "id": organization.id,
+        "name": organization.name,
+        "slug": organization.slug,
+        "description": organization.description or "",
+        "contact_email": organization.contact_email or "",
+        "is_archived": bool(organization.is_archived),
+        "created_at_iso": _format_iso(organization.created_at),
+        "updated_at_iso": _format_iso(organization.updated_at),
+    }
+
+
 async def _load_enabled_integrations(session: AsyncSession) -> list[dict[str, str]]:
     result = await session.execute(
         select(IntegrationModule)
@@ -412,6 +430,13 @@ async def _list_integrations(session: AsyncSession) -> list[IntegrationModule]:
         select(IntegrationModule).order_by(IntegrationModule.name.asc())
     )
     return result.scalars().all()
+
+
+async def _list_organizations(session: AsyncSession) -> list[dict[str, object]]:
+    result = await session.execute(
+        select(Organization).order_by(Organization.name.asc())
+    )
+    return [_serialize_organization(org) for org in result.scalars().all()]
 
 
 async def _template_context(
@@ -870,6 +895,25 @@ async def maintenance(
     return templates.TemplateResponse("maintenance.html", context)
 
 
+@app.get(
+    "/admin/organisations",
+    response_class=HTMLResponse,
+    name="admin_organisations",
+)
+async def admin_organisations(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
+    organizations = await _list_organizations(session)
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Organisation directory",
+        page_subtitle="Catalogue tenant accounts, update details, and manage archival state.",
+        organizations=organizations,
+        active_nav="admin",
+        active_admin="organisations",
+    )
+    return templates.TemplateResponse("organisations.html", context)
 def _format_iso(dt: datetime | None) -> str | None:
     if dt is None:
         return None

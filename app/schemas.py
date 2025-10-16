@@ -74,6 +74,38 @@ class IntegrationModuleRead(BaseModel):
         orm_mode = True
 
 
+class OrganizationBase(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255, min_length=1)
+    slug: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        min_length=1,
+        regex=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+    description: Optional[str] = Field(default=None, max_length=2048)
+    contact_email: Optional[EmailStr] = None
+
+
+class OrganizationCreate(OrganizationBase):
+    name: str = Field(max_length=255, min_length=1)
+    slug: str = Field(
+        max_length=255,
+        min_length=1,
+        regex=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+
+
+class OrganizationUpdate(OrganizationBase):
+    is_archived: Optional[bool] = None
+
+
+class OrganizationRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    description: Optional[str]
+    contact_email: Optional[str]
+    is_archived: bool
 class WebhookStatus(str, Enum):
     RETRYING = "retrying"
     PAUSED = "paused"
