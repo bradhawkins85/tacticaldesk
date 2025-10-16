@@ -21,3 +21,5 @@
 - 2025-10-16T03:15:00Z Feature: Removed maintenance token requirement while keeping installer lock enforcement for deployment actions in API and UI.
 - 2025-10-16T03:45:00Z Fix: Realigned ticket selection column borders so row dividers line up with the ID column separators.
 
+
+- 2025-10-16T03:09:00Z Feature: Added ticket detail workspace with dedicated history/reply layout opening in new tabs.
