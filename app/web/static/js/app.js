@@ -320,13 +320,20 @@
     });
   }
 
-  const maintenanceOutput = document.querySelector("[data-role='maintenance-output']");
-  const maintenanceTokenField = document.getElementById("maintenance-token");
   const maintenanceButtons = document.querySelectorAll("[data-action='maintenance-run']");
 
   maintenanceButtons.forEach((button) => {
     button.addEventListener("click", async () => {
+      const tokenFieldSelector = button.dataset.tokenField || "#maintenance-token";
+      const outputSelector = button.dataset.output || "[data-role='maintenance-output']";
+      const maintenanceTokenField = document.querySelector(tokenFieldSelector);
+      const maintenanceOutput = document.querySelector(outputSelector);
+
       if (!maintenanceTokenField || !maintenanceOutput) {
+        console.warn("Maintenance action missing token field or output element", {
+          tokenFieldSelector,
+          outputSelector,
+        });
         return;
       }
       const token = maintenanceTokenField.value.trim();
