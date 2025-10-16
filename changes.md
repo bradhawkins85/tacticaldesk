@@ -10,3 +10,4 @@
 - 2025-10-16T00:25:00Z Fix: Added missing email-validator dependency to restore application startup.
 - 2025-10-16T00:40:00Z Fix: Stabilized database initialization by reusing a shared async engine and running migrations before serving requests.
 - 2025-10-16T00:46:20Z Fix: Corrected migration directory discovery so schema migrations run and user tables are created on startup.
+- 2025-10-16T01:10:00Z Fix: Guarded password length and switched to native bcrypt hashing to prevent admin setup failures from bcrypt 72-byte limits.
