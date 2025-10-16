@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -85,3 +87,51 @@ def test_duplicate_slug_conflict():
         second = client.post("/api/organizations", json=payload)
         assert second.status_code == 409
         assert "already exists" in second.json()["detail"]
+
+
+def test_migration_recovers_missing_organization_columns(tmp_path):
+    db_path = tmp_path / "organizations.db"
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE organizations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                description TEXT,
+                contact_email TEXT,
+                is_archived INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO organizations (name, slug, description, contact_email, is_archived)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "Legacy Org",
+                "legacy-org",
+                "Organization created before timestamp columns existed.",
+                "legacy@example.com",
+                0,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as client:
+        response = client.get("/admin/organisations")
+        assert response.status_code == 200
+
+    connection = sqlite3.connect(db_path)
+    try:
+        cursor = connection.execute("PRAGMA table_info('organizations')")
+        columns = {row[1] for row in cursor.fetchall()}
+    finally:
+        connection.close()
+
+    assert "created_at" in columns
+    assert "updated_at" in columns
