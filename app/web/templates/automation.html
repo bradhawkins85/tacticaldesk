@@ -27,7 +27,7 @@
         <thead>
           <tr>
             <th scope="col" data-sort-key="name">Automation</th>
-            <th scope="col" data-sort-key="playbook">Playbook</th>
+            <th scope="col" data-sort-key="runbook">Runbook label</th>
             <th scope="col" data-sort-key="cron">Cron schedule</th>
             <th scope="col" data-sort-key="next_run">Next run</th>
             <th scope="col" data-sort-key="last_run">Last run</th>
@@ -48,7 +48,7 @@
                 <p class="automation-name__description">{{ automation.description }}</p>
               </div>
             </th>
-            <td data-cell="playbook" data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
+            <td data-cell="runbook" data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
             <td data-cell="cron" data-sort-value="{{ automation.cron_expression or '' }}">
               {{ automation.cron_expression or '—' }}
             </td>
@@ -131,7 +131,7 @@
   <header class="panel__header">
     <div>
       <h2>Event-based automations</h2>
-      <p>Reactive playbooks that execute when specific security or operational signals fire.</p>
+      <p>Reactive runbooks that execute when specific security or operational signals fire.</p>
     </div>
     <div class="panel__tools">
       <label class="visually-hidden" for="event-automation-filter">Filter event automations</label>
@@ -150,7 +150,7 @@
         <thead>
           <tr>
             <th scope="col" data-sort-key="name">Automation</th>
-            <th scope="col" data-sort-key="playbook">Playbook</th>
+            <th scope="col" data-sort-key="runbook">Runbook label</th>
             <th scope="col" data-sort-key="trigger">Trigger</th>
             <th scope="col" data-sort-key="last_trigger">Last triggered</th>
             <th scope="col" data-sort-key="status">Status</th>
@@ -171,7 +171,7 @@
                 <p class="automation-name__description">{{ automation.description }}</p>
               </div>
             </th>
-            <td data-cell="playbook" data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
+            <td data-cell="runbook" data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
             <td data-cell="trigger" data-sort-value="{{ automation.trigger_sort or '' }}">{{ automation.trigger_display }}</td>
             <td data-cell="last_trigger" data-sort-value="{{ automation.last_trigger_iso or '' }}">
               {% if automation.last_trigger_iso %}
@@ -210,6 +210,68 @@
             </td>
           </tr>
           {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="panel automation-section runbook-panel">
+  <header class="panel__header">
+    <div>
+      <h2>Runbook labels</h2>
+      <p>Review runbook label coverage and rename labels to keep automation taxonomies clean.</p>
+    </div>
+    <div class="panel__tools">
+      <label class="visually-hidden" for="runbook-label-filter">Filter runbook labels</label>
+      <input
+        id="runbook-label-filter"
+        type="search"
+        placeholder="Filter runbook labels"
+        data-role="table-filter"
+        aria-controls="runbook-label-table"
+      />
+    </div>
+  </header>
+  <div class="panel__body">
+    <div class="table-container">
+      <table id="runbook-label-table" class="data-table" data-role="sortable-table">
+        <thead>
+          <tr>
+            <th scope="col" data-sort-key="label">Runbook label</th>
+            <th scope="col" data-sort-key="automation_count">Automations</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if runbook_labels %}
+          {% for label in runbook_labels %}
+          <tr data-runbook-label-row data-label="{{ label.label }}">
+            <th scope="row" data-sort-value="{{ label.label | lower }}">
+              <div class="runbook-name">
+                <span class="runbook-name__title">{{ label.label }}</span>
+              </div>
+            </th>
+            <td class="runbook-count" data-sort-value="{{ label.automation_count }}">{{ label.automation_count }}</td>
+            <td class="runbook-actions">
+              <button
+                class="icon-button"
+                type="button"
+                data-action="rename-runbook-label"
+                data-label="{{ label.label }}"
+                title="Rename {{ label.label }}"
+                aria-label="Rename {{ label.label }}"
+              >
+                ✏️
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr class="runbook-empty">
+            <td colspan="3">No runbook labels found. Add an automation to create the first label.</td>
+          </tr>
+          {% endif %}
         </tbody>
       </table>
     </div>

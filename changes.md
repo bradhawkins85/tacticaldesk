@@ -64,3 +64,8 @@
 - 2025-10-16T15:00:00Z Fix: Removed the Maintenance admin menu entry to streamline available navigation options.
 - 2025-10-16T12:49:07Z Feature: Added ticket action assignment builder with backend validation, UI editor, migration, and tests.
 - 2025-10-16T16:30:00Z Feature: Enabled automation template variable rendering with dispatcher payloads, UI catalog, and regression coverage.
+- 2025-10-16T13:12:08Z Fix: Hardened ticket action normalization across API and UI with alias support, slug coercion, and regression tests.
+- 2025-10-16T16:30:00Z Feature: Replaced the Playbook catalogue with runbook label management APIs, UI tooling, and refreshed regression coverage.
+- 2025-10-16T12:49:07Z Feature: Added ticket action assignment builder with backend validation, UI editor, migration, and tests.
+- 2025-10-16T13:02:35Z Fix: Removed event automation available ticket action catalog to streamline the editor layout.
+- 2025-10-16T16:15:00Z Feature: Structured automation editors into dedicated detail, trigger, and action sections with refreshed styling.

@@ -15,7 +15,7 @@
       <span class="automation-editor__kind">Scheduled automation</span>
       <h2 class="panel__title">{{ automation.name }}</h2>
       <p class="panel__subtitle">
-        Configure cron-based execution windows and upcoming run history for this playbook.
+        Configure cron-based execution windows and upcoming run history for this automation.
       </p>
     </div>
   </header>
@@ -26,6 +26,15 @@
       data-trigger-value="{{ automation.trigger or '' }}"
       autocomplete="off"
     >
+      <div class="automation-editor__section" data-automation-section="details">
+        <div class="automation-editor__section-header">
+          <h3 class="automation-editor__section-title">Automation details</h3>
+          <p class="automation-editor__section-description">
+            Configure how and when this scheduled playbook should run. Cron expressions execute in UTC and render below in your local timezone.
+            {% if cron_reference_url %}
+            <a href="{{ cron_reference_url }}" target="_blank" rel="noopener">Cron reference</a>
+            {% endif %}
+          </p>
       <p class="automation-editor__hint">
         Cron expressions run in UTC and render in your local timezone when displayed below.
         {% if cron_reference_url %}
@@ -45,13 +54,14 @@
           />
         </div>
         <div class="form-field">
-          <label for="automation-playbook">Playbook</label>
+          <label for="automation-playbook">Runbook label</label>
           <input
             id="automation-playbook"
             name="playbook"
             type="text"
             maxlength="255"
             required
+            list="runbook-label-options"
             value="{{ automation.playbook }}"
           />
         </div>
@@ -73,132 +83,202 @@
           />
           <p class="form-field__hint">Provide five or six cron segments. Example: <code>30 0 * * *</code>.</p>
         </div>
-        <div class="form-field">
-          <label for="automation-trigger-match">Trigger logic</label>
-          {% set selected_match = automation.trigger_filters.match if automation.trigger_filters else 'any' %}
-          <select id="automation-trigger-match" name="trigger_match">
-            <option value="any" {% if selected_match != 'all' %}selected{% endif %}>
-              Match any selected trigger (OR)
-            </option>
-            <option value="all" {% if selected_match == 'all' %}selected{% endif %}>
-              Require all selected triggers (AND)
-            </option>
-          </select>
-        </div>
-        <div class="form-field automation-editor__grid-item--full">
-          <label>Conditions</label>
-          <div
-            class="trigger-conditions"
-            data-role="trigger-conditions"
-            data-trigger-options='{{ event_trigger_options | tojson | safe }}'
-            data-value-required='{{ value_required_trigger_options | tojson | safe }}'
-          >
-            <div class="trigger-conditions__controls">
+        <div class="automation-editor__section-body">
+          <div class="automation-editor__grid">
+            <div class="form-field">
+              <label for="automation-name">Name</label>
               <input
-                type="search"
-                class="trigger-conditions__filter"
-                placeholder="Filter conditions"
-                data-role="trigger-condition-filter"
-                aria-label="Filter trigger conditions"
+                id="automation-name"
+                name="name"
+                type="text"
+                maxlength="255"
+                required
+                value="{{ automation.name }}"
               />
             </div>
-            <div class="trigger-conditions__table-wrapper">
-              <table class="trigger-conditions__table" data-role="trigger-condition-table">
-                <thead>
-                  <tr>
-                    <th scope="col">
-                      <button type="button" class="trigger-conditions__sort" data-role="trigger-sort" data-sort-key="type" aria-label="Sort by trigger">
-                        Trigger
-                      </button>
-                    </th>
-                    <th scope="col">Operator</th>
-                    <th scope="col">Value</th>
-                    <th scope="col" class="trigger-conditions__actions-header">Actions</th>
-                  </tr>
-                </thead>
-                <tbody class="trigger-conditions__list" data-role="trigger-condition-list"></tbody>
-              </table>
+            <div class="form-field">
+              <label for="automation-playbook">Playbook</label>
+              <input
+                id="automation-playbook"
+                name="playbook"
+                type="text"
+                maxlength="255"
+                required
+                value="{{ automation.playbook }}"
+              />
             </div>
-            <template data-role="trigger-condition-template">
-              <tr class="trigger-condition" data-role="trigger-condition">
-                <td data-column="type">
-                  <select
-                    class="trigger-condition__select"
-                    data-role="trigger-condition-select"
-                    aria-label="Trigger condition"
-                  >
-                    <option value="">Select a trigger</option>
-                    {% for trigger in event_trigger_options %}
-                    <option value="{{ trigger }}">{{ trigger }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td data-column="operator">
-                  <select
-                    class="trigger-condition__operator"
-                    data-role="trigger-condition-operator"
-                    aria-label="Trigger operator"
-                  >
-                    <option value="">Select an operator</option>
-                    {% for value, label in trigger_operator_options %}
-                    <option value="{{ value }}">{{ label }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td data-column="value">
-                  <input
-                    type="text"
-                    class="trigger-condition__value"
-                    data-role="trigger-condition-value"
-                    placeholder="Enter value"
-                    maxlength="255"
-                  />
-                </td>
-                <td class="trigger-conditions__actions" data-column="actions">
-                  <button
-                    type="button"
-                    class="icon-button trigger-condition__remove"
-                    data-action="remove-trigger-condition"
-                    aria-label="Remove condition"
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                </td>
-              </tr>
-            </template>
-            <button
-              type="button"
-              class="link-button trigger-conditions__add"
-              data-action="add-trigger-condition"
-            >
-              + Add new condition
-            </button>
-            <p class="form-help">Start with one condition and add more as needed.</p>
+            <div class="form-field automation-editor__grid-item--full">
+              <label for="automation-description">Description</label>
+              <textarea id="automation-description" name="description" rows="4" maxlength="2048">{{ automation.description or '' }}</textarea>
+            </div>
+            <div class="form-field">
+              <label for="automation-cron-expression">Cron expression</label>
+              <input
+                id="automation-cron-expression"
+                name="cron_expression"
+                type="text"
+                maxlength="255"
+                required
+                pattern="^\S+(\s+\S+){4,5}$"
+                value="{{ automation.cron_expression or '' }}"
+                placeholder="0 2 * * *"
+              />
+              <p class="form-field__hint">Provide five or six cron segments. Example: <code>30 0 * * *</code>.</p>
+            </div>
+            <div class="form-field">
+              <label for="automation-next-run">Next run</label>
+              <input
+                id="automation-next-run"
+                name="next_run_at"
+                type="datetime-local"
+                step="60"
+                data-automation-datetime
+                data-iso-value="{{ automation.next_run_iso or '' }}"
+              />
+            </div>
+            <div class="form-field">
+              <label for="automation-last-run">Last run</label>
+              <input
+                id="automation-last-run"
+                name="last_run_at"
+                type="datetime-local"
+                step="60"
+                data-automation-datetime
+                data-iso-value="{{ automation.last_run_iso or '' }}"
+              />
+            </div>
           </div>
         </div>
-        <div class="form-field">
-          <label for="automation-next-run">Next run</label>
-          <input
-            id="automation-next-run"
-            name="next_run_at"
-            type="datetime-local"
-            step="60"
-            data-automation-datetime
-            data-iso-value="{{ automation.next_run_iso or '' }}"
-          />
+      </div>
+
+      <div class="automation-editor__section" data-automation-section="triggers">
+        <div class="automation-editor__section-header">
+          <h3 class="automation-editor__section-title">Trigger conditions</h3>
+          <p class="automation-editor__section-description">
+            Combine optional guardrails that must be true before each scheduled execution runs.
+          </p>
         </div>
-        <div class="form-field">
-          <label for="automation-last-run">Last run</label>
-          <input
-            id="automation-last-run"
-            name="last_run_at"
-            type="datetime-local"
-            step="60"
-            data-automation-datetime
-            data-iso-value="{{ automation.last_run_iso or '' }}"
-          />
+        <div class="automation-editor__section-body">
+          <div class="automation-editor__grid">
+            <div class="form-field">
+              <label for="automation-trigger-match">Trigger logic</label>
+              {% set selected_match = automation.trigger_filters.match if automation.trigger_filters else 'any' %}
+              <select id="automation-trigger-match" name="trigger_match">
+                <option value="any" {% if selected_match != 'all' %}selected{% endif %}>
+                  Match any selected trigger (OR)
+                </option>
+                <option value="all" {% if selected_match == 'all' %}selected{% endif %}>
+                  Require all selected triggers (AND)
+                </option>
+              </select>
+            </div>
+            <div class="form-field automation-editor__grid-item--full">
+              <label>Conditions</label>
+              <div
+                class="trigger-conditions"
+                data-role="trigger-conditions"
+                data-trigger-options='{{ event_trigger_options | tojson | safe }}'
+                data-value-required='{{ value_required_trigger_options | tojson | safe }}'
+              >
+                <div class="trigger-conditions__controls">
+                  <input
+                    type="search"
+                    class="trigger-conditions__filter"
+                    placeholder="Filter conditions"
+                    data-role="trigger-condition-filter"
+                    aria-label="Filter trigger conditions"
+                  />
+                </div>
+                <div class="trigger-conditions__table-wrapper">
+                  <table class="trigger-conditions__table" data-role="trigger-condition-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">
+                          <button type="button" class="trigger-conditions__sort" data-role="trigger-sort" data-sort-key="type" aria-label="Sort by trigger">
+                            Trigger
+                          </button>
+                        </th>
+                        <th scope="col">Operator</th>
+                        <th scope="col">Value</th>
+                        <th scope="col" class="trigger-conditions__actions-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody class="trigger-conditions__list" data-role="trigger-condition-list"></tbody>
+                  </table>
+                </div>
+                <template data-role="trigger-condition-template">
+                  <tr class="trigger-condition" data-role="trigger-condition">
+                    <td data-column="type">
+                      <select
+                        class="trigger-condition__select"
+                        data-role="trigger-condition-select"
+                        aria-label="Trigger condition"
+                      >
+                        <option value="">Select a trigger</option>
+                        {% for trigger in event_trigger_options %}
+                        <option value="{{ trigger }}">{{ trigger }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td data-column="operator">
+                      <select
+                        class="trigger-condition__operator"
+                        data-role="trigger-condition-operator"
+                        aria-label="Trigger operator"
+                      >
+                        <option value="">Select an operator</option>
+                        {% for value, label in trigger_operator_options %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td data-column="value">
+                      <input
+                        type="text"
+                        class="trigger-condition__value"
+                        data-role="trigger-condition-value"
+                        placeholder="Enter value"
+                        maxlength="255"
+                      />
+                    </td>
+                    <td class="trigger-conditions__actions" data-column="actions">
+                      <button
+                        type="button"
+                        class="icon-button trigger-condition__remove"
+                        data-action="remove-trigger-condition"
+                        aria-label="Remove condition"
+                      >
+                        <span aria-hidden="true">&times;</span>
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+                <button
+                  type="button"
+                  class="link-button trigger-conditions__add"
+                  data-action="add-trigger-condition"
+                >
+                  + Add new condition
+                </button>
+                <p class="form-help">Start with one condition and add more as needed.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <div class="automation-editor__section" data-automation-section="actions">
+        <div class="automation-editor__section-header">
+          <h3 class="automation-editor__section-title">Automation actions</h3>
+          <p class="automation-editor__section-description">
+            Scheduled automations execute their linked playbook when the schedule and conditions are satisfied. No additional ticket actions are configured here.
+          </p>
+        </div>
+        <div class="automation-editor__section-body">
+          <p class="automation-editor__empty">Playbook steps define the actions that run for this automation.</p>
+        </div>
+      </div>
+
       <div class="automation-editor__message" data-role="automation-message" role="status" aria-live="polite"></div>
       <div class="automation-editor__actions">
         <a class="secondary-button" href="{{ url_for('automation') }}">Cancel</a>
@@ -207,4 +287,9 @@
     </form>
   </div>
 </section>
+<datalist id="runbook-label-options">
+  {% for label in runbook_labels %}
+  <option value="{{ label.label }}"></option>
+  {% endfor %}
+</datalist>
 {% endblock %}

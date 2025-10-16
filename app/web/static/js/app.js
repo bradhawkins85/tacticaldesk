@@ -849,10 +849,6 @@
     return slugifyValue(value);
   }
 
-  function slugifyPlaybook(value) {
-    return slugifyValue(value);
-  }
-
   const organizationForm = document.getElementById("organization-form");
   if (organizationForm) {
     const nameInput = organizationForm.querySelector("#organization-name");
@@ -870,83 +866,64 @@
     }
   }
 
-  const playbookTableBody = document.querySelector(
-    "[data-role='playbook-table-body']"
-  );
-
-  if (playbookTableBody) {
-    const rows = Array.from(
-      playbookTableBody.querySelectorAll("tr[data-playbook-row]")
-    );
-    rows.forEach(ensureVisibilityFlags);
-
-    playbookTableBody.addEventListener("click", async (event) => {
-      const deleteTrigger = event.target.closest(
-        "[data-action='playbook-delete']"
+  const runbookLabelTable = document.getElementById("runbook-label-table");
+  if (runbookLabelTable && runbookLabelTable.tBodies.length > 0) {
+    const runbookTableBody = runbookLabelTable.tBodies[0];
+    Array.from(runbookTableBody.rows).forEach(ensureVisibilityFlags);
+    runbookLabelTable.addEventListener("click", async (event) => {
+      const renameTrigger = event.target.closest(
+        "[data-action='rename-runbook-label']"
       );
-      if (!deleteTrigger) {
+      if (!renameTrigger) {
         return;
       }
-      const playbookId = deleteTrigger.dataset.playbookId;
-      if (!playbookId) {
-        return;
-      }
-      const playbookName = deleteTrigger.dataset.playbookName || "this playbook";
-      const confirmed = window.confirm(
-        `Delete ${playbookName}? This action cannot be undone.`
+      const currentLabel = renameTrigger.dataset.label || "";
+      const proposed = window.prompt(
+        "Rename runbook label",
+        currentLabel
       );
-      if (!confirmed) {
+      if (proposed === null) {
         return;
       }
-      deleteTrigger.disabled = true;
+      const trimmed = proposed.trim();
+      if (!trimmed) {
+        window.alert("Runbook label cannot be empty.");
+        return;
+      }
+      if (trimmed === currentLabel) {
+        return;
+      }
+      if (renameTrigger instanceof HTMLButtonElement) {
+        renameTrigger.disabled = true;
+      }
       try {
         const response = await fetch(
-          `/api/playbooks/${encodeURIComponent(playbookId)}`,
+          `/api/automations/runbook-labels/${encodeURIComponent(currentLabel)}`,
           {
-            method: "DELETE",
+            method: "PATCH",
             headers: {
+              "Content-Type": "application/json",
               Accept: "application/json",
             },
             credentials: "same-origin",
+            body: JSON.stringify({ new_label: trimmed }),
           }
         );
-        if (response.status === 409) {
-          const payload = await response.json().catch(() => ({}));
-          const detail =
-            payload?.detail ||
-            "Unable to delete playbook while automations are still linked.";
-          throw new Error(detail);
-        }
+        const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          throw new Error(
-            payload?.detail || "Unable to delete playbook. Try again later."
-          );
+          const detail =
+            payload?.detail || "Unable to rename runbook label. Try again later.";
+          throw new Error(detail);
         }
         window.location.reload();
       } catch (error) {
-        window.alert(error.message || "Unable to delete playbook");
+        window.alert(error.message || "Unable to rename runbook label.");
       } finally {
-        deleteTrigger.disabled = false;
+        if (renameTrigger instanceof HTMLButtonElement) {
+          renameTrigger.disabled = false;
+        }
       }
     });
-  }
-
-  const playbookForm = document.getElementById("playbook-form");
-  if (playbookForm) {
-    const nameInput = playbookForm.querySelector("#playbook-name");
-    const slugInput = playbookForm.querySelector("#playbook-slug");
-    let slugManuallyEdited = playbookForm.dataset.mode === "edit";
-    if (nameInput && slugInput) {
-      nameInput.addEventListener("input", () => {
-        if (!slugManuallyEdited) {
-          slugInput.value = slugifyPlaybook(nameInput.value);
-        }
-      });
-      slugInput.addEventListener("input", () => {
-        slugManuallyEdited = slugInput.value.trim().length > 0;
-      });
-    }
   }
 
   if (organizationTableBody) {
@@ -1174,18 +1151,45 @@
 
     let ticketActionOptions = [];
     const ticketActionLookup = new Map();
+    const ticketActionSlugLookup = new Map();
     if (ticketActionsRoot) {
       const optionsDataset = ticketActionsRoot.dataset.actionOptions;
       if (optionsDataset) {
         try {
           const parsedOptions = JSON.parse(optionsDataset);
           if (Array.isArray(parsedOptions)) {
-            ticketActionOptions = parsedOptions;
-            parsedOptions.forEach((option) => {
-              if (option && option.slug) {
-                ticketActionLookup.set(option.slug, option.name || option.slug);
-              }
-            });
+            ticketActionOptions = parsedOptions
+              .map((option) => {
+                if (!option) {
+                  return null;
+                }
+                const slug =
+                  typeof option.slug === "string"
+                    ? option.slug.trim().toLowerCase()
+                    : "";
+                if (!slug) {
+                  return null;
+                }
+                const displayName =
+                  typeof option.name === "string" && option.name.trim()
+                    ? option.name.trim()
+                    : option.label && typeof option.label === "string"
+                    ? option.label.trim()
+                    : option.slug || slug;
+                ticketActionLookup.set(slug, displayName);
+                ticketActionSlugLookup.set(slug, slug);
+                ticketActionSlugLookup.set(displayName.toLowerCase(), slug);
+                if (
+                  typeof option.label === "string" && option.label.trim()
+                ) {
+                  ticketActionSlugLookup.set(
+                    option.label.trim().toLowerCase(),
+                    slug
+                  );
+                }
+                return { slug, name: displayName };
+              })
+              .filter((option) => option !== null);
           }
         } catch (error) {
           console.warn("Unable to parse ticket action options", error);
@@ -1481,22 +1485,44 @@
         return { conditions, errors };
       }
 
+      function resolveTicketActionSlug(identifier) {
+        if (!identifier) {
+          return "";
+        }
+        const text = identifier.toString().trim();
+        if (!text) {
+          return "";
+        }
+        const lowered = text.toLowerCase();
+        if (ticketActionLookup.has(lowered)) {
+          return lowered;
+        }
+        const mapped = ticketActionSlugLookup.get(lowered);
+        if (mapped && ticketActionLookup.has(mapped)) {
+          return mapped;
+        }
+        const slugCandidate = slugifyValue(text);
+        if (slugCandidate && ticketActionLookup.has(slugCandidate)) {
+          return slugCandidate;
+        }
+        return "";
+      }
+
       function normalizeTicketAction(raw) {
         if (!raw) {
           return null;
         }
         if (typeof raw === "string") {
-          const slug = raw.trim().toLowerCase();
+          const slug = resolveTicketActionSlug(raw);
           if (!slug) {
             return null;
           }
           return { action: slug, value: "" };
         }
         if (typeof raw === "object") {
-          const slug = (raw.action || raw.slug || raw.type || "")
-            .toString()
-            .trim()
-            .toLowerCase();
+          const slug = resolveTicketActionSlug(
+            raw.action || raw.slug || raw.type || raw.name || raw.label
+          );
           if (!slug) {
             return null;
           }
@@ -1506,7 +1532,7 @@
           } else if (raw.details !== undefined && raw.details !== null) {
             text = String(raw.details);
           }
-          return { action: slug, value: text };
+          return { action: slug, value: text.trim() };
         }
         return null;
       }
@@ -1616,6 +1642,12 @@
               ? valueInput.value.trim()
               : "";
           if (!slug && !valueText) {
+            return;
+          }
+          if (slug && !ticketActionLookup.has(slug)) {
+            errors.push(
+              `Selected action is not supported for ticket action ${index + 1}.`
+            );
             return;
           }
           if (!slug) {
@@ -1807,7 +1839,7 @@
         if (!playbookValue) {
           setAutomationFormMessage(
             messageTarget,
-            "Playbook is required.",
+            "Runbook label is required.",
             "error"
           );
           playbookInput?.focus();

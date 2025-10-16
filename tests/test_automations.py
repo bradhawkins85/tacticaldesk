@@ -2,12 +2,15 @@ import asyncio
 from datetime import datetime
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.core.automation_dispatcher import automation_dispatcher
 from app.core.config import get_settings
 from app.core.tickets import ticket_store
 from app.main import app
+from app.api.routers import automations as automations_router
+from app.schemas import AutomationTicketAction
 
 
 @pytest.fixture(autouse=True)
@@ -398,6 +401,29 @@ def test_ticket_action_template_variables_render_in_dispatch_payload():
         assert form_payload["status"] in rendered_value
         assert variables["ticket.previous_status"] in rendered_value
         assert payload["triggered_at"].endswith("Z")
+def test_ticket_action_normalization_accepts_aliases_and_deduplicates():
+    normalized = automations_router._normalize_ticket_actions(
+        [
+            {"slug": "add-public-comment", "details": "Notify"},
+            {"action": "Add Public Comment", "value": "Notify"},
+            {"label": "Change Status", "details": "In Progress"},
+            AutomationTicketAction(action="change-status", value="In Progress"),
+            None,
+        ]
+    )
+
+    assert len(normalized) == 2
+    assert normalized[0].action == "add-public-comment"
+    assert normalized[0].value == "Notify"
+    assert normalized[1].action == "change-status"
+    assert normalized[1].value == "In Progress"
+
+
+def test_ticket_action_normalization_rejects_unknown_actions():
+    with pytest.raises(HTTPException):
+        automations_router._normalize_ticket_actions(
+            [{"action": "not-a-real-action", "value": "noop"}]
+        )
 
 
 def test_ticket_update_triggers_event_automation():
@@ -524,3 +550,50 @@ def test_automation_edit_page_loads():
         assert "automation-edit-page" in html
         assert "automation-editor__kind" in html
         assert "data-role=\"automation-edit-page\"" in html
+
+def test_runbook_label_listing_and_rename():
+    with TestClient(app) as client:
+        labels_response = client.get("/api/automations/runbook-labels")
+        assert labels_response.status_code == 200
+        labels = labels_response.json()
+        summary = {item["label"]: item["automation_count"] for item in labels}
+        assert "Platform maintenance" in summary
+        assert summary["Platform maintenance"] >= 1
+
+        rename_response = client.patch(
+            "/api/automations/runbook-labels/Platform%20maintenance",
+            json={"new_label": "Platform maintenance v2"},
+        )
+        assert rename_response.status_code == 200
+        renamed_payload = rename_response.json()
+        updated_labels = {item["label"] for item in renamed_payload}
+        assert "Platform maintenance v2" in updated_labels
+        assert "Platform maintenance" not in updated_labels
+
+        automations = client.get("/api/automations").json()
+        lifecycle = next(
+            item for item in automations if item["name"] == "Lifecycle automation"
+        )
+        assert lifecycle["playbook"] == "Platform maintenance v2"
+
+
+def test_runbook_label_rename_conflict_and_missing():
+    with TestClient(app) as client:
+        labels = client.get("/api/automations/runbook-labels").json()
+        assert len(labels) >= 2
+        first_label = labels[0]["label"]
+        second_label = labels[1]["label"]
+        conflict = client.patch(
+            f"/api/automations/runbook-labels/{first_label}",
+            json={"new_label": second_label},
+        )
+        assert conflict.status_code == 409
+        detail = conflict.json().get("detail")
+        assert detail and "already exists" in detail
+
+        missing = client.patch(
+            "/api/automations/runbook-labels/Unknown",
+            json={"new_label": "New label"},
+        )
+        assert missing.status_code == 404
+        assert "not found" in missing.json().get("detail", "").lower()
