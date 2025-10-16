@@ -1024,6 +1024,35 @@ async def automation_view(
     return templates.TemplateResponse("automation.html", context)
 
 
+@app.get("/automation/{automation_id}", response_class=HTMLResponse, name="automation_edit")
+async def automation_edit_view(
+    request: Request,
+    automation_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    result = await session.execute(
+        select(Automation).where(Automation.id == automation_id)
+    )
+    automation = result.scalar_one_or_none()
+    if automation is None:
+        raise HTTPException(status_code=404, detail="Automation not found")
+
+    automation_view = _automation_to_view_model(automation)
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Automation editor",
+        page_subtitle=(
+            f"Review and adjust configuration for {automation_view['name']}."
+        ),
+        active_nav="admin",
+        active_admin="automation",
+        automation=automation_view,
+    )
+    return templates.TemplateResponse("automation_edit.html", context)
+
+
 @app.get("/integrations", response_class=HTMLResponse, name="integrations_index")
 async def integrations_index(
     request: Request, session: AsyncSession = Depends(get_session)

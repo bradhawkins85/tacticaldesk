@@ -1611,6 +1611,64 @@ body.has-open-modal {
     font-size: 0.85rem;
 }
 
+.automation-editor {
+    display: flex;
+    flex-direction: column;
+}
+
+.automation-editor__kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-muted);
+}
+
+.automation-editor__hint {
+    margin: 0 0 1rem;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}
+
+.automation-editor__grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    margin-bottom: 1rem;
+}
+
+.automation-editor__grid-item--full {
+    grid-column: 1 / -1;
+}
+
+.automation-editor__message {
+    min-height: 1.25rem;
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    margin-bottom: 1rem;
+}
+
+.automation-editor__message.success {
+    color: #16a34a;
+}
+
+.automation-editor__message.error {
+    color: #dc2626;
+}
+
+.automation-editor__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.automation-editor[data-automation-kind="event"] [data-automation-section="scheduled"],
+.automation-editor[data-automation-kind="scheduled"] [data-automation-section="event"] {
+    display: none;
+}
+
 .modal {
     position: fixed;
     inset: 0;

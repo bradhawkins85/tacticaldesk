@@ -81,3 +81,18 @@ def test_update_event_automation_status():
         html = client.get("/automation").text
         assert "Monitoring" in html
         assert "2025" in html
+
+
+def test_automation_edit_page_loads():
+    with TestClient(app) as client:
+        response = client.get("/api/automations")
+        assert response.status_code == 200
+        automations = response.json()
+        assert automations, "Expected seeded automations"
+        automation_id = automations[0]["id"]
+
+        page = client.get(f"/automation/{automation_id}")
+        assert page.status_code == 200
+        html = page.text
+        assert "Automation editor" in html
+        assert "data-role=\"automation-edit-page\"" in html
