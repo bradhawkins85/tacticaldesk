@@ -319,7 +319,8 @@ async def _prepare_ticket_detail_context(
         history_entries.append(entry_copy)
 
     history_entries.sort(
-        key=lambda entry: entry.get("timestamp_dt") or datetime.min.replace(tzinfo=timezone.utc)
+        key=lambda entry: entry.get("timestamp_dt") or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
     )
 
     display_ticket.update(
