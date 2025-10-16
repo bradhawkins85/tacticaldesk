@@ -34,3 +34,4 @@
 - 2025-10-16T06:45:00Z Feature: Added webhook pause/resume/delete controls with database-backed monitoring API and UI actions.
 - 2025-10-16T05:01:29Z Fix: Relocated automation and integrations menus under the Admin section to streamline navigation hierarchy.
 - 2025-10-16T05:14:31Z Feature: Repositioned Integration Modules beneath Webhooks and added a Manage submenu entry for integrations oversight.
+- 2025-10-16T05:31:47Z Fix: Restored organization admin view by adding timestamp fields to the ORM model to match the schema.
