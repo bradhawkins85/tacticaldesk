@@ -15,7 +15,7 @@
       <span class="automation-editor__kind">Event-based automation</span>
       <h2 class="panel__title">{{ automation.name }}</h2>
       <p class="panel__subtitle">
-        Choose application events that should trigger this playbook and review recent signal delivery.
+        Choose application events that should trigger this automation and review recent signal delivery.
       </p>
     </div>
   </header>
@@ -42,13 +42,14 @@
           />
         </div>
         <div class="form-field">
-          <label for="automation-playbook">Playbook</label>
+          <label for="automation-playbook">Runbook label</label>
           <input
             id="automation-playbook"
             name="playbook"
             type="text"
             maxlength="255"
             required
+            list="runbook-label-options"
             value="{{ automation.playbook }}"
           />
         </div>
@@ -196,7 +197,7 @@
             </h3>
             <p class="automation-action-catalog__description">
               Actions execute after all trigger conditions evaluate to true and can be
-              referenced in downstream playbook orchestration.
+              referenced in downstream runbook orchestration.
             </p>
           </div>
           <div class="automation-action-catalog__filter">
@@ -248,4 +249,9 @@
     </form>
   </div>
 </section>
+<datalist id="runbook-label-options">
+  {% for label in runbook_labels %}
+  <option value="{{ label.label }}"></option>
+  {% endfor %}
+</datalist>
 {% endblock %}

@@ -6,13 +6,19 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.automations import EVENT_TRIGGER_SET
 from app.core.db import get_session
 from app.models import Automation, utcnow
-from app.schemas import AutomationRead, AutomationTriggerFilter, AutomationUpdate
+from app.schemas import (
+    AutomationRead,
+    AutomationTriggerFilter,
+    AutomationUpdate,
+    RunbookLabelRename,
+    RunbookLabelSummary,
+)
 
 router = APIRouter(prefix="/api/automations", tags=["Automations"])
 
@@ -155,6 +161,69 @@ async def list_automations(
     return [AutomationRead.from_orm(auto) for auto in automations]
 
 
+async def _collect_runbook_labels(
+    session: AsyncSession,
+) -> list[RunbookLabelSummary]:
+    result = await session.execute(
+        select(Automation.playbook, func.count(Automation.id))
+        .group_by(Automation.playbook)
+        .order_by(Automation.playbook.asc())
+    )
+    rows = result.all()
+    return [
+        RunbookLabelSummary(label=label, automation_count=count)
+        for label, count in rows
+    ]
+
+
+@router.get("/runbook-labels", response_model=list[RunbookLabelSummary])
+async def list_runbook_labels(
+    *, session: AsyncSession = Depends(get_session)
+) -> list[RunbookLabelSummary]:
+    return await _collect_runbook_labels(session)
+
+
+@router.patch("/runbook-labels/{label}", response_model=list[RunbookLabelSummary])
+async def rename_runbook_label(
+    *,
+    label: str,
+    payload: RunbookLabelRename,
+    session: AsyncSession = Depends(get_session),
+) -> list[RunbookLabelSummary]:
+    current_label = _ensure_required_text(label, "Runbook label")
+    new_label = _ensure_required_text(payload.new_label, "Runbook label")
+
+    if current_label == new_label:
+        return await _collect_runbook_labels(session)
+
+    existing_current = await session.execute(
+        select(func.count(Automation.id)).where(Automation.playbook == current_label)
+    )
+    if existing_current.scalar_one() == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Runbook label not found",
+        )
+
+    duplicate_check = await session.execute(
+        select(func.count(Automation.id)).where(Automation.playbook == new_label)
+    )
+    if duplicate_check.scalar_one() > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A runbook label with this name already exists",
+        )
+
+    await session.execute(
+        update(Automation)
+        .where(Automation.playbook == current_label)
+        .values(playbook=new_label)
+    )
+    await session.commit()
+
+    return await _collect_runbook_labels(session)
+
+
 @router.patch("/{automation_id}", response_model=AutomationRead)
 async def update_automation(
     *,
@@ -182,7 +251,7 @@ async def update_automation(
             updated = True
 
     if "playbook" in data and data["playbook"] is not None:
-        cleaned_playbook = _ensure_required_text(data["playbook"], "Playbook")
+        cleaned_playbook = _ensure_required_text(data["playbook"], "Runbook label")
         if cleaned_playbook != automation.playbook:
             automation.playbook = cleaned_playbook
             updated = True

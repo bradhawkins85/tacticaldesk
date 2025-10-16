@@ -63,3 +63,4 @@
 - 2025-10-16T11:22:28Z Fix: Renamed CURD API Docs references to API Docs for accurate terminology.
 - 2025-10-16T15:05:00Z Fix: Converted the secure update playbook into a platform maintenance action so the update button no longer registers a run-secure-update playbook.
 - 2025-10-16T15:00:00Z Fix: Removed the Maintenance admin menu entry to streamline available navigation options.
+- 2025-10-16T16:30:00Z Feature: Replaced the Playbook catalogue with runbook label management APIs, UI tooling, and refreshed regression coverage.
