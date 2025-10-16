@@ -881,6 +881,16 @@
     const nextRunInput = form?.querySelector("#automation-next-run");
     const lastRunInput = form?.querySelector("#automation-last-run");
     const lastTriggerInput = form?.querySelector("#automation-last-trigger");
+    const triggerConditionsRoot = form?.querySelector("[data-role='trigger-conditions']");
+    const triggerConditionList = triggerConditionsRoot?.querySelector(
+      "[data-role='trigger-condition-list']"
+    );
+    const triggerConditionTemplate = triggerConditionsRoot?.querySelector(
+      "[data-role='trigger-condition-template']"
+    );
+    const addTriggerConditionButton = triggerConditionsRoot?.querySelector(
+      "[data-action='add-trigger-condition']"
+    );
 
     if (form) {
       const datetimeInputs = Array.from(
@@ -906,24 +916,132 @@
         }
       }
 
-      if (
+      function updateTriggerConditionRemoveButtons() {
+        if (!triggerConditionList) {
+          return;
+        }
+        const rows = Array.from(
+          triggerConditionList.querySelectorAll("[data-role='trigger-condition']")
+        );
+        rows.forEach((row) => {
+          const removeButton = row.querySelector(
+            "[data-action='remove-trigger-condition']"
+          );
+          if (removeButton) {
+            removeButton.hidden = rows.length <= 1;
+          }
+        });
+      }
+
+      function addTriggerConditionRow(value = "") {
+        if (!triggerConditionTemplate || !triggerConditionList) {
+          return null;
+        }
+        const fragment = document.importNode(
+          triggerConditionTemplate.content,
+          true
+        );
+        const row = fragment.querySelector("[data-role='trigger-condition']");
+        const select = fragment.querySelector(
+          "[data-role='trigger-condition-select']"
+        );
+        if (select) {
+          select.value = value || "";
+        }
+        triggerConditionList.appendChild(fragment);
+        updateTriggerConditionRemoveButtons();
+        return row;
+      }
+
+      function setTriggerConditionValues(values) {
+        if (!triggerConditionList) {
+          return;
+        }
+        triggerConditionList.innerHTML = "";
+        const normalized = Array.isArray(values) && values.length ? values : [""];
+        normalized.forEach((value) => {
+          addTriggerConditionRow(value);
+        });
+        updateTriggerConditionRemoveButtons();
+      }
+
+      function getTriggerConditionValues() {
+        if (!triggerConditionList) {
+          return [];
+        }
+        const seen = new Set();
+        const values = [];
+        triggerConditionList
+          .querySelectorAll("[data-role='trigger-condition-select']")
+          .forEach((select) => {
+            if (!(select instanceof HTMLSelectElement)) {
+              return;
+            }
+            const value = select.value.trim();
+            if (value && !seen.has(value)) {
+              seen.add(value);
+              values.push(value);
+            }
+          });
+        return values;
+      }
+
+      const selectedConditions = Array.isArray(
+        initialTriggerFilters?.conditions
+      )
+        ? initialTriggerFilters.conditions
+        : [];
+      const singleTrigger = form.dataset.triggerValue || "";
+      const valuesToSelect = selectedConditions.length
+        ? selectedConditions
+        : singleTrigger
+        ? [singleTrigger]
+        : [];
+
+      if (triggerConditionsRoot) {
+        setTriggerConditionValues(valuesToSelect);
+      } else if (
         triggerInput instanceof HTMLSelectElement &&
         triggerInput.multiple
       ) {
-        const selectedConditions = Array.isArray(
-          initialTriggerFilters?.conditions
-        )
-          ? initialTriggerFilters.conditions
-          : [];
-        const singleTrigger = form.dataset.triggerValue || "";
-        const valuesToSelect = selectedConditions.length
-          ? selectedConditions
-          : singleTrigger
-          ? [singleTrigger]
-          : [];
         const selectedSet = new Set(valuesToSelect);
         Array.from(triggerInput.options).forEach((option) => {
           option.selected = selectedSet.has(option.value);
+        });
+      }
+
+      if (addTriggerConditionButton) {
+        addTriggerConditionButton.addEventListener("click", () => {
+          const newRow = addTriggerConditionRow();
+          const select = newRow?.querySelector(
+            "[data-role='trigger-condition-select']"
+          );
+          if (select instanceof HTMLSelectElement) {
+            select.focus();
+          }
+        });
+      }
+
+      if (triggerConditionList) {
+        triggerConditionList.addEventListener("click", (event) => {
+          const removeButton = event.target.closest(
+            "[data-action='remove-trigger-condition']"
+          );
+          if (!removeButton) {
+            return;
+          }
+          const row = removeButton.closest("[data-role='trigger-condition']");
+          if (!row) {
+            return;
+          }
+          row.remove();
+          if (
+            triggerConditionList.querySelector("[data-role='trigger-condition']")
+          ) {
+            updateTriggerConditionRemoveButtons();
+          } else {
+            addTriggerConditionRow();
+          }
         });
       }
 
@@ -977,7 +1095,31 @@
           payload.cron_expression = cronInput.value?.trim() || null;
         }
 
-        if (triggerInput instanceof HTMLSelectElement && triggerInput.multiple) {
+        if (triggerConditionsRoot) {
+          const selectedValues = getTriggerConditionValues();
+          if (selectedValues.length === 1) {
+            payload.trigger = selectedValues[0];
+          } else {
+            payload.trigger = null;
+          }
+
+          if (selectedValues.length > 0) {
+            const matchValue =
+              triggerMatchInput instanceof HTMLSelectElement &&
+              triggerMatchInput.value === "all"
+                ? "all"
+                : "any";
+            payload.trigger_filters = {
+              match: matchValue,
+              conditions: selectedValues,
+            };
+          } else {
+            payload.trigger_filters = null;
+          }
+        } else if (
+          triggerInput instanceof HTMLSelectElement &&
+          triggerInput.multiple
+        ) {
           const selectedValues = Array.from(triggerInput.selectedOptions)
             .map((option) => option.value)
             .filter((value) => value);
@@ -1040,7 +1182,16 @@
             if (cronInput) {
               cronInput.value = updated.cron_expression || "";
             }
-            if (
+            if (triggerConditionsRoot) {
+              const updatedConditions = Array.isArray(
+                updated.trigger_filters?.conditions
+              )
+                ? updated.trigger_filters.conditions
+                : updated.trigger
+                ? [updated.trigger]
+                : [];
+              setTriggerConditionValues(updatedConditions);
+            } else if (
               triggerInput instanceof HTMLSelectElement &&
               triggerInput.multiple
             ) {

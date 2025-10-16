@@ -69,21 +69,44 @@
           </select>
         </div>
         <div class="form-field automation-editor__grid-item--full">
-          <label for="automation-trigger">Triggers</label>
-          {% set selected_conditions = automation.trigger_filters.conditions if automation.trigger_filters else [] %}
-          <select
-            id="automation-trigger"
-            name="trigger"
-            multiple
-            size="6"
-            data-role="automation-trigger-select"
+          <label>Conditions</label>
+          <div
+            class="trigger-conditions"
+            data-role="trigger-conditions"
+            data-trigger-options='{{ event_trigger_options | tojson | safe }}'
           >
-            {% for trigger in event_trigger_options %}
-            {% set is_selected = trigger in selected_conditions or automation.trigger == trigger %}
-            <option value="{{ trigger }}" {% if is_selected %}selected{% endif %}>{{ trigger }}</option>
-            {% endfor %}
-          </select>
-          <p class="form-help">Use Ctrl/Cmd + click to choose multiple triggers.</p>
+            <div class="trigger-conditions__list" data-role="trigger-condition-list"></div>
+            <template data-role="trigger-condition-template">
+              <div class="trigger-condition" data-role="trigger-condition">
+                <select
+                  class="trigger-condition__select"
+                  data-role="trigger-condition-select"
+                  aria-label="Trigger condition"
+                >
+                  <option value="">Select a trigger</option>
+                  {% for trigger in event_trigger_options %}
+                  <option value="{{ trigger }}">{{ trigger }}</option>
+                  {% endfor %}
+                </select>
+                <button
+                  type="button"
+                  class="icon-button trigger-condition__remove"
+                  data-action="remove-trigger-condition"
+                  aria-label="Remove condition"
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+            </template>
+            <button
+              type="button"
+              class="link-button trigger-conditions__add"
+              data-action="add-trigger-condition"
+            >
+              + Add new condition
+            </button>
+            <p class="form-help">Start with one condition and add more as needed.</p>
+          </div>
         </div>
         <div class="form-field">
           <label for="automation-status">Status label</label>
