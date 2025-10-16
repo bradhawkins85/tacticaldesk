@@ -32,13 +32,36 @@ def test_registration_flow():
             json={"email": "admin2@example.com", "password": "SecurePass123"},
         )
         assert response.status_code == 403
-
         login_response = client.post(
             "/auth/login",
             json={"email": "admin@example.com", "password": "SecurePass123"},
         )
         assert login_response.status_code == 200
         assert login_response.json()["email"] == "admin@example.com"
+
+
+def test_registration_rejects_passwords_over_bcrypt_limit():
+    long_password = "a" * 80
+    with TestClient(app) as client:
+        response = client.post(
+            "/auth/register",
+            json={"email": "admin@example.com", "password": long_password},
+        )
+        assert response.status_code == 422
+        assert "maximum supported size" in response.json()["detail"]
+
+
+def test_login_rejects_overlong_password_attempts():
+    with TestClient(app) as client:
+        client.post(
+            "/auth/register",
+            json={"email": "admin@example.com", "password": "SecurePass123"},
+        )
+        response = client.post(
+            "/auth/login",
+            json={"email": "admin@example.com", "password": "a" * 80},
+        )
+        assert response.status_code == 401
 
 
 def test_root_route_registers_when_no_admin():

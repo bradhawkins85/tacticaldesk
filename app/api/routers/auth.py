@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.core.security import hash_password, verify_password
+from app.core.security import PasswordTooLongError, hash_password, verify_password
 from app.models import User
 from app.schemas import LoginRequest, UserCreate, UserRead
 
@@ -20,7 +20,10 @@ async def register_user(user_in: UserCreate, session: AsyncSession = Depends(get
     if user_count > 0:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Registration is closed")
 
-    hashed = hash_password(user_in.password)
+    try:
+        hashed = hash_password(user_in.password)
+    except PasswordTooLongError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     user = User(email=user_in.email, hashed_password=hashed, is_super_admin=True)
     session.add(user)
     await session.commit()
