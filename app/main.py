@@ -760,6 +760,68 @@ async def analytics_view(
 async def automation_view(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
+    now_utc = datetime.now(timezone.utc)
+    scheduled_automations = [
+        {
+            "name": "Lifecycle automation",
+            "playbook": "Run secure update",
+            "cadence": "Daily at 02:00 UTC",
+            "next_run_iso": (now_utc + timedelta(hours=6)).isoformat().replace("+00:00", "Z"),
+            "last_run_iso": (now_utc - timedelta(days=1, hours=1)).isoformat().replace("+00:00", "Z"),
+            "description": "Executes the hardened update pipeline, including dependency checks and migrations.",
+            "action": {
+                "label": "Run secure update",
+                "endpoint": "/maintenance/update",
+                "output_selector": "#automation-update-output",
+            },
+        },
+        {
+            "name": "Patch window compliance",
+            "playbook": "Quarterly patch audit",
+            "cadence": "1st business day of quarter",
+            "next_run_iso": (now_utc + timedelta(days=15)).isoformat().replace("+00:00", "Z"),
+            "last_run_iso": (now_utc - timedelta(days=76)).isoformat().replace("+00:00", "Z"),
+            "description": "Generates compliance evidence and sends reports to security and audit subscribers.",
+            "action": None,
+        },
+        {
+            "name": "Backup integrity",
+            "playbook": "Nightly restore validation",
+            "cadence": "Every night at 00:30 UTC",
+            "next_run_iso": (now_utc + timedelta(hours=4, minutes=30)).isoformat().replace("+00:00", "Z"),
+            "last_run_iso": (now_utc - timedelta(hours=19, minutes=30)).isoformat().replace("+00:00", "Z"),
+            "description": "Performs checksum validation and restores a random sample to the sandbox cluster.",
+            "action": None,
+        },
+    ]
+
+    event_automations = [
+        {
+            "name": "Critical CVE intake",
+            "playbook": "Emergency patch roll-out",
+            "trigger": "National vulnerability feed",
+            "last_trigger_iso": (now_utc - timedelta(hours=5, minutes=10)).isoformat().replace("+00:00", "Z"),
+            "description": "Auto-creates response tickets and dispatches patch playbooks to affected fleets.",
+            "status": "Monitoring",
+        },
+        {
+            "name": "Incident escalation",
+            "playbook": "SOC handoff",
+            "trigger": "Security SIEM priority 1 alert",
+            "last_trigger_iso": (now_utc - timedelta(days=3, hours=4)).isoformat().replace("+00:00", "Z"),
+            "description": "Notifies duty officer, syncs context to TacticalRMM, and opens on-call bridge.",
+            "status": "Idle",
+        },
+        {
+            "name": "Customer onboarding",
+            "playbook": "Client provisioning",
+            "trigger": "New account webhook",
+            "last_trigger_iso": (now_utc - timedelta(days=7, hours=6)).isoformat().replace("+00:00", "Z"),
+            "description": "Sets up portals, applies policy baselines, and delivers welcome communications.",
+            "status": "Healthy",
+        },
+    ]
+
     context = await _template_context(
         request=request,
         session=session,
@@ -767,6 +829,8 @@ async def automation_view(
         page_subtitle="Manage lifecycle automation and run secure platform updates.",
         active_nav="admin",
         active_admin="automation",
+        scheduled_automations=scheduled_automations,
+        event_automations=event_automations,
     )
     return templates.TemplateResponse("automation.html", context)
 

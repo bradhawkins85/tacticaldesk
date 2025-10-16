@@ -4,32 +4,130 @@
 <button class="secondary-button" type="button" data-action="view-logs">View logs</button>
 {% endblock %}
 {% block content %}
-<section class="panel automation-update">
+<section class="panel automation-section">
   <header class="panel__header">
     <div>
-      <h2>Lifecycle automation</h2>
-      <p>Securely execute platform maintenance jobs without leaving the control tower.</p>
+      <h2>Scheduled automations</h2>
+      <p>Recurring jobs that enforce platform hygiene, resilience, and compliance.</p>
+    </div>
+    <div class="panel__tools">
+      <label class="visually-hidden" for="scheduled-automation-filter">Filter scheduled automations</label>
+      <input
+        id="scheduled-automation-filter"
+        type="search"
+        placeholder="Filter scheduled automations"
+        data-role="table-filter"
+        aria-controls="scheduled-automation-table"
+      />
     </div>
   </header>
   <div class="panel__body">
-    <div class="automation-update__actions">
-      <button
-        class="primary-button"
-        type="button"
-        data-action="maintenance-run"
-        data-endpoint="/maintenance/update"
-        data-output="#automation-update-output"
-      >
-        Run secure update
-      </button>
-      <p class="automation-update__help">
-        Uses the hardened update script to pull vetted releases, install dependencies, run migrations, and restart
-        services. Requests respect the installer lock so only authorized operators can trigger execution.
-      </p>
+    <div class="table-container">
+      <table id="scheduled-automation-table" class="data-table" data-role="sortable-table">
+        <thead>
+          <tr>
+            <th scope="col" data-sort-key="name">Automation</th>
+            <th scope="col" data-sort-key="playbook">Playbook</th>
+            <th scope="col" data-sort-key="cadence">Cadence</th>
+            <th scope="col" data-sort-key="next_run">Next run</th>
+            <th scope="col" data-sort-key="last_run">Last run</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for automation in scheduled_automations %}
+          <tr>
+            <th scope="row">
+              <div class="automation-name">
+                <span class="automation-name__title">{{ automation.name }}</span>
+                <p class="automation-name__description">{{ automation.description }}</p>
+              </div>
+            </th>
+            <td data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
+            <td data-sort-value="{{ automation.cadence }}">{{ automation.cadence }}</td>
+            <td data-sort-value="{{ automation.next_run_iso }}">
+              <time data-role="local-datetime" datetime="{{ automation.next_run_iso }}">{{ automation.next_run_iso }}</time>
+            </td>
+            <td data-sort-value="{{ automation.last_run_iso }}">
+              <time data-role="local-datetime" datetime="{{ automation.last_run_iso }}">{{ automation.last_run_iso }}</time>
+            </td>
+            <td class="automation-actions">
+              {% if automation.action %}
+              <button
+                class="primary-button"
+                type="button"
+                data-action="maintenance-run"
+                data-endpoint="{{ automation.action.endpoint }}"
+                data-output="{{ automation.action.output_selector }}"
+              >
+                {{ automation.action.label }}
+              </button>
+              {% else %}
+              <span class="automation-status-tag">Monitored</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
     <div class="log-console" aria-live="polite">
-      <h3>Update status</h3>
+      <h3>Secure update status</h3>
       <pre id="automation-update-output">Awaiting update command…</pre>
+    </div>
+  </div>
+</section>
+
+<section class="panel automation-section">
+  <header class="panel__header">
+    <div>
+      <h2>Event-based automations</h2>
+      <p>Reactive playbooks that execute when specific security or operational signals fire.</p>
+    </div>
+    <div class="panel__tools">
+      <label class="visually-hidden" for="event-automation-filter">Filter event automations</label>
+      <input
+        id="event-automation-filter"
+        type="search"
+        placeholder="Filter event automations"
+        data-role="table-filter"
+        aria-controls="event-automation-table"
+      />
+    </div>
+  </header>
+  <div class="panel__body">
+    <div class="table-container">
+      <table id="event-automation-table" class="data-table" data-role="sortable-table">
+        <thead>
+          <tr>
+            <th scope="col" data-sort-key="name">Automation</th>
+            <th scope="col" data-sort-key="playbook">Playbook</th>
+            <th scope="col" data-sort-key="trigger">Trigger</th>
+            <th scope="col" data-sort-key="last_trigger">Last triggered</th>
+            <th scope="col" data-sort-key="status">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for automation in event_automations %}
+          <tr>
+            <th scope="row">
+              <div class="automation-name">
+                <span class="automation-name__title">{{ automation.name }}</span>
+                <p class="automation-name__description">{{ automation.description }}</p>
+              </div>
+            </th>
+            <td data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
+            <td data-sort-value="{{ automation.trigger }}">{{ automation.trigger }}</td>
+            <td data-sort-value="{{ automation.last_trigger_iso }}">
+              <time data-role="local-datetime" datetime="{{ automation.last_trigger_iso }}">{{ automation.last_trigger_iso }}</time>
+            </td>
+            <td data-sort-value="{{ automation.status }}">
+              <span class="automation-status-tag">{{ automation.status }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
