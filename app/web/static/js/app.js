@@ -951,6 +951,54 @@
 
   if (organizationTableBody) {
     organizationTableBody.addEventListener("click", async (event) => {
+      const deleteTrigger = event.target.closest(
+        "[data-action='delete-organization']"
+      );
+      if (deleteTrigger) {
+        const organizationId = deleteTrigger.dataset.organizationId;
+        if (!organizationId) {
+          return;
+        }
+        const organizationName =
+          deleteTrigger.dataset.organizationName || "this organisation";
+        const confirmed = window.confirm(
+          `Delete ${organizationName}? All contacts and associated tickets will be permanently removed. ` +
+            "Archive instead if you may need their history later."
+        );
+        if (!confirmed) {
+          return;
+        }
+        deleteTrigger.disabled = true;
+        try {
+          const response = await fetch(
+            `/api/organizations/${encodeURIComponent(organizationId)}`,
+            {
+              method: "DELETE",
+              headers: {
+                Accept: "application/json",
+              },
+              credentials: "same-origin",
+            }
+          );
+          if (!response.ok) {
+            let detail = "Unable to delete organisation.";
+            try {
+              const payload = await response.json();
+              detail = payload?.detail || detail;
+            } catch (error) {
+              // ignore
+            }
+            throw new Error(detail);
+          }
+          window.location.reload();
+        } catch (error) {
+          window.alert(error.message || "Unable to delete organisation");
+        } finally {
+          deleteTrigger.disabled = false;
+        }
+        return;
+      }
+
       const archiveTrigger = event.target.closest(
         "[data-action='toggle-organization-archive']"
       );
