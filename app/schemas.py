@@ -106,6 +106,11 @@ class OrganizationRead(BaseModel):
     description: Optional[str]
     contact_email: Optional[str]
     is_archived: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
 class WebhookStatus(str, Enum):
     RETRYING = "retrying"
     PAUSED = "paused"
