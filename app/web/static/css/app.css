@@ -1191,6 +1191,17 @@ body.has-open-modal {
   box-shadow: none;
 }
 
+.button--danger {
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.button--danger:hover,
+.button--danger:focus {
+  background: var(--color-danger-surface);
+  box-shadow: none;
+}
+
 .badge--priority {
   background: rgba(148, 163, 184, 0.2);
   color: #475569;
@@ -1219,6 +1230,73 @@ body.has-open-modal {
 .status-pill--pending {
   background: rgba(251, 191, 36, 0.18);
   color: #b45309;
+}
+
+.playbook-panel .panel__header {
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.playbook-panel .panel__filters {
+  display: flex;
+  align-items: center;
+}
+
+.playbook-panel .panel__filters input {
+  min-width: 220px;
+}
+
+.playbook-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.playbook-name__title {
+  font-weight: 600;
+}
+
+.playbook-name__description {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  max-width: 480px;
+}
+
+.playbook-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.playbook-count {
+  font-weight: 600;
+}
+
+.playbook-empty td {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--color-muted);
+}
+
+@media (max-width: 768px) {
+  .playbook-panel .panel__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .playbook-panel .panel__filters {
+    width: 100%;
+  }
+
+  .playbook-panel .panel__filters input {
+    width: 100%;
+  }
+
+  .playbook-actions {
+    justify-content: flex-start;
+  }
 }
 
 .status-pill--answered {

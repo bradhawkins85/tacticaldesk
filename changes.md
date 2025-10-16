@@ -55,3 +55,4 @@
 - 2025-10-16T12:45:00Z Feature: Added icon-based automation controls with manual run and delete APIs plus UI feedback updates.
 - 2025-10-16T13:30:00Z Feature: Expanded trigger condition catalog and enabled scheduled automation condition builder with backend validation.
 - 2025-10-16T13:45:00Z Feature: Documented event automation action catalog with filterable UI reference and contextual identifiers.
+- 2025-10-16T14:30:00Z Feature: Added playbook management API, admin UI, and regression tests with automation linkage safeguards.

@@ -730,13 +730,21 @@
     organizationStatusFilter.dispatchEvent(new Event("change"));
   }
 
-  function slugifyOrganization(value) {
+  function slugifyValue(value) {
     return value
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .replace(/-{2,}/g, "-");
+  }
+
+  function slugifyOrganization(value) {
+    return slugifyValue(value);
+  }
+
+  function slugifyPlaybook(value) {
+    return slugifyValue(value);
   }
 
   const organizationForm = document.getElementById("organization-form");
@@ -748,6 +756,85 @@
       nameInput.addEventListener("input", () => {
         if (!slugManuallyEdited) {
           slugInput.value = slugifyOrganization(nameInput.value);
+        }
+      });
+      slugInput.addEventListener("input", () => {
+        slugManuallyEdited = slugInput.value.trim().length > 0;
+      });
+    }
+  }
+
+  const playbookTableBody = document.querySelector(
+    "[data-role='playbook-table-body']"
+  );
+
+  if (playbookTableBody) {
+    const rows = Array.from(
+      playbookTableBody.querySelectorAll("tr[data-playbook-row]")
+    );
+    rows.forEach(ensureVisibilityFlags);
+
+    playbookTableBody.addEventListener("click", async (event) => {
+      const deleteTrigger = event.target.closest(
+        "[data-action='playbook-delete']"
+      );
+      if (!deleteTrigger) {
+        return;
+      }
+      const playbookId = deleteTrigger.dataset.playbookId;
+      if (!playbookId) {
+        return;
+      }
+      const playbookName = deleteTrigger.dataset.playbookName || "this playbook";
+      const confirmed = window.confirm(
+        `Delete ${playbookName}? This action cannot be undone.`
+      );
+      if (!confirmed) {
+        return;
+      }
+      deleteTrigger.disabled = true;
+      try {
+        const response = await fetch(
+          `/api/playbooks/${encodeURIComponent(playbookId)}`,
+          {
+            method: "DELETE",
+            headers: {
+              Accept: "application/json",
+            },
+            credentials: "same-origin",
+          }
+        );
+        if (response.status === 409) {
+          const payload = await response.json().catch(() => ({}));
+          const detail =
+            payload?.detail ||
+            "Unable to delete playbook while automations are still linked.";
+          throw new Error(detail);
+        }
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(
+            payload?.detail || "Unable to delete playbook. Try again later."
+          );
+        }
+        window.location.reload();
+      } catch (error) {
+        window.alert(error.message || "Unable to delete playbook");
+      } finally {
+        deleteTrigger.disabled = false;
+      }
+    });
+  }
+
+  const playbookForm = document.getElementById("playbook-form");
+  if (playbookForm) {
+    const nameInput = playbookForm.querySelector("#playbook-name");
+    const slugInput = playbookForm.querySelector("#playbook-slug");
+    let slugManuallyEdited = playbookForm.dataset.mode === "edit";
+    if (nameInput && slugInput) {
+      nameInput.addEventListener("input", () => {
+        if (!slugManuallyEdited) {
+          slugInput.value = slugifyPlaybook(nameInput.value);
         }
       });
       slugInput.addEventListener("input", () => {

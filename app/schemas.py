@@ -123,6 +123,43 @@ class OrganizationRead(BaseModel):
         orm_mode = True
 
 
+class PlaybookBase(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255, min_length=1)
+    slug: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        min_length=1,
+        regex=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+    description: Optional[str] = Field(default=None, max_length=2048)
+
+
+class PlaybookCreate(PlaybookBase):
+    name: str = Field(max_length=255, min_length=1)
+    slug: str = Field(
+        max_length=255,
+        min_length=1,
+        regex=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+
+
+class PlaybookUpdate(PlaybookBase):
+    pass
+
+
+class PlaybookRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    description: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    automation_count: int
+
+    class Config:
+        orm_mode = True
+
+
 class AutomationTriggerCondition(BaseModel):
     type: str = Field(max_length=255)
     operator: Optional[Literal["equals", "not_equals", "contains"]] = None
