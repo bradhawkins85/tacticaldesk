@@ -10,7 +10,16 @@ from sqlalchemy.orm import sessionmaker
 
 from .config import get_settings
 
-MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "migrations"
+def _resolve_migrations_dir() -> Path:
+    current_path = Path(__file__).resolve()
+    for parent in current_path.parents:
+        candidate = parent / "migrations"
+        if candidate.is_dir():
+            return candidate
+    raise RuntimeError("Migrations directory not found. Ensure a 'migrations' folder exists.")
+
+
+MIGRATIONS_DIR = _resolve_migrations_dir()
 
 
 _ENGINE_LOCK = asyncio.Lock()
