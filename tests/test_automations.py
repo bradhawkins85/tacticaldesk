@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.automation_dispatcher import automation_dispatcher
 from app.core.config import get_settings
 from app.core.tickets import ticket_store
 from app.main import app
@@ -24,6 +25,13 @@ def reset_ticket_overrides():
     asyncio.run(ticket_store.reset())
     yield
     asyncio.run(ticket_store.reset())
+
+
+@pytest.fixture(autouse=True)
+def reset_automation_events():
+    asyncio.run(automation_dispatcher.reset())
+    yield
+    asyncio.run(automation_dispatcher.reset())
 
 
 def _parse_iso8601(value: str | None) -> datetime | None:
@@ -299,6 +307,97 @@ def test_event_automation_rejects_invalid_ticket_actions():
         assert response.status_code == 400
         detail = response.json().get("detail", "")
         assert "action" in detail.lower()
+
+
+def test_event_automation_template_variables_rendered_in_ui():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        automations = events.json()
+        assert automations, "Expected seeded automations"
+        automation_id = automations[0]["id"]
+
+        page = client.get(f"/automation/event/{automation_id}")
+        assert page.status_code == 200
+        html = page.text
+        assert "Available template variables" in html
+        assert "ticket.subject" in html
+        assert "ticket.previous_status" in html
+        assert "event.triggered_at" in html
+
+
+def test_ticket_action_template_variables_render_in_dispatch_payload():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        event_items = events.json()
+        target = next(item for item in event_items if item["name"] == "Incident escalation")
+        automation_id = target["id"]
+
+        configure = client.patch(
+            f"/api/automations/{automation_id}",
+            json={
+                "trigger_filters": {
+                    "match": "all",
+                    "conditions": [
+                        {"type": "Ticket Status Changed"},
+                    ],
+                },
+                "ticket_actions": [
+                    {
+                        "action": "add-public-comment",
+                        "value": (
+                            "Ticket {{ ticket.id }} for {{ ticket.customer }} is now "
+                            "{{ ticket.status }} (was {{ ticket.previous_status }})."
+                        ),
+                    }
+                ],
+            },
+        )
+        assert configure.status_code == 200
+
+        form_payload = {
+            "subject": "Database availability incident",
+            "customer": "Quest Logistics",
+            "customer_email": "quest.ops@example.com",
+            "status": "In Progress",
+            "priority": "High",
+            "team": "Tier 2",
+            "assignment": "Super Admin",
+            "queue": "Critical response",
+            "category": "Support",
+            "summary": "Automated remediation playbook executing runtime checks.",
+        }
+
+        response = client.post(
+            "/tickets/TD-4821",
+            data=form_payload,
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+
+        events = asyncio.run(automation_dispatcher.list_events())
+        triggered = [
+            event
+            for event in events
+            if event.event_type == "Automation Triggered"
+            and event.payload.get("automation_id") == automation_id
+        ]
+        assert triggered, "Expected Automation Triggered event to be recorded"
+
+        payload = triggered[-1].payload
+        assert payload["trigger_event"] == "Ticket Status Changed"
+        variables = payload["variables"]
+        assert variables["ticket.subject"] == form_payload["subject"]
+        assert variables["ticket.status"] == form_payload["status"]
+        assert "ticket.previous_status" in variables
+        actions = payload["actions"]
+        assert actions, "Expected rendered ticket actions"
+        rendered_value = actions[0]["value"]
+        assert "TD-4821" in rendered_value
+        assert form_payload["status"] in rendered_value
+        assert variables["ticket.previous_status"] in rendered_value
+        assert payload["triggered_at"].endswith("Z")
 
 
 def test_ticket_update_triggers_event_automation():

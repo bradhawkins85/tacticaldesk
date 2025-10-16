@@ -9,9 +9,18 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.automation_dispatcher import automation_dispatcher
 from app.core.automations import VALUE_REQUIRED_TRIGGER_OPTIONS
+from app.core.template_variables import (
+    build_ticket_variable_context,
+    render_template_value,
+)
 from app.models import Automation, utcnow
-from app.schemas import AutomationTriggerCondition, AutomationTriggerFilter
+from app.schemas import (
+    AutomationTicketAction,
+    AutomationTriggerCondition,
+    AutomationTriggerFilter,
+)
 
 EventContext = dict[str, Any]
 
@@ -139,13 +148,57 @@ async def dispatch_ticket_event(
     automations: Iterable[Automation] = result.scalars().all()
 
     triggered: list[Automation] = []
-    now = utcnow()
+    triggered_at = utcnow()
+    variable_context = build_ticket_variable_context(
+        event_type=event_type,
+        triggered_at=triggered_at,
+        ticket_before=context.get("ticket_before"),
+        ticket_after=context.get("ticket_after"),
+        ticket_payload=context.get("ticket_payload"),
+    )
+    ticket_identifier = str(
+        context.get("ticket_after", {}).get("id")
+        or context.get("ticket_payload", {}).get("id")
+        or context.get("ticket_before", {}).get("id")
+        or "unknown"
+    )
+
     for automation in automations:
         if not _automation_matches(automation, context):
             continue
-        automation.last_trigger_at = now
+        automation.last_trigger_at = triggered_at
         triggered.append(automation)
         session.add(automation)
+
+        rendered_actions: list[dict[str, str]] = []
+        if automation.ticket_actions:
+            for entry in automation.ticket_actions:
+                try:
+                    model = AutomationTicketAction.parse_obj(entry)
+                except ValidationError:
+                    continue
+                rendered_actions.append(
+                    {
+                        "action": model.action,
+                        "value": render_template_value(
+                            model.value, variable_context
+                        ),
+                        "template": model.value,
+                    }
+                )
+
+        await automation_dispatcher.dispatch(
+            event_type="Automation Triggered",
+            ticket_id=ticket_identifier,
+            payload={
+                "automation_id": automation.id,
+                "automation_name": automation.name,
+                "trigger_event": event_type,
+                "triggered_at": variable_context.get("event.triggered_at"),
+                "variables": dict(variable_context),
+                "actions": rendered_actions,
+            },
+        )
 
     if triggered:
         await session.commit()

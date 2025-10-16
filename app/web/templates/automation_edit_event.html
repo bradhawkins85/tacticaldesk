@@ -233,7 +233,10 @@
               + Add ticket action
             </button>
             <p class="form-help">
-              Assign one or more actions to execute after the trigger conditions are met.
+              Assign one or more actions to execute after the trigger conditions are met. Use
+              template variables such as <code>{{ '{{ ticket.subject }}' }}</code> or
+              <code>{{ '{{ ticket.status }}' }}</code> to personalise outbound notifications and
+              ticket updates.
             </p>
           </div>
         </div>
@@ -311,6 +314,68 @@
                 </td>
                 <td data-cell="identifier" data-sort-value="{{ action.slug }}">
                   <code>{{ action.slug }}</code>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section
+        class="automation-action-catalog automation-variable-catalog"
+        aria-labelledby="automation-variable-catalog-title"
+      >
+        <div class="automation-action-catalog__header">
+          <div class="automation-action-catalog__text">
+            <h3
+              class="automation-action-catalog__title"
+              id="automation-variable-catalog-title"
+            >
+              Available template variables
+            </h3>
+            <p class="automation-action-catalog__description">
+              Reference these placeholders inside ticket action details to merge ticket metadata and
+              event context into notifications.
+            </p>
+          </div>
+          <div class="automation-action-catalog__filter">
+            <label class="visually-hidden" for="automation-variable-filter">
+              Filter template variables
+            </label>
+            <input
+              id="automation-variable-filter"
+              type="search"
+              class="automation-action-catalog__filter-input"
+              placeholder="Filter variables"
+              data-role="table-filter"
+              aria-controls="automation-variable-table"
+            />
+          </div>
+        </div>
+        <div class="table-container">
+          <table
+            id="automation-variable-table"
+            class="data-table automation-variable-table"
+            data-role="sortable-table"
+          >
+            <thead>
+              <tr>
+                <th scope="col" data-sort-key="variable">Variable</th>
+                <th scope="col" data-sort-key="label">Label</th>
+                <th scope="col" data-sort-key="description">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for variable in automation_template_variables %}
+              <tr>
+                <td data-cell="variable" data-sort-value="{{ variable.key }}">
+                  <code>{{ variable.key }}</code>
+                </td>
+                <td data-cell="label" data-sort-value="{{ variable.label }}">
+                  {{ variable.label }}
+                </td>
+                <td data-cell="description" data-sort-value="{{ variable.description }}">
+                  {{ variable.description }}
                 </td>
               </tr>
               {% endfor %}
