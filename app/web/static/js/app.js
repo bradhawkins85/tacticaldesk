@@ -313,48 +313,55 @@
     });
   }
 
-  const maintenanceOutput = document.querySelector("[data-role='maintenance-output']");
-  const maintenanceTokenField = document.getElementById("maintenance-token");
-  const maintenanceButtons = document.querySelectorAll("[data-action='maintenance-run']");
+  document.querySelectorAll("[data-maintenance-panel]").forEach((panel) => {
+    const tokenField = panel.querySelector("[data-role='maintenance-token']");
+    const output = panel.querySelector("[data-role='maintenance-output']");
+    const buttons = panel.querySelectorAll("[data-action='maintenance-run']");
 
-  maintenanceButtons.forEach((button) => {
-    button.addEventListener("click", async () => {
-      if (!maintenanceTokenField || !maintenanceOutput) {
-        return;
-      }
-      const token = maintenanceTokenField.value.trim();
-      if (!token) {
-        maintenanceOutput.textContent = "Enter the maintenance token before running a script.";
-        return;
-      }
+    if (!buttons.length) {
+      return;
+    }
 
-      const endpoint = button.dataset.endpoint;
-      if (!endpoint) {
-        maintenanceOutput.textContent = "No endpoint defined for this action.";
-        return;
-      }
-
-      maintenanceOutput.textContent = `Executing ${endpoint}…`;
-      button.disabled = true;
-
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "X-Maintenance-Token": token,
-            "Accept": "application/json",
-          },
-        });
-        const payload = await response.json().catch(() => ({ detail: "No response payload" }));
-        if (!response.ok) {
-          throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed");
+    buttons.forEach((button) => {
+      button.addEventListener("click", async () => {
+        if (!tokenField || !output) {
+          return;
         }
-        maintenanceOutput.textContent = JSON.stringify(payload, null, 2);
-      } catch (error) {
-        maintenanceOutput.textContent = error.message || "Unable to execute script";
-      } finally {
-        button.disabled = false;
-      }
+
+        const token = tokenField.value.trim();
+        if (!token) {
+          output.textContent = "Enter the maintenance token before running a script.";
+          return;
+        }
+
+        const endpoint = button.dataset.endpoint;
+        if (!endpoint) {
+          output.textContent = "No endpoint defined for this action.";
+          return;
+        }
+
+        output.textContent = `Executing ${endpoint}…`;
+        button.disabled = true;
+
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "X-Maintenance-Token": token,
+              "Accept": "application/json",
+            },
+          });
+          const payload = await response.json().catch(() => ({ detail: "No response payload" }));
+          if (!response.ok) {
+            throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed");
+          }
+          output.textContent = JSON.stringify(payload, null, 2);
+        } catch (error) {
+          output.textContent = error.message || "Unable to execute script";
+        } finally {
+          button.disabled = false;
+        }
+      });
     });
   });
 })();

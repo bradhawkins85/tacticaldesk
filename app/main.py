@@ -438,12 +438,18 @@ async def automation_view(request: Request) -> HTMLResponse:
         {"module": "Xero", "enabled": False},
     ]
 
+    update_action = {
+        "endpoint": "/maintenance/update",
+        "description": "Runs the production update script using the maintenance token for authentication.",
+    }
+
     context = _template_context(
         request=request,
         page_title="Automation Control Tower",
         page_subtitle="Launch workflows, monitor orchestration, and govern integration access.",
         orchestration_runs=orchestration_runs,
         module_toggles=module_toggles,
+        update_action=update_action,
         active_nav="automation",
     )
     return templates.TemplateResponse("automation.html", context)

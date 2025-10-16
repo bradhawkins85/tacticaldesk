@@ -4,6 +4,41 @@
 <button class="secondary-button" type="button" data-action="view-logs">View logs</button>
 {% endblock %}
 {% block content %}
+<section class="content-section" data-maintenance-panel>
+  <header class="section-header">
+    <h2>App lifecycle automation</h2>
+    <p class="subtitle">Trigger a secure Tactical Desk update with your maintenance token.</p>
+  </header>
+  <div class="automation-update">
+    <div class="automation-update__form">
+      <div class="automation-update__field">
+        <label for="automation-maintenance-token">Maintenance token</label>
+        <input
+          id="automation-maintenance-token"
+          type="password"
+          placeholder="Enter maintenance token"
+          autocomplete="off"
+          data-role="maintenance-token"
+        />
+      </div>
+      <div class="automation-update__actions">
+        <button
+          class="primary-button"
+          type="button"
+          data-action="maintenance-run"
+          data-endpoint="{{ update_action.endpoint }}"
+        >
+          Update Tactical Desk
+        </button>
+        <p class="automation-update__help">{{ update_action.description }}</p>
+      </div>
+    </div>
+    <div class="automation-update__output">
+      <h3>Update activity</h3>
+      <pre data-role="maintenance-output" aria-live="polite">Awaiting secure update request…</pre>
+    </div>
+  </div>
+</section>
 <section class="content-section">
   <header class="section-header">
     <h2>Orchestration runs</h2>

@@ -439,6 +439,82 @@ body {
   align-items: center;
 }
 
+.automation-update {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.automation-update__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.automation-update__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+  flex: 1 1 240px;
+}
+
+.automation-update__field input {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.automation-update__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.automation-update__help {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  max-width: 320px;
+}
+
+.automation-update__output h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.automation-update__output pre {
+  margin: 0;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  max-height: 240px;
+  overflow: auto;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .automation-update__form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .automation-update__actions {
+    width: 100%;
+  }
+
+  .automation-update__actions .primary-button {
+    width: 100%;
+  }
+}
+
 .monitoring-metric {
   background: var(--color-bg);
   border-radius: 12px;

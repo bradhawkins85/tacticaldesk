@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-  <section class="panel">
+  <section class="panel" data-maintenance-panel>
     <header class="panel__header">
       <div>
         <h2>Deployment orchestrator</h2>
@@ -15,7 +15,14 @@
       </div>
       <div class="token-field">
         <label for="maintenance-token">Maintenance token</label>
-        <input id="maintenance-token" name="maintenance_token" type="password" placeholder="Enter maintenance token" autocomplete="off" />
+        <input
+          id="maintenance-token"
+          name="maintenance_token"
+          type="password"
+          placeholder="Enter maintenance token"
+          autocomplete="off"
+          data-role="maintenance-token"
+        />
       </div>
     </header>
     <div class="panel__body">
