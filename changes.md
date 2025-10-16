@@ -61,3 +61,4 @@
 - 2025-10-16T14:30:00Z Feature: Added playbook management API, admin UI, and regression tests with automation linkage safeguards.
 - 2025-10-16T14:15:00Z Feature: Added embedded CURD Swagger documentation workspace with admin navigation link and OpenAPI export tools.
 - 2025-10-16T11:22:28Z Fix: Renamed CURD API Docs references to API Docs for accurate terminology.
+- 2025-10-16T15:00:00Z Fix: Removed the Maintenance admin menu entry to streamline available navigation options.
