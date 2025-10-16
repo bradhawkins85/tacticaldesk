@@ -191,6 +191,11 @@
     }
     const getRows = () => Array.from(table.tBodies[0].rows);
     getRows().forEach(ensureVisibilityFlags);
+    filterInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+    });
     filterInput.addEventListener("input", () => {
       const query = filterInput.value.toLowerCase();
       getRows().forEach((row) => {
