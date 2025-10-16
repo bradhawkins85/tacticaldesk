@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.core.config import get_settings
 
 router = APIRouter(prefix="/maintenance", tags=["Maintenance"])
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 
 async def _run_script(script_name: str) -> dict[str, Any]:
     settings = get_settings()
