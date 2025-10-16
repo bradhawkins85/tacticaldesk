@@ -22,6 +22,7 @@ from app.api.routers import maintenance as maintenance_router
 from app.api.routers import organizations as organizations_router
 from app.api.routers import webhooks as webhooks_router
 from app.core.automations import (
+    EVENT_AUTOMATION_ACTIONS,
     EVENT_TRIGGER_OPTIONS,
     TRIGGER_OPERATOR_OPTIONS,
     VALUE_REQUIRED_TRIGGER_OPTIONS,
@@ -1372,6 +1373,10 @@ async def automation_edit_event_view(
         event_trigger_options=EVENT_TRIGGER_OPTIONS,
         trigger_operator_options=TRIGGER_OPERATOR_OPTIONS,
         value_required_trigger_options=sorted(VALUE_REQUIRED_TRIGGER_OPTIONS),
+        automation_actions=[
+            {"name": action, "slug": slugify(action)}
+            for action in EVENT_AUTOMATION_ACTIONS
+        ],
     )
     return templates.TemplateResponse("automation_edit_event.html", context)
 
