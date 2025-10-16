@@ -162,6 +162,59 @@ def test_update_event_automation_trigger_filters():
         assert "ALL: Ticket Created, Ticket Status Changed" in html
 
 
+def test_manual_run_endpoint_updates_last_run():
+    with TestClient(app) as client:
+        scheduled = client.get("/api/automations", params={"kind": "scheduled"})
+        assert scheduled.status_code == 200
+        scheduled_items = scheduled.json()
+        target = next(item for item in scheduled_items if item["name"] == "Patch window compliance")
+        automation_id = target["id"]
+        original_last_run = target.get("last_run_at")
+
+        run_response = client.post(f"/api/automations/{automation_id}/run")
+        assert run_response.status_code == 200
+        payload = run_response.json()
+        assert payload["detail"].startswith("Queued manual execution")
+        assert "last_run_at" in payload
+
+        refreshed = client.get("/api/automations", params={"kind": "scheduled"})
+        assert refreshed.status_code == 200
+        updated = next(item for item in refreshed.json() if item["id"] == automation_id)
+        assert updated["last_run_at"] is not None
+        assert updated["last_run_at"].startswith(payload["last_run_at"][:19])
+        if original_last_run:
+            assert updated["last_run_at"] != original_last_run
+
+
+def test_run_endpoint_rejects_event_automations():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        target = events.json()[0]
+        response = client.post(f"/api/automations/{target['id']}/run")
+        assert response.status_code == 400
+        assert "scheduled" in response.json().get("detail", "").lower()
+
+
+def test_delete_automation_removes_from_api_and_ui():
+    with TestClient(app) as client:
+        automations = client.get("/api/automations")
+        assert automations.status_code == 200
+        target = next(item for item in automations.json() if item["name"] == "Backup integrity")
+        automation_id = target["id"]
+
+        delete_response = client.delete(f"/api/automations/{automation_id}")
+        assert delete_response.status_code == 204
+
+        remaining = client.get("/api/automations")
+        assert remaining.status_code == 200
+        remaining_ids = {item["id"] for item in remaining.json()}
+        assert automation_id not in remaining_ids
+
+        html = client.get("/automation").text
+        assert "Backup integrity" not in html
+
+
 def test_automation_edit_page_loads():
     with TestClient(app) as client:
         response = client.get("/api/automations")

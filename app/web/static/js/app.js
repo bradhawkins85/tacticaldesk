@@ -1838,6 +1838,157 @@
     applySearchFilter();
   }
 
+  function resolveAutomationFeedback(button) {
+    if (!button) {
+      return document.querySelector("#automation-update-output");
+    }
+    const selector = button.dataset.feedback;
+    if (selector) {
+      const target = document.querySelector(selector);
+      if (target) {
+        return target;
+      }
+    }
+    return document.querySelector("#automation-update-output");
+  }
+
+  const automationRunButtons = document.querySelectorAll(
+    "[data-action='automation-run']"
+  );
+
+  automationRunButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const endpoint = button.dataset.endpoint;
+      if (!endpoint) {
+        console.warn("Automation run button missing endpoint", { button });
+        return;
+      }
+
+      const feedbackTarget = resolveAutomationFeedback(button);
+      const row = button.closest("[data-automation-row]");
+      const lastRunCell = row?.querySelector("[data-cell='last_run']");
+      const originalContent = button.innerHTML;
+
+      button.disabled = true;
+      button.innerHTML = "⏳";
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { Accept: "application/json" },
+          credentials: "same-origin",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            typeof payload.detail === "string"
+              ? payload.detail
+              : "Unable to run automation"
+          );
+        }
+
+        if (feedbackTarget) {
+          feedbackTarget.textContent =
+            payload.detail || "Automation queued for execution.";
+        }
+
+        if (payload.last_run_at && lastRunCell) {
+          lastRunCell.dataset.sortValue = payload.last_run_at;
+          let timeEl = lastRunCell.querySelector("time[data-role='local-datetime']");
+          if (!timeEl) {
+            timeEl = document.createElement("time");
+            timeEl.dataset.role = "local-datetime";
+            lastRunCell.innerHTML = "";
+            lastRunCell.appendChild(timeEl);
+          }
+          timeEl.setAttribute("datetime", payload.last_run_at);
+          const parsed = new Date(payload.last_run_at);
+          timeEl.textContent = Number.isNaN(parsed.getTime())
+            ? payload.last_run_at
+            : parsed.toLocaleString();
+        }
+      } catch (error) {
+        if (feedbackTarget) {
+          feedbackTarget.textContent =
+            error.message || "Unable to run automation";
+        }
+        window.alert(error.message || "Unable to run automation");
+      } finally {
+        if (button.isConnected) {
+          button.disabled = false;
+          button.innerHTML = originalContent;
+        }
+      }
+    });
+  });
+
+  const automationDeleteButtons = document.querySelectorAll(
+    "[data-action='automation-delete']"
+  );
+
+  automationDeleteButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const endpoint = button.dataset.endpoint;
+      if (!endpoint) {
+        console.warn("Automation delete button missing endpoint", { button });
+        return;
+      }
+
+      const row = button.closest("[data-automation-row]");
+      const automationName =
+        row?.querySelector(".automation-name__title")?.textContent?.trim() ||
+        "this automation";
+      const confirmed = window.confirm(
+        `Delete ${automationName}? This action cannot be undone.`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      const feedbackTarget = resolveAutomationFeedback(button);
+      const originalContent = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = "…";
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "DELETE",
+          headers: { Accept: "application/json" },
+          credentials: "same-origin",
+        });
+
+        if (response.status !== 204) {
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(
+              typeof payload.detail === "string"
+                ? payload.detail
+                : "Unable to delete automation"
+            );
+          }
+        }
+
+        if (row) {
+          row.remove();
+        }
+        if (feedbackTarget) {
+          feedbackTarget.textContent = `${automationName} deleted.`;
+        }
+      } catch (error) {
+        if (feedbackTarget) {
+          feedbackTarget.textContent =
+            error.message || "Unable to delete automation";
+        }
+        window.alert(error.message || "Unable to delete automation");
+      } finally {
+        if (button.isConnected) {
+          button.disabled = false;
+          button.innerHTML = originalContent;
+        }
+      }
+    });
+  });
+
   const maintenanceButtons = document.querySelectorAll("[data-action='maintenance-run']");
 
   function resolveMaintenanceOutput(button) {
