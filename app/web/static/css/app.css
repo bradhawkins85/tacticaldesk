@@ -1910,3 +1910,151 @@ body.has-open-modal {
     width: 140px;
   }
 }
+
+.is-hidden {
+  display: none !important;
+}
+
+.contact-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.contact-directory {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.contact-directory__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.contact-directory__summary {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-radius: 12px;
+  padding: 16px 20px;
+  min-width: 260px;
+}
+
+.contact-directory__summary dl {
+  margin: 0;
+  display: grid;
+  gap: 12px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.contact-directory__summary dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+  margin-bottom: 4px;
+}
+
+.contact-directory__summary dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.contact-summary__empty {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+.contact-directory__filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin: 0 20px;
+}
+
+.contact-directory__filters .table-actions {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.contact-name {
+  font-weight: 600;
+}
+
+.contact-job {
+  font-weight: 500;
+}
+
+.contact-link {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.contact-link:hover,
+.contact-link:focus {
+  text-decoration: underline;
+}
+
+.contact-metadata {
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.contact-metadata--empty {
+  color: var(--color-muted);
+}
+
+.contact-notes {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 320px;
+  line-height: 1.4;
+}
+
+.contact-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.contact-empty td {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--color-muted);
+}
+
+.contact-form .form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.contact-form .form-row .form-field {
+  flex: 1 1 200px;
+}
+
+@media (max-width: 768px) {
+  .contact-directory__summary {
+    width: 100%;
+  }
+
+  .contact-directory__filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .contact-directory__filters .table-actions {
+    width: 100%;
+  }
+
+  .contact-notes {
+    max-width: none;
+  }
+}

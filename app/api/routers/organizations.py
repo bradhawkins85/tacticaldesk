@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.models import Organization, utcnow
+from app.models import Contact, Organization, utcnow
 from app.schemas import (
+    ContactCreate,
+    ContactRead,
+    ContactUpdate,
     OrganizationCreate,
     OrganizationRead,
     OrganizationUpdate,
@@ -35,6 +38,27 @@ async def _get_organization_by_id(
             detail="Organization not found",
         )
     return organization
+
+
+async def _get_contact_by_id(
+    *,
+    contact_id: int,
+    organization_id: int,
+    session: AsyncSession,
+) -> Contact:
+    result = await session.execute(
+        select(Contact).where(
+            Contact.id == contact_id,
+            Contact.organization_id == organization_id,
+        )
+    )
+    contact = result.scalar_one_or_none()
+    if contact is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contact not found",
+        )
+    return contact
 
 
 @router.get("/", response_model=list[OrganizationRead])
@@ -146,3 +170,133 @@ async def update_organization(
         await session.refresh(organization)
 
     return OrganizationRead.from_orm(organization)
+
+
+@router.get("/{organization_id}/contacts", response_model=list[ContactRead])
+async def list_contacts(
+    organization_id: int, session: AsyncSession = Depends(get_session)
+) -> list[ContactRead]:
+    await _get_organization_by_id(organization_id, session)
+    result = await session.execute(
+        select(Contact)
+        .where(Contact.organization_id == organization_id)
+        .order_by(Contact.name.asc())
+    )
+    contacts = result.scalars().all()
+    return [ContactRead.from_orm(contact) for contact in contacts]
+
+
+@router.post(
+    "/{organization_id}/contacts",
+    response_model=ContactRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_contact(
+    organization_id: int,
+    payload: ContactCreate,
+    session: AsyncSession = Depends(get_session),
+) -> ContactRead:
+    organization = await _get_organization_by_id(organization_id, session)
+
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Name cannot be empty",
+        )
+
+    job_title = _clean_optional(payload.job_title)
+    email = _clean_optional(payload.email)
+    phone = _clean_optional(payload.phone)
+    notes = _clean_optional(payload.notes)
+
+    contact = Contact(
+        organization_id=organization.id,
+        name=name,
+        job_title=job_title,
+        email=email,
+        phone=phone,
+        notes=notes,
+    )
+    session.add(contact)
+    await session.commit()
+    await session.refresh(contact)
+    return ContactRead.from_orm(contact)
+
+
+@router.patch(
+    "/{organization_id}/contacts/{contact_id}", response_model=ContactRead
+)
+async def update_contact(
+    organization_id: int,
+    contact_id: int,
+    payload: ContactUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> ContactRead:
+    await _get_organization_by_id(organization_id, session)
+    contact = await _get_contact_by_id(
+        contact_id=contact_id, organization_id=organization_id, session=session
+    )
+
+    data = payload.dict(exclude_unset=True)
+    updated = False
+
+    if "name" in data and data["name"] is not None:
+        cleaned_name = data["name"].strip()
+        if not cleaned_name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Name cannot be empty",
+            )
+        if cleaned_name != contact.name:
+            contact.name = cleaned_name
+            updated = True
+
+    if "job_title" in data:
+        cleaned_job_title = _clean_optional(data["job_title"])
+        if cleaned_job_title != contact.job_title:
+            contact.job_title = cleaned_job_title
+            updated = True
+
+    if "email" in data:
+        cleaned_email = _clean_optional(data["email"])
+        if cleaned_email != contact.email:
+            contact.email = cleaned_email
+            updated = True
+
+    if "phone" in data:
+        cleaned_phone = _clean_optional(data["phone"])
+        if cleaned_phone != contact.phone:
+            contact.phone = cleaned_phone
+            updated = True
+
+    if "notes" in data:
+        cleaned_notes = _clean_optional(data["notes"])
+        if cleaned_notes != contact.notes:
+            contact.notes = cleaned_notes
+            updated = True
+
+    if updated:
+        contact.updated_at = utcnow()
+        await session.commit()
+        await session.refresh(contact)
+
+    return ContactRead.from_orm(contact)
+
+
+@router.delete(
+    "/{organization_id}/contacts/{contact_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_contact(
+    organization_id: int,
+    contact_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    await _get_organization_by_id(organization_id, session)
+    contact = await _get_contact_by_id(
+        contact_id=contact_id, organization_id=organization_id, session=session
+    )
+    await session.delete(contact)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

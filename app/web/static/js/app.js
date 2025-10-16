@@ -1227,6 +1227,577 @@
     }
   }
 
+  const contactPage = document.querySelector("[data-role='contact-page']");
+  if (contactPage) {
+    const organizationId = contactPage.dataset.organizationId;
+    if (!organizationId) {
+      console.warn("Contact page missing organization identifier");
+      return;
+    }
+    const contactTableBody = contactPage.querySelector("[data-role='contact-table-body']");
+    const contactModal = document.querySelector("[data-role='contact-modal']");
+    const contactForm = contactModal?.querySelector("#contact-form");
+    const contactMessage = contactForm?.querySelector("[data-role='contact-form-message']");
+    const contactSubmitButton = contactForm?.querySelector(
+      "[data-role='contact-submit-label']"
+    );
+    const contactTitle = contactModal?.querySelector("[data-role='contact-form-title']");
+    const contactIdInput = contactForm?.querySelector("[data-role='contact-id']");
+    const contactFilter = contactPage.querySelector("[data-role='contact-filter']");
+    const contactSearchInput = contactPage.querySelector("[data-role='table-filter']");
+    const contactEmptyState = contactPage.querySelector("[data-role='contact-empty-state']");
+    const contactCountTarget = contactPage.querySelector("[data-role='contact-count']");
+    const newContactButton = document.querySelector("[data-action='contact-new']");
+    const contactResetButton = contactForm?.querySelector("[data-action='contact-reset']");
+    const contactCloseTriggers = contactModal
+      ? contactModal.querySelectorAll("[data-action='contact-modal-close']")
+      : [];
+    const nameInput = contactForm?.querySelector("#contact-name");
+    const jobInput = contactForm?.querySelector("#contact-job-title");
+    const emailInput = contactForm?.querySelector("#contact-email");
+    const phoneInput = contactForm?.querySelector("#contact-phone");
+    const notesInput = contactForm?.querySelector("#contact-notes");
+    let contactModalLastFocus = null;
+
+    function getContactRows() {
+      return contactTableBody
+        ? Array.from(contactTableBody.querySelectorAll("[data-contact-row]"))
+        : [];
+    }
+
+    function updateContactCount() {
+      if (!contactCountTarget) {
+        return;
+      }
+      contactCountTarget.textContent = String(getContactRows().length);
+    }
+
+    function updateEmptyState() {
+      if (!contactEmptyState) {
+        return;
+      }
+      const hasContacts = getContactRows().length > 0;
+      contactEmptyState.classList.toggle("is-hidden", hasContacts);
+    }
+
+    function sanitizeValue(value) {
+      if (value == null) {
+        return "";
+      }
+      return typeof value === "string" ? value : String(value);
+    }
+
+    function normalizeContactPayload(raw) {
+      if (!raw || typeof raw !== "object") {
+        return null;
+      }
+      return {
+        id: raw.id,
+        organization_id: raw.organization_id,
+        name: sanitizeValue(raw.name || ""),
+        job_title: sanitizeValue(raw.job_title || ""),
+        email: sanitizeValue(raw.email || ""),
+        phone: sanitizeValue(raw.phone || ""),
+        notes: sanitizeValue(raw.notes || ""),
+        created_at_iso: sanitizeValue(raw.created_at || raw.created_at_iso || ""),
+        updated_at_iso: sanitizeValue(raw.updated_at || raw.updated_at_iso || raw.created_at || ""),
+      };
+    }
+
+    function applyFilterForRow(row) {
+      if (!row) {
+        return;
+      }
+      const filterValue = contactFilter ? contactFilter.value : "all";
+      let matches = true;
+      if (filterValue === "has-email") {
+        matches = row.dataset.hasEmail === "true";
+      } else if (filterValue === "has-phone") {
+        matches = row.dataset.hasPhone === "true";
+      }
+      row.dataset.filterVisible = matches ? "true" : "false";
+      updateTableRowVisibility(row);
+    }
+
+    function refreshFilters() {
+      getContactRows().forEach((row) => {
+        ensureVisibilityFlags(row);
+        applyFilterForRow(row);
+      });
+    }
+
+    function applySearchFilter() {
+      if (contactSearchInput) {
+        contactSearchInput.dispatchEvent(new Event("input"));
+      }
+    }
+
+    function formatDatetimeCell(cell, isoValue) {
+      if (!cell) {
+        return;
+      }
+      const iso = isoValue || "";
+      cell.dataset.sortValue = iso;
+      cell.dataset.format = "datetime";
+      if (!iso) {
+        cell.textContent = "—";
+        return;
+      }
+      const parsed = new Date(iso);
+      cell.textContent = Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleString();
+    }
+
+    function renderContactRow(contactPayload) {
+      if (!contactTableBody) {
+        return;
+      }
+      const contact = normalizeContactPayload(contactPayload);
+      if (!contact) {
+        return;
+      }
+      const contactId = String(contact.id);
+      let row = contactTableBody.querySelector(
+        `[data-contact-id='${contactId}']`
+      );
+      if (!row) {
+        row = document.createElement("tr");
+        row.dataset.contactRow = "true";
+        row.dataset.contactId = contactId;
+        contactTableBody.appendChild(row);
+      }
+
+      row.dataset.contact = JSON.stringify(contact);
+      row.dataset.hasEmail = contact.email ? "true" : "false";
+      row.dataset.hasPhone = contact.phone ? "true" : "false";
+
+      while (row.firstChild) {
+        row.removeChild(row.firstChild);
+      }
+
+      const nameCell = document.createElement("td");
+      nameCell.dataset.sortValue = contact.name.toLowerCase();
+      const nameWrapper = document.createElement("div");
+      nameWrapper.className = "contact-name";
+      nameWrapper.textContent = contact.name;
+      nameCell.appendChild(nameWrapper);
+      row.appendChild(nameCell);
+
+      const jobCell = document.createElement("td");
+      jobCell.dataset.sortValue = contact.job_title.toLowerCase();
+      if (contact.job_title) {
+        const jobSpan = document.createElement("span");
+        jobSpan.className = "contact-job";
+        jobSpan.textContent = contact.job_title;
+        jobCell.appendChild(jobSpan);
+      } else {
+        const emptySpan = document.createElement("span");
+        emptySpan.className = "contact-metadata contact-metadata--empty";
+        emptySpan.textContent = "Not set";
+        jobCell.appendChild(emptySpan);
+      }
+      row.appendChild(jobCell);
+
+      const emailCell = document.createElement("td");
+      emailCell.dataset.sortValue = contact.email.toLowerCase();
+      if (contact.email) {
+        const emailLink = document.createElement("a");
+        emailLink.className = "contact-link";
+        emailLink.href = `mailto:${contact.email}`;
+        emailLink.textContent = contact.email;
+        emailCell.appendChild(emailLink);
+      } else {
+        const emptySpan = document.createElement("span");
+        emptySpan.className = "contact-metadata contact-metadata--empty";
+        emptySpan.textContent = "No email";
+        emailCell.appendChild(emptySpan);
+      }
+      row.appendChild(emailCell);
+
+      const phoneCell = document.createElement("td");
+      phoneCell.dataset.sortValue = contact.phone.toLowerCase();
+      if (contact.phone) {
+        const phoneLink = document.createElement("a");
+        phoneLink.className = "contact-link";
+        phoneLink.href = `tel:${contact.phone}`;
+        phoneLink.textContent = contact.phone;
+        phoneCell.appendChild(phoneLink);
+      } else {
+        const emptySpan = document.createElement("span");
+        emptySpan.className = "contact-metadata contact-metadata--empty";
+        emptySpan.textContent = "No phone";
+        phoneCell.appendChild(emptySpan);
+      }
+      row.appendChild(phoneCell);
+
+      const notesCell = document.createElement("td");
+      notesCell.dataset.sortValue = contact.notes.toLowerCase();
+      if (contact.notes) {
+        const notesSpan = document.createElement("span");
+        notesSpan.className = "contact-notes";
+        notesSpan.textContent = contact.notes;
+        notesSpan.title = contact.notes;
+        notesCell.appendChild(notesSpan);
+      } else {
+        const emptySpan = document.createElement("span");
+        emptySpan.className = "contact-metadata contact-metadata--empty";
+        emptySpan.textContent = "No notes";
+        notesCell.appendChild(emptySpan);
+      }
+      row.appendChild(notesCell);
+
+      const updatedCell = document.createElement("td");
+      formatDatetimeCell(updatedCell, contact.updated_at_iso);
+      row.appendChild(updatedCell);
+
+      const actionsCell = document.createElement("td");
+      actionsCell.className = "table-actions";
+      const actionsWrapper = document.createElement("div");
+      actionsWrapper.className = "contact-actions";
+
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "button button--ghost";
+      editButton.dataset.action = "contact-edit";
+      editButton.dataset.contactId = contactId;
+      editButton.textContent = "✏️ Edit";
+      actionsWrapper.appendChild(editButton);
+
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "button button--ghost";
+      deleteButton.dataset.action = "contact-delete";
+      deleteButton.dataset.contactId = contactId;
+      deleteButton.textContent = "🗑️ Delete";
+      actionsWrapper.appendChild(deleteButton);
+
+      actionsCell.appendChild(actionsWrapper);
+      row.appendChild(actionsCell);
+
+      ensureVisibilityFlags(row);
+      applyFilterForRow(row);
+      updateTableRowVisibility(row);
+      return row;
+    }
+
+    function resetContactForm() {
+      if (!contactForm) {
+        return;
+      }
+      contactForm.reset();
+      contactForm.dataset.mode = "create";
+      if (contactIdInput) {
+        contactIdInput.value = "";
+      }
+      if (contactMessage) {
+        setStatusMessage(contactMessage, "");
+      }
+    }
+
+    function isContactModalOpen() {
+      return contactModal?.classList.contains("is-visible") ?? false;
+    }
+
+    function openContactModal(mode, contactData) {
+      if (!contactModal || !contactForm || isContactModalOpen()) {
+        return;
+      }
+      const activeElement = document.activeElement;
+      contactModalLastFocus =
+        activeElement instanceof HTMLElement ? activeElement : null;
+      contactModal.classList.add("is-visible");
+      contactModal.setAttribute("aria-hidden", "false");
+      document.body.classList.add("has-open-modal");
+      contactForm.dataset.mode = mode;
+      if (contactTitle) {
+        contactTitle.textContent =
+          mode === "edit" ? "Edit organisation contact" : "Add organisation contact";
+      }
+      if (contactSubmitButton) {
+        contactSubmitButton.textContent =
+          mode === "edit" ? "Save changes" : "Save contact";
+      }
+      if (contactMessage) {
+        setStatusMessage(contactMessage, "");
+      }
+
+      if (mode === "edit" && contactData) {
+        const payload = normalizeContactPayload(contactData);
+        if (payload) {
+          if (contactIdInput) {
+            contactIdInput.value = String(payload.id);
+          }
+          if (nameInput) {
+            nameInput.value = payload.name;
+          }
+          if (jobInput) {
+            jobInput.value = payload.job_title;
+          }
+          if (emailInput) {
+            emailInput.value = payload.email;
+          }
+          if (phoneInput) {
+            phoneInput.value = payload.phone;
+          }
+          if (notesInput) {
+            notesInput.value = payload.notes;
+          }
+        }
+      } else {
+        resetContactForm();
+      }
+
+      if (nameInput) {
+        nameInput.focus();
+      }
+    }
+
+    function closeContactModal({ resetForm = true } = {}) {
+      if (!contactModal || !isContactModalOpen()) {
+        return;
+      }
+      contactModal.classList.remove("is-visible");
+      contactModal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("has-open-modal");
+      if (resetForm) {
+        resetContactForm();
+      }
+      if (contactModalLastFocus && typeof contactModalLastFocus.focus === "function") {
+        contactModalLastFocus.focus();
+      }
+      contactModalLastFocus = null;
+    }
+
+    if (contactCloseTriggers.length) {
+      contactCloseTriggers.forEach((trigger) => {
+        trigger.addEventListener("click", () => {
+          closeContactModal();
+        });
+      });
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && isContactModalOpen()) {
+        event.preventDefault();
+        closeContactModal();
+      }
+    });
+
+    if (newContactButton) {
+      newContactButton.addEventListener("click", () => {
+        resetContactForm();
+        openContactModal("create");
+      });
+    }
+
+    if (contactResetButton) {
+      contactResetButton.addEventListener("click", () => {
+        resetContactForm();
+        if (nameInput) {
+          nameInput.focus();
+        }
+      });
+    }
+
+    function buildContactPayload() {
+      if (!contactForm) {
+        return null;
+      }
+      const formData = new FormData(contactForm);
+      const normalize = (value) => {
+        if (value == null) {
+          return null;
+        }
+        const trimmed = String(value).trim();
+        return trimmed ? trimmed : null;
+      };
+      const nameValue = normalize(formData.get("name"));
+      if (!nameValue) {
+        throw new Error("Name is required");
+      }
+      return {
+        name: nameValue,
+        job_title: normalize(formData.get("job_title")),
+        email: normalize(formData.get("email")),
+        phone: normalize(formData.get("phone")),
+        notes: normalize(formData.get("notes")),
+      };
+    }
+
+    async function sendContactRequest({ url, method, payload, errorMessage }) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      try {
+        const options = {
+          method,
+          headers: {
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+          signal: controller.signal,
+        };
+        if (payload) {
+          options.headers["Content-Type"] = "application/json";
+          options.body = JSON.stringify(payload);
+        }
+        const response = await fetch(url, options);
+        if (method === "DELETE") {
+          if (!response.ok) {
+            const details = await response.json().catch(() => ({}));
+            throw new Error(details.detail || errorMessage || "Unable to delete contact");
+          }
+          return null;
+        }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.detail || errorMessage || "Unable to save contact");
+        }
+        return data;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    if (contactForm && contactTableBody) {
+      contactForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        let payload;
+        try {
+          payload = buildContactPayload();
+        } catch (error) {
+          if (contactMessage) {
+            setStatusMessage(contactMessage, error.message || "Invalid input", "error");
+          }
+          return;
+        }
+
+        if (contactMessage) {
+          const mode = contactForm.dataset.mode === "edit" ? "edit" : "create";
+          setStatusMessage(
+            contactMessage,
+            mode === "edit" ? "Saving contact…" : "Creating contact…"
+          );
+        }
+
+        if (contactSubmitButton) {
+          contactSubmitButton.disabled = true;
+        }
+
+        try {
+          const mode = contactForm.dataset.mode === "edit" ? "edit" : "create";
+          const contactId = contactIdInput?.value?.trim();
+          if (mode === "edit" && !contactId) {
+            throw new Error("Contact identifier missing");
+          }
+          const url =
+            mode === "edit"
+              ? `/api/organizations/${encodeURIComponent(organizationId)}/contacts/${encodeURIComponent(contactId || "")}`
+              : `/api/organizations/${encodeURIComponent(organizationId)}/contacts`;
+          const method = mode === "edit" ? "PATCH" : "POST";
+          const responsePayload = await sendContactRequest({
+            url,
+            method,
+            payload,
+            errorMessage: mode === "edit" ? "Unable to update contact" : "Unable to create contact",
+          });
+          if (!responsePayload) {
+            return;
+          }
+          const normalized = normalizeContactPayload(responsePayload);
+          if (!normalized) {
+            return;
+          }
+          renderContactRow(normalized);
+          updateContactCount();
+          updateEmptyState();
+          applySearchFilter();
+          refreshFilters();
+          closeContactModal();
+        } catch (error) {
+          if (contactMessage) {
+            setStatusMessage(
+              contactMessage,
+              error.message || "Unable to save contact",
+              "error"
+            );
+          }
+        } finally {
+          if (contactSubmitButton) {
+            contactSubmitButton.disabled = false;
+          }
+        }
+      });
+
+      contactTableBody.addEventListener("click", async (event) => {
+        const editTrigger = event.target.closest("[data-action='contact-edit']");
+        if (editTrigger) {
+          const row = editTrigger.closest("[data-contact-row]");
+          if (!row) {
+            return;
+          }
+          try {
+            const data = JSON.parse(row.dataset.contact || "{}");
+            openContactModal("edit", data);
+          } catch (error) {
+            console.error("Unable to parse contact dataset", error);
+          }
+          return;
+        }
+
+        const deleteTrigger = event.target.closest("[data-action='contact-delete']");
+        if (deleteTrigger) {
+          const row = deleteTrigger.closest("[data-contact-row]");
+          if (!row) {
+            return;
+          }
+          let contactData = null;
+          try {
+            contactData = JSON.parse(row.dataset.contact || "{}");
+          } catch (error) {
+            console.error("Unable to parse contact dataset", error);
+          }
+          const confirmed = window.confirm(
+            contactData?.name
+              ? `Delete ${contactData.name}? This action cannot be undone.`
+              : "Delete this contact?"
+          );
+          if (!confirmed) {
+            return;
+          }
+          deleteTrigger.disabled = true;
+          try {
+            await sendContactRequest({
+              url: `/api/organizations/${encodeURIComponent(
+                organizationId
+              )}/contacts/${encodeURIComponent(String(row.dataset.contactId || ""))}`,
+              method: "DELETE",
+              errorMessage: "Unable to delete contact",
+            });
+            row.remove();
+            updateContactCount();
+            updateEmptyState();
+            applySearchFilter();
+            refreshFilters();
+          } catch (error) {
+            window.alert(error.message || "Unable to delete contact");
+          } finally {
+            deleteTrigger.disabled = false;
+          }
+        }
+      });
+    }
+
+    if (contactFilter) {
+      contactFilter.addEventListener("change", () => {
+        refreshFilters();
+      });
+    }
+
+    refreshFilters();
+    updateContactCount();
+    updateEmptyState();
+    applySearchFilter();
+  }
+
   const maintenanceButtons = document.querySelectorAll("[data-action='maintenance-run']");
 
   function resolveMaintenanceOutput(button) {

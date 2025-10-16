@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block header_actions %}
+<a class="button button--ghost" href="{{ url_for('admin_organisations') }}">
+  ← Back to organisations
+</a>
+<button class="button" type="button" data-action="contact-new">
+  <span aria-hidden="true">➕</span>
+  <span>Add contact</span>
+</button>
+{% endblock %}
+
+{% block content %}
+<div
+  class="contact-workspace"
+  data-role="contact-page"
+  data-organization-id="{{ organization.id }}"
+  data-organization='{{ organization | tojson }}'
+>
+  <section class="panel contact-directory">
+    <div class="panel__header contact-directory__header">
+      <div class="panel__intro">
+        <h2 class="panel__title">{{ organization.name }}</h2>
+        <p class="panel__subtitle">
+          Manage the trusted people representing this organisation. Keep their job titles, email addresses, and
+          escalation numbers current so your teams can reach the right contact every time.
+        </p>
+      </div>
+      <div class="contact-directory__summary">
+        <dl>
+          <div>
+            <dt>Slug</dt>
+            <dd>{{ organization.slug }}</dd>
+          </div>
+          <div>
+            <dt>Primary email</dt>
+            <dd>
+              {% if organization.contact_email %}
+              <a href="mailto:{{ organization.contact_email }}">{{ organization.contact_email }}</a>
+              {% else %}
+              <span class="contact-summary__empty">Not provided</span>
+              {% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt>Recorded contacts</dt>
+            <dd data-role="contact-count">{{ contact_count }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+    <div class="panel__filters contact-directory__filters">
+      <label class="form-field form-field--inline" for="contact-filter">
+        <span class="form-field__label">Filter</span>
+        <select id="contact-filter" data-role="contact-filter">
+          <option value="all">All contacts</option>
+          <option value="has-email">Has email address</option>
+          <option value="has-phone">Has phone number</option>
+        </select>
+      </label>
+      <div class="table-actions">
+        <input
+          type="search"
+          placeholder="Search contacts"
+          aria-label="Search contacts"
+          data-role="table-filter"
+        />
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table" data-role="sortable-table" data-contact-table="true">
+        <thead>
+          <tr>
+            <th scope="col" data-sort-key="name">Name</th>
+            <th scope="col" data-sort-key="title">Job title</th>
+            <th scope="col" data-sort-key="email">Email</th>
+            <th scope="col" data-sort-key="phone">Phone</th>
+            <th scope="col" data-sort-key="notes">Notes</th>
+            <th scope="col" data-sort-key="updated">Updated</th>
+            <th scope="col" class="table-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody data-role="contact-table-body">
+          {% for contact in contacts %}
+          <tr
+            data-contact-row
+            data-contact-id="{{ contact.id }}"
+            data-contact='{{ contact | tojson }}'
+            data-has-email="{{ 'true' if contact.email else 'false' }}"
+            data-has-phone="{{ 'true' if contact.phone else 'false' }}"
+            data-filter-visible="true"
+            data-search-visible="true"
+          >
+            <td data-sort-value="{{ contact.name|lower }}">
+              <div class="contact-name">{{ contact.name }}</div>
+            </td>
+            <td data-sort-value="{{ contact.job_title|lower }}">
+              {% if contact.job_title %}
+              <span class="contact-job">{{ contact.job_title }}</span>
+              {% else %}
+              <span class="contact-metadata contact-metadata--empty">Not set</span>
+              {% endif %}
+            </td>
+            <td data-sort-value="{{ contact.email|lower }}">
+              {% if contact.email %}
+              <a class="contact-link" href="mailto:{{ contact.email }}">{{ contact.email }}</a>
+              {% else %}
+              <span class="contact-metadata contact-metadata--empty">No email</span>
+              {% endif %}
+            </td>
+            <td data-sort-value="{{ contact.phone|lower }}">
+              {% if contact.phone %}
+              <a class="contact-link" href="tel:{{ contact.phone }}">{{ contact.phone }}</a>
+              {% else %}
+              <span class="contact-metadata contact-metadata--empty">No phone</span>
+              {% endif %}
+            </td>
+            <td data-sort-value="{{ contact.notes|lower }}">
+              {% if contact.notes %}
+              <span class="contact-notes" title="{{ contact.notes }}">{{ contact.notes }}</span>
+              {% else %}
+              <span class="contact-metadata contact-metadata--empty">No notes</span>
+              {% endif %}
+            </td>
+            <td data-sort-value="{{ contact.updated_at_iso }}" data-format="datetime">
+              {{ contact.updated_at_iso }}
+            </td>
+            <td class="table-actions">
+              <div class="contact-actions">
+                <button
+                  type="button"
+                  class="button button--ghost"
+                  data-action="contact-edit"
+                  data-contact-id="{{ contact.id }}"
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  type="button"
+                  class="button button--ghost"
+                  data-action="contact-delete"
+                  data-contact-id="{{ contact.id }}"
+                >
+                  🗑️ Delete
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          <tr
+            class="contact-empty{% if contacts %} is-hidden{% endif %}"
+            data-role="contact-empty-state"
+          >
+            <td colspan="7">
+              No contacts have been recorded for this organisation yet. Add the first point of contact to begin.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="modal" data-role="contact-modal" aria-hidden="true">
+  <div class="modal__backdrop" data-action="contact-modal-close"></div>
+  <div
+    class="modal__dialog contact-form"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="contact-modal-title"
+    aria-describedby="contact-modal-subtitle"
+  >
+    <div class="modal__header">
+      <div class="modal__title-group">
+        <h2 class="modal__title" id="contact-modal-title" data-role="contact-form-title">
+          Add organisation contact
+        </h2>
+        <p class="modal__subtitle" id="contact-modal-subtitle">
+          Store job titles, direct contact details, and escalation notes for this stakeholder.
+        </p>
+      </div>
+      <button
+        class="button button--ghost modal__close"
+        type="button"
+        aria-label="Close contact dialog"
+        data-action="contact-modal-close"
+      >
+        ✕
+      </button>
+    </div>
+    <form id="contact-form" autocomplete="off" data-mode="create">
+      <input type="hidden" name="contact_id" data-role="contact-id" />
+      <div class="form-field">
+        <label for="contact-name">Name</label>
+        <input id="contact-name" name="name" type="text" maxlength="255" required />
+      </div>
+      <div class="form-field">
+        <label for="contact-job-title">Job title</label>
+        <input id="contact-job-title" name="job_title" type="text" maxlength="255" />
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label for="contact-email">Email</label>
+          <input id="contact-email" name="email" type="email" maxlength="255" />
+        </div>
+        <div class="form-field">
+          <label for="contact-phone">Phone</label>
+          <input id="contact-phone" name="phone" type="tel" maxlength="64" />
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="contact-notes">Notes</label>
+        <textarea id="contact-notes" name="notes" rows="4" maxlength="2048"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="button" type="submit" data-role="contact-submit-label">Save contact</button>
+        <button class="button button--ghost" type="button" data-action="contact-reset">Clear form</button>
+        <button class="button button--ghost" type="button" data-action="contact-modal-close">Cancel</button>
+      </div>
+      <p class="form-feedback" data-role="contact-form-message" role="status"></p>
+    </form>
+  </div>
+</div>
+{% endblock %}
