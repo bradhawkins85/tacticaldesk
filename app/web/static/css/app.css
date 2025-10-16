@@ -1796,6 +1796,55 @@ body.has-open-modal {
     flex-direction: column;
 }
 
+.automation-editor__section {
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.automation-editor__section + .automation-editor__section {
+    margin-top: 1.5rem;
+}
+
+.automation-editor__section-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.automation-editor__section-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.automation-editor__section-description {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}
+
+.automation-editor__section-description a {
+    color: inherit;
+    text-decoration: underline;
+}
+
+.automation-editor__section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.automation-editor__empty {
+    margin: 0;
+    color: var(--color-muted);
+    font-style: italic;
+}
+
 .automation-editor__kind {
     display: inline-flex;
     align-items: center;

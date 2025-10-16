@@ -64,3 +64,4 @@
 - 2025-10-16T15:00:00Z Fix: Removed the Maintenance admin menu entry to streamline available navigation options.
 - 2025-10-16T12:49:07Z Feature: Added ticket action assignment builder with backend validation, UI editor, migration, and tests.
 - 2025-10-16T13:02:35Z Fix: Removed event automation available ticket action catalog to streamline the editor layout.
+- 2025-10-16T16:15:00Z Feature: Structured automation editors into dedicated detail, trigger, and action sections with refreshed styling.
