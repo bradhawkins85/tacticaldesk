@@ -1079,6 +1079,11 @@
     const nextRunInput = form?.querySelector("#automation-next-run");
     const lastRunInput = form?.querySelector("#automation-last-run");
     const lastTriggerInput = form?.querySelector("#automation-last-trigger");
+    const actionLabelInput = form?.querySelector("#automation-action-label");
+    const actionEndpointInput = form?.querySelector("#automation-action-endpoint");
+    const actionOutputSelectorInput = form?.querySelector(
+      "#automation-action-output-selector"
+    );
     const triggerConditionsRoot = form?.querySelector("[data-role='trigger-conditions']");
     const triggerConditionList = triggerConditionsRoot?.querySelector(
       "[data-role='trigger-condition-list']"
@@ -1606,6 +1611,19 @@
           payload.last_trigger_at = localInputToIso(lastTriggerInput.value);
         }
 
+        if (actionLabelInput) {
+          payload.action_label = actionLabelInput.value?.trim() || null;
+        }
+
+        if (actionEndpointInput) {
+          payload.action_endpoint = actionEndpointInput.value?.trim() || null;
+        }
+
+        if (actionOutputSelectorInput) {
+          payload.action_output_selector =
+            actionOutputSelectorInput.value?.trim() || null;
+        }
+
         setAutomationFormMessage(messageTarget, "Updating automation…");
         const previousLabel = submitButton.textContent;
         submitButton.disabled = true;
@@ -1677,6 +1695,16 @@
               lastTriggerInput.value = triggerIso
                 ? isoToLocalInputValue(triggerIso)
                 : "";
+            }
+            if (actionLabelInput) {
+              actionLabelInput.value = updated.action_label || "";
+            }
+            if (actionEndpointInput) {
+              actionEndpointInput.value = updated.action_endpoint || "";
+            }
+            if (actionOutputSelectorInput) {
+              actionOutputSelectorInput.value =
+                updated.action_output_selector || "";
             }
             if (form) {
               form.dataset.triggerFilters = JSON.stringify(
