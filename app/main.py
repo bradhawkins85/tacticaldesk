@@ -4,12 +4,14 @@ from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import parse_qs
 import re
 
-from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -22,8 +24,9 @@ from app.api.routers import organizations as organizations_router
 from app.api.routers import webhooks as webhooks_router
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
+from app.core.tickets import ticket_store
 from app.models import (
-    Automation, 
+    Automation,
     Contact,
     IntegrationModule,
     Organization,
@@ -31,7 +34,7 @@ from app.models import (
     WebhookDelivery,
     utcnow,
 )
-from app.schemas import OrganizationCreate, OrganizationUpdate, WebhookStatus
+from app.schemas import OrganizationCreate, OrganizationUpdate, TicketUpdate, WebhookStatus
 from pydantic import ValidationError
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -64,6 +67,20 @@ def slugify(value: str) -> str:
 
 
 DEFAULT_AUTOMATION_OUTPUT_SELECTOR = "#automation-update-output"
+
+
+TICKET_FORM_FIELDS = (
+    "subject",
+    "customer",
+    "customer_email",
+    "status",
+    "priority",
+    "team",
+    "assignment",
+    "queue",
+    "category",
+    "summary",
+)
 
 
 def _automation_datetime_to_iso(value: datetime | None) -> str | None:
@@ -121,6 +138,145 @@ def describe_age(delta: timedelta) -> str:
     if hours >= 1:
         return f"{hours} hour{'s' if hours != 1 else ''} ago"
     return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+
+
+def _format_field_label(field_name: str) -> str:
+    return field_name.replace("_", " ").capitalize()
+
+
+def _format_ticket_validation_errors(error: ValidationError) -> list[str]:
+    messages: list[str] = []
+    for entry in error.errors():
+        field = str(entry.get("loc", [""])[-1])
+        label = _format_field_label(field)
+        error_type = entry.get("type", "")
+        if error_type == "value_error.email":
+            messages.append(f"{label} must be a valid email address.")
+            continue
+        if error_type == "value_error.any_str.min_length":
+            messages.append(f"{label} cannot be empty.")
+            continue
+        if error_type == "value_error.any_str.max_length":
+            limit = entry.get("ctx", {}).get("limit_value")
+            if limit is not None:
+                messages.append(f"{label} must be at most {limit} characters.")
+            else:
+                messages.append(f"{label} is too long.")
+            continue
+        messages.append(f"{label}: {entry.get('msg', 'Invalid value')}")
+    return messages
+
+
+async def _extract_ticket_form_data(request: Request) -> dict[str, str]:
+    content_type = request.headers.get("content-type", "")
+    media_type = content_type.split(";")[0].strip().lower()
+    if media_type == "application/x-www-form-urlencoded":
+        body = await request.body()
+        charset = "utf-8"
+        if "charset=" in content_type.lower():
+            charset = content_type.split("charset=")[-1].split(";")[0].strip() or "utf-8"
+        try:
+            decoded_body = body.decode(charset)
+        except LookupError:
+            decoded_body = body.decode("utf-8", errors="ignore")
+        parsed = parse_qs(decoded_body, keep_blank_values=True)
+        return {field: parsed.get(field, [""])[0] for field in TICKET_FORM_FIELDS}
+
+    try:
+        form = await request.form()
+    except AssertionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Unsupported form submission type.",
+        ) from exc
+    return {field: (form.get(field) or "") for field in TICKET_FORM_FIELDS}
+
+
+async def _prepare_ticket_detail_context(
+    request: Request,
+    now_utc: datetime,
+    *,
+    ticket_id: str,
+    form_data: dict[str, str] | None = None,
+    form_errors: list[str] | None = None,
+    saved: bool = False,
+) -> dict[str, object]:
+    seed_tickets = build_ticket_records(now_utc)
+    seed_tickets = await ticket_store.apply_overrides(seed_tickets)
+
+    ticket_lookup = {ticket["id"]: ticket for ticket in seed_tickets}
+    ticket = ticket_lookup.get(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    display_ticket = dict(ticket)
+    if form_data:
+        for field in TICKET_FORM_FIELDS:
+            if field in form_data:
+                display_ticket[field] = form_data[field]
+
+    created_at_dt = display_ticket["created_at_dt"]
+    if created_at_dt.tzinfo is None:
+        created_at_dt = created_at_dt.replace(tzinfo=timezone.utc)
+    created_at_iso = created_at_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    updated_source = display_ticket.get("metadata_updated_at_dt") or display_ticket["last_reply_dt"]
+    if updated_source.tzinfo is None:
+        updated_source = updated_source.replace(tzinfo=timezone.utc)
+    updated_at_iso = (
+        updated_source.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+
+    due_at_iso = None
+    due_at_dt = display_ticket.get("due_at_dt")
+    if isinstance(due_at_dt, datetime):
+        if due_at_dt.tzinfo is None:
+            due_at_dt = due_at_dt.replace(tzinfo=timezone.utc)
+        due_at_iso = due_at_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    history_entries: list[dict[str, object]] = []
+    for entry in display_ticket.get("history", []):
+        entry_copy = dict(entry)
+        timestamp_dt = entry_copy.get("timestamp_dt")
+        if isinstance(timestamp_dt, datetime):
+            if timestamp_dt.tzinfo is None:
+                timestamp_dt = timestamp_dt.replace(tzinfo=timezone.utc)
+            entry_copy["timestamp_iso"] = (
+                timestamp_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            )
+        history_entries.append(entry_copy)
+
+    display_ticket.update(
+        {
+            "created_at_iso": created_at_iso,
+            "updated_at_iso": updated_at_iso,
+            "due_at_iso": due_at_iso,
+            "history": history_entries,
+        }
+    )
+
+    status_options = sorted({record["status"] for record in seed_tickets})
+    priority_options = sorted({record["priority"] for record in seed_tickets})
+    team_options = sorted({record["team"] for record in seed_tickets})
+    assignment_options = sorted({record["assignment"] for record in seed_tickets})
+    queue_options = sorted({record["queue"] for record in seed_tickets})
+
+    return {
+        "request": request,
+        "page_title": f"{display_ticket['id']} · {display_ticket['subject']}",
+        "page_subtitle": (
+            "Review ticket context, conversation history, and craft a secure reply."
+        ),
+        "ticket": display_ticket,
+        "ticket_status_options": status_options,
+        "ticket_priority_options": priority_options,
+        "ticket_team_options": team_options,
+        "ticket_assignment_options": assignment_options,
+        "ticket_queue_options": queue_options,
+        "active_nav": "tickets",
+        "form_errors": form_errors or [],
+        "form_saved": saved,
+    }
 
 
 def build_ticket_records(now_utc: datetime) -> list[dict[str, object]]:
@@ -673,6 +829,7 @@ async def tickets_view(
 ) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     seed_tickets = build_ticket_records(now_utc)
+    seed_tickets = await ticket_store.apply_overrides(seed_tickets)
 
     status_counter: Counter[str] = Counter()
     assignment_counter: Counter[str] = Counter()
@@ -783,54 +940,57 @@ async def ticket_detail_view(
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
+    context = await _prepare_ticket_detail_context(
+        request,
+        now_utc,
+        ticket_id=ticket_id,
+        saved=request.query_params.get("saved") == "1",
+    )
+    context = await _template_context(session=session, **context)
+    return templates.TemplateResponse("ticket_detail.html", context)
+
+
+@app.post("/tickets/{ticket_id}", response_class=HTMLResponse, name="ticket_update")
+async def ticket_update_view(
+    request: Request,
+    ticket_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    now_utc = datetime.now(timezone.utc)
     seed_tickets = build_ticket_records(now_utc)
+    seed_tickets = await ticket_store.apply_overrides(seed_tickets)
     ticket_lookup = {ticket["id"]: ticket for ticket in seed_tickets}
-    ticket = ticket_lookup.get(ticket_id)
-    if not ticket:
+    if ticket_id not in ticket_lookup:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    created_at_iso = ticket["created_at_dt"].isoformat().replace("+00:00", "Z")
-    updated_at_iso = ticket["last_reply_dt"].isoformat().replace("+00:00", "Z")
-    due_at_dt = ticket.get("due_at_dt")
-    due_at_iso = due_at_dt.isoformat().replace("+00:00", "Z") if due_at_dt else None
-    history = []
-    for entry in ticket.get("history", []):
-        timestamp_iso = entry["timestamp_dt"].isoformat().replace("+00:00", "Z")
-        history.append(
-            {
-                key: value
-                for key, value in entry.items()
-                if key != "timestamp_dt"
-            }
-            | {"timestamp_iso": timestamp_iso}
+    form_data = await _extract_ticket_form_data(request)
+
+    try:
+        payload = TicketUpdate(**form_data)
+    except ValidationError as exc:
+        error_messages = _format_ticket_validation_errors(exc)
+        sanitized_form_data = {
+            key: form_data.get(key, "").strip() for key in TICKET_FORM_FIELDS
+        }
+        context = await _prepare_ticket_detail_context(
+            request,
+            now_utc,
+            ticket_id=ticket_id,
+            form_data=sanitized_form_data,
+            form_errors=error_messages,
+        )
+        context = await _template_context(session=session, **context)
+        return templates.TemplateResponse(
+            "ticket_detail.html",
+            context,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
-    status_options = sorted({record["status"] for record in seed_tickets})
-    priority_options = sorted({record["priority"] for record in seed_tickets})
-    team_options = sorted({record["team"] for record in seed_tickets})
-    assignment_options = sorted({record["assignment"] for record in seed_tickets})
-    queue_options = sorted({record["queue"] for record in seed_tickets})
+    await ticket_store.update_ticket(ticket_id, **payload.dict())
 
-    context = await _template_context(
-        request=request,
-        session=session,
-        page_title=f"{ticket['id']} · {ticket['subject']}",
-        page_subtitle="Review ticket context, conversation history, and craft a secure reply.",
-        ticket={
-            **ticket,
-            "created_at_iso": created_at_iso,
-            "updated_at_iso": updated_at_iso,
-            "due_at_iso": due_at_iso,
-            "history": history,
-        },
-        ticket_status_options=status_options,
-        ticket_priority_options=priority_options,
-        ticket_team_options=team_options,
-        ticket_assignment_options=assignment_options,
-        ticket_queue_options=queue_options,
-        active_nav="tickets",
-    )
-    return templates.TemplateResponse("ticket_detail.html", context)
+    redirect_url = request.url_for("ticket_detail", ticket_id=ticket_id)
+    redirect_url = f"{redirect_url}?saved=1"
+    return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/analytics", response_class=HTMLResponse, name="analytics")
@@ -922,6 +1082,35 @@ async def automation_view(
         event_automations=event_automations,
     )
     return templates.TemplateResponse("automation.html", context)
+
+
+@app.get("/automation/{automation_id}", response_class=HTMLResponse, name="automation_edit")
+async def automation_edit_view(
+    request: Request,
+    automation_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    result = await session.execute(
+        select(Automation).where(Automation.id == automation_id)
+    )
+    automation = result.scalar_one_or_none()
+    if automation is None:
+        raise HTTPException(status_code=404, detail="Automation not found")
+
+    automation_view = _automation_to_view_model(automation)
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Automation editor",
+        page_subtitle=(
+            f"Review and adjust configuration for {automation_view['name']}."
+        ),
+        active_nav="admin",
+        active_admin="automation",
+        automation=automation_view,
+    )
+    return templates.TemplateResponse("automation_edit.html", context)
 
 
 @app.get("/integrations", response_class=HTMLResponse, name="integrations_index")

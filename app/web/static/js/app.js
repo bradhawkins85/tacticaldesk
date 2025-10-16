@@ -805,84 +805,6 @@
     });
   }
 
-  const DEFAULT_AUTOMATION_OUTPUT_SELECTOR = "#automation-update-output";
-
-  const automationModal = document.querySelector("[data-role='automation-modal']");
-  const automationForm = automationModal?.querySelector("[data-role='automation-form']");
-  const automationMessageTarget = automationModal?.querySelector(
-    "[data-role='automation-message']"
-  );
-  const automationKindLabel = automationModal?.querySelector(
-    "[data-role='automation-kind-label']"
-  );
-  const automationIdInput = automationModal?.querySelector("[data-role='automation-id']");
-  const automationNameInput = automationModal?.querySelector("#automation-name");
-  const automationPlaybookInput = automationModal?.querySelector("#automation-playbook");
-  const automationDescriptionInput = automationModal?.querySelector(
-    "#automation-description"
-  );
-  const automationCadenceInput = automationModal?.querySelector("#automation-cadence");
-  const automationTriggerInput = automationModal?.querySelector("#automation-trigger");
-  const automationStatusInput = automationModal?.querySelector("#automation-status");
-  const automationNextRunInput = automationModal?.querySelector("#automation-next-run");
-  const automationLastRunInput = automationModal?.querySelector("#automation-last-run");
-  const automationLastTriggerInput = automationModal?.querySelector(
-    "#automation-last-trigger"
-  );
-  const automationSubmitButton = automationModal?.querySelector(
-    "[data-role='automation-submit']"
-  );
-
-  let activeAutomationRow = null;
-  let previousAutomationFocus = null;
-
-  function setAutomationMessage(message, type) {
-    if (!automationMessageTarget) {
-      return;
-    }
-    automationMessageTarget.textContent = message || "";
-    automationMessageTarget.classList.remove("success", "error");
-    if (type) {
-      automationMessageTarget.classList.add(type);
-    }
-  }
-
-  function setAutomationModalVisibility(visible) {
-    if (!automationModal) {
-      return;
-    }
-    automationModal.dataset.visible = visible ? "true" : "false";
-    automationModal.setAttribute("aria-hidden", visible ? "false" : "true");
-    if (visible) {
-      document.body.dataset.modalOpen = "true";
-    } else {
-      delete document.body.dataset.modalOpen;
-    }
-  }
-
-  function closeAutomationModal() {
-    if (!automationModal) {
-      return;
-    }
-    setAutomationModalVisibility(false);
-    delete automationModal.dataset.kind;
-    if (automationForm) {
-      automationForm.reset();
-    }
-    setAutomationMessage("");
-    activeAutomationRow = null;
-    if (automationKindLabel) {
-      automationKindLabel.textContent = "Automation";
-    }
-    if (automationIdInput) {
-      automationIdInput.value = "";
-    }
-    if (previousAutomationFocus && typeof previousAutomationFocus.focus === "function") {
-      previousAutomationFocus.focus();
-    }
-    previousAutomationFocus = null;
-  }
-
   function isoToLocalInputValue(value) {
     if (!value) {
       return "";
@@ -905,202 +827,6 @@
       return null;
     }
     return parsed.toISOString();
-  }
-
-  function parseAutomationRow(row) {
-    if (!row) {
-      return {};
-    }
-    try {
-      return JSON.parse(row.dataset.automation || "{}");
-    } catch (error) {
-      console.warn("Unable to parse automation dataset", error);
-      return {};
-    }
-  }
-
-  function openAutomationModal(row) {
-    if (!automationModal || !automationForm || !row) {
-      return;
-    }
-    const automationData = parseAutomationRow(row);
-    activeAutomationRow = row;
-    previousAutomationFocus = document.activeElement;
-
-    if (automationIdInput) {
-      automationIdInput.value = String(automationData.id || row.dataset.automationId || "");
-    }
-    if (automationNameInput) {
-      automationNameInput.value = automationData.name || "";
-    }
-    if (automationPlaybookInput) {
-      automationPlaybookInput.value = automationData.playbook || "";
-    }
-    if (automationDescriptionInput) {
-      automationDescriptionInput.value = automationData.description || "";
-    }
-    if (automationCadenceInput) {
-      automationCadenceInput.value = automationData.cadence || "";
-    }
-    if (automationTriggerInput) {
-      automationTriggerInput.value = automationData.trigger || "";
-    }
-    if (automationStatusInput) {
-      automationStatusInput.value = automationData.status || "";
-    }
-    if (automationNextRunInput) {
-      automationNextRunInput.value = isoToLocalInputValue(automationData.next_run_iso);
-    }
-    if (automationLastRunInput) {
-      automationLastRunInput.value = isoToLocalInputValue(automationData.last_run_iso);
-    }
-    if (automationLastTriggerInput) {
-      automationLastTriggerInput.value = isoToLocalInputValue(
-        automationData.last_trigger_iso
-      );
-    }
-
-    const kind = (automationData.kind || row.dataset.automationKind || "scheduled").toLowerCase();
-    automationModal.dataset.kind = kind;
-    if (automationKindLabel) {
-      automationKindLabel.textContent =
-        kind === "event" ? "Event automation" : "Scheduled automation";
-    }
-    setAutomationMessage("");
-    setAutomationModalVisibility(true);
-    requestAnimationFrame(() => {
-      automationNameInput?.focus();
-    });
-  }
-
-  function renderTimeCell(cell, iso) {
-    if (!cell) {
-      return;
-    }
-    cell.dataset.sortValue = iso || "";
-    cell.textContent = "";
-    if (iso) {
-      const timeEl = document.createElement("time");
-      timeEl.dataset.role = "local-datetime";
-      timeEl.setAttribute("datetime", iso);
-      timeEl.textContent = toLocalDatetime(iso) || iso;
-      cell.appendChild(timeEl);
-    } else {
-      const placeholder = document.createElement("span");
-      placeholder.className = "automation-placeholder";
-      placeholder.textContent = "—";
-      cell.appendChild(placeholder);
-    }
-  }
-
-  function renderStatusCell(cell, status) {
-    if (!cell) {
-      return;
-    }
-    cell.dataset.sortValue = status || "";
-    cell.textContent = "";
-    if (status) {
-      const tag = document.createElement("span");
-      tag.className = "automation-status-tag";
-      tag.textContent = status;
-      cell.appendChild(tag);
-    } else {
-      const placeholder = document.createElement("span");
-      placeholder.className = "automation-placeholder";
-      placeholder.textContent = "—";
-      cell.appendChild(placeholder);
-    }
-  }
-
-  function buildAutomationViewModel(payload) {
-    if (!payload) {
-      return null;
-    }
-    const action =
-      payload.action_label && payload.action_endpoint
-        ? {
-            label: payload.action_label,
-            endpoint: payload.action_endpoint,
-            output_selector:
-              payload.action_output_selector || DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
-          }
-        : null;
-
-    return {
-      id: payload.id,
-      name: payload.name,
-      description: payload.description || "",
-      playbook: payload.playbook,
-      kind: payload.kind,
-      cadence: payload.cadence,
-      trigger: payload.trigger,
-      status: payload.status,
-      next_run_iso: payload.next_run_at || null,
-      last_run_iso: payload.last_run_at || null,
-      last_trigger_iso: payload.last_trigger_at || null,
-      action,
-      action_label: payload.action_label,
-      action_endpoint: payload.action_endpoint,
-      action_output_selector:
-        payload.action_output_selector || DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
-    };
-  }
-
-  function refreshAutomationRow(row, payload) {
-    if (!row || !payload) {
-      return;
-    }
-    const viewModel = buildAutomationViewModel(payload);
-    if (!viewModel) {
-      return;
-    }
-    row.dataset.automation = JSON.stringify(viewModel);
-    row.dataset.automationId = String(viewModel.id);
-    if (viewModel.kind) {
-      row.dataset.automationKind = viewModel.kind;
-    }
-
-    const title = row.querySelector(".automation-name__title");
-    if (title) {
-      title.textContent = viewModel.name;
-    }
-    const description = row.querySelector(".automation-name__description");
-    if (description) {
-      description.textContent = viewModel.description;
-    }
-
-    const playbookCell = row.querySelector("[data-cell='playbook']");
-    if (playbookCell) {
-      playbookCell.dataset.sortValue = viewModel.playbook || "";
-      playbookCell.textContent = viewModel.playbook || "—";
-    }
-
-    const cadenceCell = row.querySelector("[data-cell='cadence']");
-    if (cadenceCell) {
-      cadenceCell.dataset.sortValue = viewModel.cadence || "";
-      cadenceCell.textContent = viewModel.cadence || "—";
-    }
-
-    const triggerCell = row.querySelector("[data-cell='trigger']");
-    if (triggerCell) {
-      triggerCell.dataset.sortValue = viewModel.trigger || "";
-      triggerCell.textContent = viewModel.trigger || "—";
-    }
-
-    renderTimeCell(row.querySelector("[data-cell='next_run']"), viewModel.next_run_iso);
-    renderTimeCell(row.querySelector("[data-cell='last_run']"), viewModel.last_run_iso);
-    renderTimeCell(row.querySelector("[data-cell='last_trigger']"), viewModel.last_trigger_iso);
-    renderStatusCell(row.querySelector("[data-cell='status']"), viewModel.status);
-
-    const actionCell = row.querySelector("[data-cell='actions']");
-    if (actionCell) {
-      const runButton = actionCell.querySelector("[data-action='maintenance-run']");
-      if (runButton && viewModel.action) {
-        runButton.textContent = viewModel.action.label;
-        runButton.dataset.endpoint = viewModel.action.endpoint;
-        runButton.dataset.output = viewModel.action.output_selector;
-      }
-    }
   }
 
   async function patchAutomation(automationId, payload) {
@@ -1127,97 +853,162 @@
     }
   }
 
-  function openAutomationFromTrigger(trigger) {
-    if (!trigger) {
+  function setAutomationFormMessage(target, message, type) {
+    if (!target) {
       return;
     }
-    const row = trigger.closest("tr[data-automation-row]");
-    if (!row) {
-      return;
+    target.textContent = message || "";
+    target.classList.remove("success", "error");
+    if (type) {
+      target.classList.add(type);
     }
-    openAutomationModal(row);
   }
 
-  if (automationForm && automationModal) {
-    automationForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (!automationSubmitButton) {
-        return;
-      }
-      const automationId = automationIdInput?.value || activeAutomationRow?.dataset.automationId;
-      if (!automationId) {
-        setAutomationMessage("Unable to determine automation identifier.", "error");
-        return;
-      }
+  const automationEditPage = document.querySelector("[data-role='automation-edit-page']");
+  if (automationEditPage) {
+    const automationId = automationEditPage.dataset.automationId;
+    const returnUrl = automationEditPage.dataset.returnUrl;
+    const form = automationEditPage.querySelector("[data-role='automation-edit-form']");
+    const messageTarget = automationEditPage.querySelector("[data-role='automation-message']");
+    const submitButton = form?.querySelector("[data-role='automation-submit']");
+    const nameInput = form?.querySelector("#automation-name");
+    const playbookInput = form?.querySelector("#automation-playbook");
+    const descriptionInput = form?.querySelector("#automation-description");
+    const cadenceInput = form?.querySelector("#automation-cadence");
+    const triggerInput = form?.querySelector("#automation-trigger");
+    const statusInput = form?.querySelector("#automation-status");
+    const nextRunInput = form?.querySelector("#automation-next-run");
+    const lastRunInput = form?.querySelector("#automation-last-run");
+    const lastTriggerInput = form?.querySelector("#automation-last-trigger");
 
-      const nameValue = automationNameInput?.value?.trim() || "";
-      if (!nameValue) {
-        setAutomationMessage("Name is required.", "error");
-        automationNameInput?.focus();
-        return;
-      }
+    if (form) {
+      const datetimeInputs = Array.from(
+        form.querySelectorAll("[data-automation-datetime]")
+      );
+      datetimeInputs.forEach((input) => {
+        if (!(input instanceof HTMLInputElement)) {
+          return;
+        }
+        const isoValue = input.dataset.isoValue;
+        if (isoValue) {
+          input.value = isoToLocalInputValue(isoValue);
+        }
+      });
 
-      const playbookValue = automationPlaybookInput?.value?.trim() || "";
-      if (!playbookValue) {
-        setAutomationMessage("Playbook is required.", "error");
-        automationPlaybookInput?.focus();
-        return;
-      }
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!submitButton) {
+          return;
+        }
+        if (!automationId) {
+          setAutomationFormMessage(
+            messageTarget,
+            "Unable to determine automation identifier.",
+            "error"
+          );
+          return;
+        }
 
-      const payload = {
-        name: nameValue,
-        playbook: playbookValue,
-        description: automationDescriptionInput?.value?.trim() || null,
-        cadence: automationCadenceInput?.value?.trim() || null,
-        trigger: automationTriggerInput?.value?.trim() || null,
-        status: automationStatusInput?.value?.trim() || null,
-        next_run_at: localInputToIso(automationNextRunInput?.value),
-        last_run_at: localInputToIso(automationLastRunInput?.value),
-        last_trigger_at: localInputToIso(automationLastTriggerInput?.value),
-      };
+        const nameValue = nameInput?.value?.trim() || "";
+        if (!nameValue) {
+          setAutomationFormMessage(messageTarget, "Name is required.", "error");
+          nameInput?.focus();
+          return;
+        }
 
-      setAutomationMessage("Updating automation…");
-      const previousLabel = automationSubmitButton.textContent;
-      automationSubmitButton.disabled = true;
-      automationSubmitButton.textContent = "Saving…";
+        const playbookValue = playbookInput?.value?.trim() || "";
+        if (!playbookValue) {
+          setAutomationFormMessage(
+            messageTarget,
+            "Playbook is required.",
+            "error"
+          );
+          playbookInput?.focus();
+          return;
+        }
 
-      try {
-        const updated = await patchAutomation(automationId, payload);
-        refreshAutomationRow(activeAutomationRow, updated);
-        setAutomationMessage("Automation updated successfully.", "success");
-        setTimeout(() => {
-          closeAutomationModal();
-        }, 900);
-      } catch (error) {
-        setAutomationMessage(error?.message || "Unable to update automation.", "error");
-      } finally {
-        automationSubmitButton.disabled = false;
-        automationSubmitButton.textContent = previousLabel || "Save changes";
-      }
-    });
+        const payload = {
+          name: nameValue,
+          playbook: playbookValue,
+          description: descriptionInput?.value?.trim() || null,
+          cadence: cadenceInput?.value?.trim() || null,
+          trigger: triggerInput?.value?.trim() || null,
+          status: statusInput?.value?.trim() || null,
+          next_run_at: localInputToIso(nextRunInput?.value),
+          last_run_at: localInputToIso(lastRunInput?.value),
+          last_trigger_at: localInputToIso(lastTriggerInput?.value),
+        };
+
+        setAutomationFormMessage(messageTarget, "Updating automation…");
+        const previousLabel = submitButton.textContent;
+        submitButton.disabled = true;
+        submitButton.textContent = "Saving…";
+
+        try {
+          const updated = await patchAutomation(automationId, payload);
+          if (updated) {
+            if (typeof updated.name === "string" && nameInput) {
+              nameInput.value = updated.name;
+            }
+            if (typeof updated.playbook === "string" && playbookInput) {
+              playbookInput.value = updated.playbook;
+            }
+            if (descriptionInput) {
+              descriptionInput.value = updated.description || "";
+            }
+            if (cadenceInput) {
+              cadenceInput.value = updated.cadence || "";
+            }
+            if (triggerInput) {
+              triggerInput.value = updated.trigger || "";
+            }
+            if (statusInput) {
+              statusInput.value = updated.status || "";
+            }
+            if (nextRunInput) {
+              const nextIso = updated.next_run_at || "";
+              nextRunInput.dataset.isoValue = nextIso;
+              nextRunInput.value = nextIso ? isoToLocalInputValue(nextIso) : "";
+            }
+            if (lastRunInput) {
+              const lastIso = updated.last_run_at || "";
+              lastRunInput.dataset.isoValue = lastIso;
+              lastRunInput.value = lastIso ? isoToLocalInputValue(lastIso) : "";
+            }
+            if (lastTriggerInput) {
+              const triggerIso = updated.last_trigger_at || "";
+              lastTriggerInput.dataset.isoValue = triggerIso;
+              lastTriggerInput.value = triggerIso
+                ? isoToLocalInputValue(triggerIso)
+                : "";
+            }
+          }
+
+          setAutomationFormMessage(
+            messageTarget,
+            "Automation updated successfully.",
+            "success"
+          );
+
+          if (returnUrl) {
+            setTimeout(() => {
+              window.location.href = returnUrl;
+            }, 900);
+          }
+        } catch (error) {
+          setAutomationFormMessage(
+            messageTarget,
+            error?.message || "Unable to update automation.",
+            "error"
+          );
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = previousLabel || "Save changes";
+        }
+      });
+    }
   }
 
-  document.addEventListener("click", (event) => {
-    const editTrigger = event.target.closest("[data-action='automation-edit']");
-    if (editTrigger) {
-      event.preventDefault();
-      openAutomationFromTrigger(editTrigger);
-      return;
-    }
-
-    const closeTrigger = event.target.closest("[data-action='automation-close']");
-    if (closeTrigger && automationModal?.dataset.visible === "true") {
-      event.preventDefault();
-      closeAutomationModal();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && automationModal?.dataset.visible === "true") {
-      event.preventDefault();
-      closeAutomationModal();
-    }
-  });
   const contactPage = document.querySelector("[data-role='contact-page']");
   if (contactPage) {
     const organizationId = contactPage.dataset.organizationId;
