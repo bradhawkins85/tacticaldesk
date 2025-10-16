@@ -215,6 +215,13 @@
   }
 
   document.addEventListener("click", (event) => {
+    const webhookAdminButton = event.target.closest("[data-action='view-webhook-admin']");
+    if (webhookAdminButton) {
+      const targetUrl = webhookAdminButton.getAttribute("data-href") || "/admin/maintenance#webhook-monitor";
+      window.location.href = targetUrl;
+      return;
+    }
+
     const refreshButton = event.target.closest("[data-action='ticket-refresh']");
     if (refreshButton) {
       window.location.reload();
