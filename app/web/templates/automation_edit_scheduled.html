@@ -15,7 +15,7 @@
       <span class="automation-editor__kind">Scheduled automation</span>
       <h2 class="panel__title">{{ automation.name }}</h2>
       <p class="panel__subtitle">
-        Configure cron-based execution windows and upcoming run history for this playbook.
+        Configure cron-based execution windows and upcoming run history for this automation.
       </p>
     </div>
   </header>
@@ -35,6 +35,53 @@
             <a href="{{ cron_reference_url }}" target="_blank" rel="noopener">Cron reference</a>
             {% endif %}
           </p>
+      <p class="automation-editor__hint">
+        Cron expressions run in UTC and render in your local timezone when displayed below.
+        {% if cron_reference_url %}
+        <a href="{{ cron_reference_url }}" target="_blank" rel="noopener">Cron reference</a>
+        {% endif %}
+      </p>
+      <div class="automation-editor__grid">
+        <div class="form-field">
+          <label for="automation-name">Name</label>
+          <input
+            id="automation-name"
+            name="name"
+            type="text"
+            maxlength="255"
+            required
+            value="{{ automation.name }}"
+          />
+        </div>
+        <div class="form-field">
+          <label for="automation-playbook">Runbook label</label>
+          <input
+            id="automation-playbook"
+            name="playbook"
+            type="text"
+            maxlength="255"
+            required
+            list="runbook-label-options"
+            value="{{ automation.playbook }}"
+          />
+        </div>
+        <div class="form-field automation-editor__grid-item--full">
+          <label for="automation-description">Description</label>
+          <textarea id="automation-description" name="description" rows="4" maxlength="2048">{{ automation.description or '' }}</textarea>
+        </div>
+        <div class="form-field">
+          <label for="automation-cron-expression">Cron expression</label>
+          <input
+            id="automation-cron-expression"
+            name="cron_expression"
+            type="text"
+            maxlength="255"
+            required
+            pattern="^\S+(\s+\S+){4,5}$"
+            value="{{ automation.cron_expression or '' }}"
+            placeholder="0 2 * * *"
+          />
+          <p class="form-field__hint">Provide five or six cron segments. Example: <code>30 0 * * *</code>.</p>
         </div>
         <div class="automation-editor__section-body">
           <div class="automation-editor__grid">
@@ -240,4 +287,9 @@
     </form>
   </div>
 </section>
+<datalist id="runbook-label-options">
+  {% for label in runbook_labels %}
+  <option value="{{ label.label }}"></option>
+  {% endfor %}
+</datalist>
 {% endblock %}
