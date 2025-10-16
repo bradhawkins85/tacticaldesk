@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, constr
+from pydantic import BaseModel, EmailStr, Field, constr, validator
 
 TicketShortText = constr(strip_whitespace=True, min_length=1, max_length=255)
 TicketSummaryText = constr(strip_whitespace=True, min_length=1, max_length=2048)
@@ -118,16 +118,74 @@ class OrganizationRead(BaseModel):
         orm_mode = True
 
 
+class AutomationTriggerFilter(BaseModel):
+    match: Literal["any", "all"] = Field(
+        default="any",
+        description="Trigger match behavior: 'any' for OR, 'all' for AND.",
+    )
+    conditions: list[str] = Field(
+        min_items=1,
+        description="List of trigger condition labels.",
+    )
+
+    @validator("match", pre=True)
+    def _normalize_match(cls, value: str | None) -> str:
+        if value is None:
+            return "any"
+        return str(value).strip().lower() or "any"
+
+    @validator("conditions", pre=True)
+    def _ensure_sequence(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return list(value)
+
+    @validator("conditions", each_item=True, pre=True)
+    def _coerce_condition(cls, value) -> str:
+        if value is None:
+            return ""
+        return str(value)
+
+    @validator("conditions")
+    def _clean_conditions(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = item.strip()
+            if not normalized:
+                continue
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            cleaned.append(normalized)
+        if not cleaned:
+            raise ValueError("At least one trigger condition is required.")
+        return cleaned
+
+
 class AutomationUpdate(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     description: Optional[str] = Field(default=None, max_length=2048)
     playbook: Optional[str] = Field(default=None, max_length=255, min_length=1)
     cron_expression: Optional[str] = Field(default=None, max_length=255)
-    trigger: Optional[str] = Field(default=None, max_length=255)
+    trigger: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        description="Primary trigger value used when only a single condition is required.",
+    )
     status: Optional[str] = Field(default=None, max_length=64)
     next_run_at: Optional[datetime] = None
     last_run_at: Optional[datetime] = None
     last_trigger_at: Optional[datetime] = None
+    trigger_filters: Optional[AutomationTriggerFilter] = Field(
+        default=None,
+        description=(
+            "Logical trigger definition for event automations. Allows combining"
+            " multiple trigger conditions using match 'any' (OR) or 'all' (AND)."
+        ),
+    )
 
 
 class AutomationRead(BaseModel):
@@ -145,6 +203,7 @@ class AutomationRead(BaseModel):
     action_label: Optional[str]
     action_endpoint: Optional[str]
     action_output_selector: Optional[str]
+    trigger_filters: Optional[AutomationTriggerFilter]
 
     class Config:
         orm_mode = True

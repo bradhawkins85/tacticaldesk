@@ -5,13 +5,14 @@ from typing import Iterable
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.automations import EVENT_TRIGGER_SET
 from app.core.db import get_session
 from app.models import Automation, utcnow
-from app.schemas import AutomationRead, AutomationUpdate
+from app.schemas import AutomationRead, AutomationTriggerFilter, AutomationUpdate
 
 router = APIRouter(prefix="/api/automations", tags=["Automations"])
 
@@ -85,6 +86,42 @@ def _normalize_datetime(value: datetime | None) -> datetime | None:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _normalize_trigger_filters(
+    value: AutomationTriggerFilter | dict | None,
+    *,
+    automation_kind: str,
+) -> AutomationTriggerFilter | None:
+    if value is None:
+        return None
+
+    if automation_kind != "event":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trigger filters are only supported for event automations",
+        )
+
+    if isinstance(value, AutomationTriggerFilter):
+        filters = value
+    else:
+        try:
+            filters = AutomationTriggerFilter.parse_obj(value)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid trigger filter payload",
+            ) from exc
+
+    invalid_conditions = [
+        condition for condition in filters.conditions if condition not in EVENT_TRIGGER_SET
+    ]
+    if invalid_conditions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported automation trigger in filters",
+        )
+    return filters
 
 
 async def _get_automation(session: AsyncSession, automation_id: int) -> Automation:
@@ -176,6 +213,36 @@ async def update_automation(
         if cleaned_trigger != automation.trigger:
             automation.trigger = cleaned_trigger
             updated = True
+
+    if "trigger_filters" in data:
+        raw_filters = data["trigger_filters"]
+        filters = _normalize_trigger_filters(raw_filters, automation_kind=automation.kind)
+        current_filters: AutomationTriggerFilter | None = None
+        if automation.trigger_filters:
+            try:
+                current_filters = AutomationTriggerFilter.parse_obj(automation.trigger_filters)
+            except ValidationError:
+                current_filters = None
+
+        if filters is None:
+            if automation.trigger_filters is not None:
+                automation.trigger_filters = None
+                updated = True
+        else:
+            if current_filters != filters:
+                automation.trigger_filters = filters.dict()
+                updated = True
+
+            if automation.kind == "event":
+                if len(filters.conditions) == 1:
+                    single_condition = filters.conditions[0]
+                    if single_condition != automation.trigger:
+                        automation.trigger = single_condition
+                        updated = True
+                else:
+                    if automation.trigger is not None:
+                        automation.trigger = None
+                        updated = True
 
     if "status" in data:
         cleaned_status = _clean_optional_text(data["status"])

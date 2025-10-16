@@ -7,11 +7,10 @@ from pathlib import Path
 from urllib.parse import parse_qs
 import re
 
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -36,6 +35,7 @@ from app.models import (
     utcnow,
 )
 from app.schemas import (
+    AutomationTriggerFilter,
     OrganizationCreate,
     OrganizationUpdate,
     TicketReply,
@@ -129,6 +129,29 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
             or DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
         }
 
+    filters_dict: dict[str, object] | None = None
+    filters_model: AutomationTriggerFilter | None = None
+    if automation.trigger_filters:
+        try:
+            filters_model = AutomationTriggerFilter.parse_obj(automation.trigger_filters)
+            filters_dict = filters_model.dict()
+        except ValidationError:
+            filters_dict = None
+            filters_model = None
+
+    trigger_display = automation.trigger or ""
+    trigger_sort_value = automation.trigger or ""
+    if filters_model and filters_model.conditions:
+        if len(filters_model.conditions) == 1:
+            trigger_display = filters_model.conditions[0]
+            trigger_sort_value = filters_model.conditions[0]
+        else:
+            prefix = "ALL" if filters_model.match == "all" else "ANY"
+            trigger_display = f"{prefix}: {', '.join(filters_model.conditions)}"
+            trigger_sort_value = " ".join(filters_model.conditions)
+    if not trigger_display:
+        trigger_display = "—"
+
     return {
         "id": automation.id,
         "name": automation.name,
@@ -137,6 +160,9 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
         "kind": automation.kind,
         "cron_expression": automation.cron_expression,
         "trigger": automation.trigger,
+        "trigger_display": trigger_display,
+        "trigger_sort": trigger_sort_value,
+        "trigger_filters": filters_dict,
         "status": automation.status,
         "next_run_iso": _automation_datetime_to_iso(automation.next_run_at),
         "last_run_iso": _automation_datetime_to_iso(automation.last_run_at),

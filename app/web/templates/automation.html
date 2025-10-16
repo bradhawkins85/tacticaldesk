@@ -144,7 +144,7 @@
               </div>
             </th>
             <td data-cell="playbook" data-sort-value="{{ automation.playbook }}">{{ automation.playbook }}</td>
-            <td data-cell="trigger" data-sort-value="{{ automation.trigger or '' }}">{{ automation.trigger or '—' }}</td>
+            <td data-cell="trigger" data-sort-value="{{ automation.trigger_sort or '' }}">{{ automation.trigger_display }}</td>
             <td data-cell="last_trigger" data-sort-value="{{ automation.last_trigger_iso or '' }}">
               {% if automation.last_trigger_iso %}
               <time data-role="local-datetime" datetime="{{ automation.last_trigger_iso }}">{{ automation.last_trigger_iso }}</time>
