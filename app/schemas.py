@@ -47,6 +47,8 @@ class IntegrationSettings(BaseModel):
     client_id: Optional[str] = Field(default=None, max_length=255)
     client_secret: Optional[str] = Field(default=None, max_length=512)
     tenant_id: Optional[str] = Field(default=None, max_length=255)
+    topic: Optional[str] = Field(default=None, max_length=255)
+    token: Optional[str] = Field(default=None, max_length=512)
 
     class Config:
         extra = "allow"

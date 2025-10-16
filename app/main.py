@@ -930,6 +930,26 @@ DEFAULT_SETTINGS_FIELDS = [
 INTEGRATION_SETTINGS_FIELDS: dict[str, list[dict[str, str]]] = {
     "syncro-rmm": DEFAULT_SETTINGS_FIELDS,
     "tactical-rmm": DEFAULT_SETTINGS_FIELDS,
+    "ntfy": [
+        {
+            "key": "base_url",
+            "label": "Base URL",
+            "type": "url",
+            "placeholder": "https://ntfy.example",
+        },
+        {
+            "key": "topic",
+            "label": "Topic",
+            "type": "text",
+            "placeholder": "operations-alerts",
+        },
+        {
+            "key": "token",
+            "label": "Access token",
+            "type": "password",
+            "placeholder": "Optional bearer token",
+        },
+    ],
     "xero": [
         {
             "key": "base_url",
