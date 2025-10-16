@@ -15,7 +15,7 @@
       <span class="automation-editor__kind">Event-based automation</span>
       <h2 class="panel__title">{{ automation.name }}</h2>
       <p class="panel__subtitle">
-        Choose application events that should trigger this playbook and review recent signal delivery.
+        Choose application events that should trigger this automation and review recent signal delivery.
       </p>
     </div>
   </header>
@@ -43,13 +43,14 @@
           />
         </div>
         <div class="form-field">
-          <label for="automation-playbook">Playbook</label>
+          <label for="automation-playbook">Runbook label</label>
           <input
             id="automation-playbook"
             name="playbook"
             type="text"
             maxlength="255"
             required
+            list="runbook-label-options"
             value="{{ automation.playbook }}"
           />
         </div>
@@ -260,6 +261,64 @@
           />
         </div>
       </div>
+      <section
+        class="automation-action-catalog"
+        aria-labelledby="automation-action-catalog-title"
+      >
+        <div class="automation-action-catalog__header">
+          <div class="automation-action-catalog__text">
+            <h3
+              class="automation-action-catalog__title"
+              id="automation-action-catalog-title"
+            >
+              Available ticket actions
+            </h3>
+            <p class="automation-action-catalog__description">
+              Actions execute after all trigger conditions evaluate to true and can be
+              referenced in downstream runbook orchestration.
+            </p>
+          </div>
+          <div class="automation-action-catalog__filter">
+            <label class="visually-hidden" for="automation-action-filter">
+              Filter ticket actions
+            </label>
+            <input
+              id="automation-action-filter"
+              type="search"
+              class="automation-action-catalog__filter-input"
+              placeholder="Filter actions"
+              data-role="table-filter"
+              aria-controls="automation-action-table"
+            />
+          </div>
+        </div>
+        <div class="table-container">
+          <table
+            id="automation-action-table"
+            class="data-table automation-action-table"
+            data-role="sortable-table"
+          >
+            <thead>
+              <tr>
+                <th scope="col" data-sort-key="action">Action</th>
+                <th scope="col" data-sort-key="identifier">Identifier</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for action in automation_actions %}
+              <tr>
+                <td data-cell="action" data-sort-value="{{ action.name }}">
+                  {{ action.name }}
+                </td>
+                <td data-cell="identifier" data-sort-value="{{ action.slug }}">
+                  <code>{{ action.slug }}</code>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
       <div class="automation-editor__message" data-role="automation-message" role="status" aria-live="polite"></div>
       <div class="automation-editor__actions">
         <a class="secondary-button" href="{{ url_for('automation') }}">Cancel</a>
@@ -268,4 +327,9 @@
     </form>
   </div>
 </section>
+<datalist id="runbook-label-options">
+  {% for label in runbook_labels %}
+  <option value="{{ label.label }}"></option>
+  {% endfor %}
+</datalist>
 {% endblock %}

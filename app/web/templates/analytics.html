@@ -46,29 +46,29 @@
   <div class="table-toolbar">
     <label class="filter">
       <span>Filter</span>
-      <input type="search" placeholder="Search playbooks" data-role="table-filter" aria-controls="automation-table" />
+      <input type="search" placeholder="Search runbook labels" data-role="table-filter" aria-controls="automation-table" />
     </label>
   </div>
   <div class="table-wrapper">
     <table id="automation-table" class="data-table" data-role="sortable-table">
       <thead>
         <tr>
-          <th scope="col" data-sort-key="playbook">Playbook</th>
+          <th scope="col" data-sort-key="runbook_label">Runbook label</th>
           <th scope="col" data-sort-key="saves_hours">Hours saved (30d)</th>
           <th scope="col" data-sort-key="last_run">Last run</th>
         </tr>
       </thead>
       <tbody>
-        {% for playbook in automation_roi %}
+        {% for label in automation_roi %}
         <tr>
-          <td data-label="Playbook">{{ playbook.playbook }}</td>
-          <td data-label="Hours saved (30d)" data-sort-value="{{ playbook.saves_hours }}">{{ playbook.saves_hours }}</td>
+          <td data-label="Runbook label">{{ label.runbook_label }}</td>
+          <td data-label="Hours saved (30d)" data-sort-value="{{ label.saves_hours }}">{{ label.saves_hours }}</td>
           <td
             data-label="Last run"
-            data-sort-value="{{ playbook.last_run_iso }}"
+            data-sort-value="{{ label.last_run_iso }}"
             data-format="datetime"
           >
-            {{ playbook.last_run_iso }}
+            {{ label.last_run_iso }}
           </td>
         </tr>
         {% endfor %}

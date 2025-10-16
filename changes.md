@@ -62,5 +62,6 @@
 - 2025-10-16T15:20:00Z Feature: Enabled organisation deletion with cascading contact/ticket cleanup, defaulted registry filters to Active, and updated admin warnings.
 - 2025-10-16T15:05:00Z Fix: Converted the secure update playbook into a platform maintenance action so the update button no longer registers a run-secure-update playbook.
 - 2025-10-16T15:00:00Z Fix: Removed the Maintenance admin menu entry to streamline available navigation options.
+- 2025-10-16T16:30:00Z Feature: Replaced the Playbook catalogue with runbook label management APIs, UI tooling, and refreshed regression coverage.
 - 2025-10-16T12:49:07Z Feature: Added ticket action assignment builder with backend validation, UI editor, migration, and tests.
 - 2025-10-16T13:02:35Z Fix: Removed event automation available ticket action catalog to streamline the editor layout.

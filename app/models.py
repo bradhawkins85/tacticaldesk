@@ -123,26 +123,6 @@ class Automation(Base):
     action_output_selector: str | None = Column(String(255), nullable=True)
 
 
-class Playbook(Base):
-    __tablename__ = "playbooks"
-
-    id: int = Column(Integer, primary_key=True, index=True)
-    name: str = Column(String(255), nullable=False, unique=True)
-    slug: str = Column(String(255), nullable=False, unique=True, index=True)
-    description: str | None = Column(Text, nullable=True)
-    created_at: datetime = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=utcnow,
-        server_default=text("CURRENT_TIMESTAMP"),
-    )
-    updated_at: datetime = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=utcnow,
-        onupdate=utcnow,
-        server_default=text("CURRENT_TIMESTAMP"),
-    )
 class Contact(Base):
     __tablename__ = "contacts"
 
