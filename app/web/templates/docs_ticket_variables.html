@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel docs-panel">
+  <header class="panel__header">
+    <div class="panel__intro">
+      <span class="automation-editor__kind">Documentation</span>
+      <h2 class="panel__title">Ticket template variables</h2>
+      <p class="panel__subtitle">
+        Reference these placeholders to personalise ticket actions with live event context and ticket metadata.
+      </p>
+    </div>
+  </header>
+  <div class="panel__body">
+    <div class="automation-action-catalog automation-variable-catalog">
+      <div class="automation-action-catalog__header">
+        <div class="automation-action-catalog__text">
+          <h3 class="automation-action-catalog__title" id="automation-variable-catalog-title">
+            Available template variables
+          </h3>
+          <p class="automation-action-catalog__description">
+            Filter, sort, and reuse these fields inside automation ticket actions to merge accurate ticket data into outbound updates.
+          </p>
+        </div>
+        <div class="automation-action-catalog__filter">
+          <label class="visually-hidden" for="automation-variable-filter">
+            Filter template variables
+          </label>
+          <input
+            id="automation-variable-filter"
+            type="search"
+            class="automation-action-catalog__filter-input"
+            placeholder="Filter variables"
+            data-role="table-filter"
+            aria-controls="automation-variable-table"
+          />
+        </div>
+      </div>
+      <div class="table-container">
+        <table
+          id="automation-variable-table"
+          class="data-table automation-variable-table"
+          data-role="sortable-table"
+        >
+          <thead>
+            <tr>
+              <th scope="col" data-sort-key="variable">Variable</th>
+              <th scope="col" data-sort-key="label">Label</th>
+              <th scope="col" data-sort-key="description">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for variable in automation_template_variables %}
+            <tr>
+              <td data-cell="variable" data-sort-value="{{ variable.key }}">
+                <code>{{ variable.key }}</code>
+              </td>
+              <td data-cell="label" data-sort-value="{{ variable.label }}">
+                {{ variable.label }}
+              </td>
+              <td data-cell="description" data-sort-value="{{ variable.description }}">
+                {{ variable.description }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
