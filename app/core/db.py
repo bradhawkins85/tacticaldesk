@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterable
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -87,11 +88,27 @@ async def apply_migrations(engine: AsyncEngine) -> None:
                 continue
             statements = _parse_statements(migration.read_text(), conn.dialect.name)
             for statement in statements:
-                await conn.execute(text(statement))
+                try:
+                    await conn.execute(text(statement))
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    if _should_ignore_migration_error(exc):
+                        continue
+                    raise
             await conn.execute(
                 text("INSERT INTO schema_migrations (filename) VALUES (:filename)"),
                 {"filename": migration.name},
             )
+
+
+def _should_ignore_migration_error(exc: Exception) -> bool:
+    """Return True when the exception is safe to ignore during migrations."""
+
+    if isinstance(exc, OperationalError):
+        original = getattr(exc, "orig", exc)
+        message = str(original).lower()
+        if "duplicate column name" in message:
+            return True
+    return False
 
 
 def create_engine() -> AsyncEngine:

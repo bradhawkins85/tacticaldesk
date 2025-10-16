@@ -37,3 +37,4 @@
 - 2025-10-16T07:20:00Z Fix: Removed orchestration run history and integration modules table from the Automation Control Tower view.
 - 2025-10-16T05:31:47Z Fix: Restored organization admin view by adding timestamp fields to the ORM model to match the schema.
 - 2025-10-16T08:10:00Z Feature: Split automation workspace into scheduled and event-driven tables with refreshed secure update controls.
+- 2025-10-16T05:58:00Z Fix: Added resilient migration to backfill organization timestamp columns and ignore duplicate column errors for fresh installs.
