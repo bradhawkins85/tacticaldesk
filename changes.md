@@ -57,3 +57,4 @@
 
 - 2025-10-16T14:15:00Z Feature: Added ticket event dispatcher to evaluate automation filters and record trigger activity.
 - 2025-10-16T13:45:00Z Feature: Documented event automation action catalog with filterable UI reference and contextual identifiers.
+- 2025-10-16T14:15:00Z Feature: Added embedded CURD Swagger documentation workspace with admin navigation link and OpenAPI export tools.
