@@ -6,6 +6,11 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, constr, validator
 
+from app.core.automations import (
+    TRIGGER_OPERATOR_LABELS,
+    VALUE_REQUIRED_TRIGGER_OPTIONS,
+)
+
 TicketShortText = constr(strip_whitespace=True, min_length=1, max_length=255)
 TicketSummaryText = constr(strip_whitespace=True, min_length=1, max_length=2048)
 TicketMessageText = constr(strip_whitespace=True, min_length=1, max_length=4096)
@@ -118,14 +123,108 @@ class OrganizationRead(BaseModel):
         orm_mode = True
 
 
+class AutomationTriggerCondition(BaseModel):
+    type: str = Field(max_length=255)
+    operator: Optional[Literal["equals", "not_equals", "contains"]] = None
+    value: Optional[str] = Field(default=None, max_length=255)
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls._coerce_root
+        yield from super().__get_validators__()
+
+    @staticmethod
+    def _coerce_root(value):
+        if isinstance(value, str):
+            return {"type": value}
+        if value is None:
+            return {}
+        return value
+
+    @validator("type", pre=True)
+    def _coerce_type(cls, value) -> str:
+        if isinstance(value, dict):
+            for key in ("type", "trigger", "label"):
+                if value.get(key):
+                    return str(value[key])
+            if "value" in value and "operator" in value and len(value) == 2:
+                # Unexpected structure but ensure string return to trigger validation error later.
+                return ""
+        if value is None:
+            return ""
+        return str(value)
+
+    @validator("operator", pre=True)
+    def _normalize_operator(cls, value):
+        if value is None or value == "":
+            return None
+        return str(value).strip().lower()
+
+    @validator("value", pre=True)
+    def _coerce_value(cls, value):
+        if value is None:
+            return None
+        return str(value)
+
+    @validator("type")
+    def _validate_type(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Condition type cannot be empty")
+        return cleaned
+
+    @validator("operator")
+    def _validate_operator(cls, operator: str | None, values: dict[str, Any]) -> str | None:
+        condition_type = values.get("type", "")
+        requires_value = condition_type in VALUE_REQUIRED_TRIGGER_OPTIONS
+        if not requires_value:
+            return None
+        if not operator:
+            raise ValueError("Operator is required for this trigger")
+        if operator not in TRIGGER_OPERATOR_LABELS:
+            raise ValueError("Unsupported operator")
+        return operator
+
+    @validator("value")
+    def _validate_value(cls, raw_value: str | None, values: dict[str, Any]) -> str | None:
+        condition_type = values.get("type", "")
+        requires_value = condition_type in VALUE_REQUIRED_TRIGGER_OPTIONS
+        if not requires_value:
+            return None
+        if raw_value is None:
+            raise ValueError("A value is required for this trigger")
+        cleaned = raw_value.strip()
+        if not cleaned:
+            raise ValueError("A value is required for this trigger")
+        return cleaned
+
+    def display_text(self) -> str:
+        if self.type in VALUE_REQUIRED_TRIGGER_OPTIONS and self.operator and self.value:
+            operator_label = TRIGGER_OPERATOR_LABELS.get(self.operator, self.operator)
+            return f"{self.type} {operator_label} \"{self.value}\""
+        return self.type
+
+    def sort_key(self) -> str:
+        base = self.type
+        if self.operator:
+            base += f" {self.operator}"
+        if self.value:
+            base += f" {self.value}"
+        return base.lower()
+
+    def dict(self, *args, **kwargs):  # type: ignore[override]
+        kwargs.setdefault("exclude_none", True)
+        return super().dict(*args, **kwargs)
+
+
 class AutomationTriggerFilter(BaseModel):
     match: Literal["any", "all"] = Field(
         default="any",
         description="Trigger match behavior: 'any' for OR, 'all' for AND.",
     )
-    conditions: list[str] = Field(
+    conditions: list[AutomationTriggerCondition] = Field(
         min_items=1,
-        description="List of trigger condition labels.",
+        description="List of trigger condition definitions.",
     )
 
     @validator("match", pre=True)
@@ -138,31 +237,29 @@ class AutomationTriggerFilter(BaseModel):
     def _ensure_sequence(cls, value):
         if value is None:
             return []
-        if isinstance(value, str):
+        if isinstance(value, (str, bytes)):
             return [value]
         return list(value)
 
-    @validator("conditions", each_item=True, pre=True)
-    def _coerce_condition(cls, value) -> str:
-        if value is None:
-            return ""
-        return str(value)
-
     @validator("conditions")
-    def _clean_conditions(cls, value: list[str]) -> list[str]:
-        cleaned: list[str] = []
-        seen: set[str] = set()
+    def _deduplicate_conditions(
+        cls, value: list[AutomationTriggerCondition]
+    ) -> list[AutomationTriggerCondition]:
+        unique: dict[str, AutomationTriggerCondition] = {}
         for item in value:
-            normalized = item.strip()
-            if not normalized:
-                continue
-            if normalized in seen:
-                continue
-            seen.add(normalized)
-            cleaned.append(normalized)
+            key = (
+                f"{item.type}|{item.operator or ''}|{item.value or ''}"
+            )
+            if key not in unique:
+                unique[key] = item
+        cleaned = list(unique.values())
         if not cleaned:
             raise ValueError("At least one trigger condition is required.")
         return cleaned
+
+    def dict(self, *args, **kwargs):  # type: ignore[override]
+        kwargs.setdefault("exclude_none", True)
+        return super().dict(*args, **kwargs)
 
 
 class AutomationUpdate(BaseModel):

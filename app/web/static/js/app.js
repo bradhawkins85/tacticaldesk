@@ -891,6 +891,27 @@
     const addTriggerConditionButton = triggerConditionsRoot?.querySelector(
       "[data-action='add-trigger-condition']"
     );
+    const triggerConditionFilter = triggerConditionsRoot?.querySelector(
+      "[data-role='trigger-condition-filter']"
+    );
+    const triggerSortButton = triggerConditionsRoot?.querySelector(
+      "[data-role='trigger-sort']"
+    );
+
+    let valueRequiredTriggers = new Set();
+    if (triggerConditionsRoot) {
+      const valueRequiredDataset = triggerConditionsRoot.dataset.valueRequired;
+      if (valueRequiredDataset) {
+        try {
+          const parsedRequired = JSON.parse(valueRequiredDataset);
+          if (Array.isArray(parsedRequired)) {
+            valueRequiredTriggers = new Set(parsedRequired);
+          }
+        } catch (error) {
+          console.warn("Unable to parse value required triggers", error);
+        }
+      }
+    }
 
     if (form) {
       const datetimeInputs = Array.from(
@@ -916,6 +937,63 @@
         }
       }
 
+      function normalizeTriggerCondition(raw) {
+        if (!raw) {
+          return null;
+        }
+        if (typeof raw === "string") {
+          return { type: raw };
+        }
+        if (typeof raw === "object") {
+          const type = raw.type || raw.trigger || raw.label;
+          if (!type) {
+            return null;
+          }
+          const condition = { type };
+          if (raw.operator) {
+            condition.operator = raw.operator;
+          }
+          if (raw.value) {
+            condition.value = raw.value;
+          }
+          return condition;
+        }
+        return null;
+      }
+
+      function syncTriggerConditionRow(row) {
+        if (!row) {
+          return;
+        }
+        const typeSelect = row.querySelector(
+          "[data-role='trigger-condition-select']"
+        );
+        const operatorSelect = row.querySelector(
+          "[data-role='trigger-condition-operator']"
+        );
+        const valueInput = row.querySelector(
+          "[data-role='trigger-condition-value']"
+        );
+        if (!(typeSelect instanceof HTMLSelectElement)) {
+          return;
+        }
+        const requiresValue = valueRequiredTriggers.has(typeSelect.value);
+        if (operatorSelect instanceof HTMLSelectElement) {
+          operatorSelect.disabled = !requiresValue;
+          operatorSelect.required = requiresValue;
+          if (!requiresValue) {
+            operatorSelect.value = "";
+          }
+        }
+        if (valueInput instanceof HTMLInputElement) {
+          valueInput.disabled = !requiresValue;
+          valueInput.required = requiresValue;
+          if (!requiresValue) {
+            valueInput.value = "";
+          }
+        }
+      }
+
       function updateTriggerConditionRemoveButtons() {
         if (!triggerConditionList) {
           return;
@@ -928,12 +1006,75 @@
             "[data-action='remove-trigger-condition']"
           );
           if (removeButton) {
-            removeButton.hidden = rows.length <= 1;
+            removeButton.disabled = rows.length === 0;
           }
         });
       }
 
-      function addTriggerConditionRow(value = "") {
+      function applyTriggerFilter() {
+        if (!triggerConditionList || !triggerConditionFilter) {
+          return;
+        }
+        const query = triggerConditionFilter.value.trim().toLowerCase();
+        const rows = Array.from(
+          triggerConditionList.querySelectorAll("[data-role='trigger-condition']")
+        );
+        rows.forEach((row) => {
+          const textContent = Array.from(
+            row.querySelectorAll(
+              "[data-role='trigger-condition-select'], [data-role='trigger-condition-operator'], [data-role='trigger-condition-value']"
+            )
+          )
+            .map((element) => {
+              if (element instanceof HTMLSelectElement) {
+                const option = element.selectedOptions[0];
+                return option ? option.textContent || "" : "";
+              }
+              if (element instanceof HTMLInputElement) {
+                return element.value || "";
+              }
+              return "";
+            })
+            .join(" ")
+            .toLowerCase();
+          const matches = query === "" || textContent.includes(query);
+          row.classList.toggle("is-hidden", !matches);
+        });
+      }
+
+      function sortTriggerRows(direction = "asc") {
+        if (!triggerConditionList) {
+          return;
+        }
+        const rows = Array.from(
+          triggerConditionList.querySelectorAll("[data-role='trigger-condition']")
+        );
+        rows.sort((a, b) => {
+          const selectA = a.querySelector(
+            "[data-role='trigger-condition-select']"
+          );
+          const selectB = b.querySelector(
+            "[data-role='trigger-condition-select']"
+          );
+          const textA =
+            selectA instanceof HTMLSelectElement && selectA.selectedOptions[0]
+              ? selectA.selectedOptions[0].textContent || ""
+              : "";
+          const textB =
+            selectB instanceof HTMLSelectElement && selectB.selectedOptions[0]
+              ? selectB.selectedOptions[0].textContent || ""
+              : "";
+          const compare = textA.localeCompare(textB, undefined, {
+            sensitivity: "base",
+          });
+          return direction === "desc" ? compare * -1 : compare;
+        });
+        rows.forEach((row) => {
+          triggerConditionList.appendChild(row);
+        });
+      }
+
+      function addTriggerConditionRow(condition = null) {
         if (!triggerConditionTemplate || !triggerConditionList) {
           return null;
         }
@@ -942,15 +1083,37 @@
           true
         );
         const row = fragment.querySelector("[data-role='trigger-condition']");
-        const select = fragment.querySelector(
+        if (!row) {
+          return null;
+        }
+        const typeSelect = row.querySelector(
           "[data-role='trigger-condition-select']"
         );
-        if (select) {
-          select.value = value || "";
+        const operatorSelect = row.querySelector(
+          "[data-role='trigger-condition-operator']"
+        );
+        const valueInput = row.querySelector(
+          "[data-role='trigger-condition-value']"
+        );
+        if (condition) {
+          if (typeSelect instanceof HTMLSelectElement && condition.type) {
+            typeSelect.value = condition.type;
+          }
+          if (operatorSelect instanceof HTMLSelectElement && condition.operator) {
+            operatorSelect.value = condition.operator;
+          }
+          if (valueInput instanceof HTMLInputElement && condition.value) {
+            valueInput.value = condition.value;
+          }
         }
         triggerConditionList.appendChild(fragment);
+        const insertedRow = triggerConditionList.lastElementChild;
+        if (insertedRow) {
+          syncTriggerConditionRow(insertedRow);
+        }
         updateTriggerConditionRemoveButtons();
-        return row;
+        applyTriggerFilter();
+        return insertedRow;
       }
 
       function setTriggerConditionValues(values) {
@@ -958,53 +1121,102 @@
           return;
         }
         triggerConditionList.innerHTML = "";
-        const normalized = Array.isArray(values) && values.length ? values : [""];
+        const normalized =
+          Array.isArray(values) && values.length ? values : [null];
         normalized.forEach((value) => {
-          addTriggerConditionRow(value);
+          const condition = normalizeTriggerCondition(value);
+          addTriggerConditionRow(condition);
         });
         updateTriggerConditionRemoveButtons();
+        applyTriggerFilter();
       }
 
-      function getTriggerConditionValues() {
+      function collectTriggerConditionValues() {
         if (!triggerConditionList) {
-          return [];
+          return { conditions: [], errors: [] };
         }
-        const seen = new Set();
-        const values = [];
-        triggerConditionList
-          .querySelectorAll("[data-role='trigger-condition-select']")
-          .forEach((select) => {
-            if (!(select instanceof HTMLSelectElement)) {
-              return;
+        const rows = Array.from(
+          triggerConditionList.querySelectorAll("[data-role='trigger-condition']")
+        );
+        const conditions = [];
+        const errors = [];
+        rows.forEach((row, index) => {
+          const typeSelect = row.querySelector(
+            "[data-role='trigger-condition-select']"
+          );
+          const operatorSelect = row.querySelector(
+            "[data-role='trigger-condition-operator']"
+          );
+          const valueInput = row.querySelector(
+            "[data-role='trigger-condition-value']"
+          );
+          if (!(typeSelect instanceof HTMLSelectElement)) {
+            return;
+          }
+          const typeValue = typeSelect.value.trim();
+          if (!typeValue) {
+            return;
+          }
+          const requiresValue = valueRequiredTriggers.has(typeValue);
+          const condition = { type: typeValue };
+          if (requiresValue) {
+            const operatorValue =
+              operatorSelect instanceof HTMLSelectElement
+                ? operatorSelect.value.trim()
+                : "";
+            const textValue =
+              valueInput instanceof HTMLInputElement
+                ? valueInput.value.trim()
+                : "";
+            if (!operatorValue) {
+              errors.push(
+                `Operator is required for condition ${index + 1}.`
+              );
             }
-            const value = select.value.trim();
-            if (value && !seen.has(value)) {
-              seen.add(value);
-              values.push(value);
+            if (!textValue) {
+              errors.push(`Value is required for condition ${index + 1}.`);
             }
-          });
-        return values;
+            if (operatorValue) {
+              condition.operator = operatorValue;
+            }
+            if (textValue) {
+              condition.value = textValue;
+            }
+          }
+          conditions.push(condition);
+        });
+        return { conditions, errors };
       }
 
-      const selectedConditions = Array.isArray(
+      const selectedConditionsRaw = Array.isArray(
         initialTriggerFilters?.conditions
       )
         ? initialTriggerFilters.conditions
         : [];
       const singleTrigger = form.dataset.triggerValue || "";
-      const valuesToSelect = selectedConditions.length
-        ? selectedConditions
+      const valuesToSelect = selectedConditionsRaw.length
+        ? selectedConditionsRaw
         : singleTrigger
-        ? [singleTrigger]
+        ? [{ type: singleTrigger }]
         : [];
 
       if (triggerConditionsRoot) {
         setTriggerConditionValues(valuesToSelect);
+        if (triggerSortButton instanceof HTMLButtonElement) {
+          triggerSortButton.dataset.sortIndicator = "▲";
+        }
       } else if (
         triggerInput instanceof HTMLSelectElement &&
         triggerInput.multiple
       ) {
-        const selectedSet = new Set(valuesToSelect);
+        const selectedSet = new Set(
+          valuesToSelect
+            .map((value) => {
+              const condition = normalizeTriggerCondition(value);
+              return condition ? condition.type : null;
+            })
+            .filter((value) => Boolean(value))
+        );
         Array.from(triggerInput.options).forEach((option) => {
           option.selected = selectedSet.has(option.value);
         });
@@ -1022,6 +1234,22 @@
         });
       }
 
+      if (triggerConditionFilter instanceof HTMLInputElement) {
+        triggerConditionFilter.addEventListener("input", () => {
+          applyTriggerFilter();
+        });
+      }
+
+      if (triggerSortButton instanceof HTMLButtonElement) {
+        let sortDirection = "asc";
+        triggerSortButton.addEventListener("click", () => {
+          sortDirection = sortDirection === "asc" ? "desc" : "asc";
+          triggerSortButton.dataset.sortIndicator =
+            sortDirection === "asc" ? "▲" : "▼";
+          sortTriggerRows(sortDirection);
+        });
+      }
+
       if (triggerConditionList) {
         triggerConditionList.addEventListener("click", (event) => {
           const removeButton = event.target.closest(
@@ -1035,13 +1263,25 @@
             return;
           }
           row.remove();
-          if (
-            triggerConditionList.querySelector("[data-role='trigger-condition']")
-          ) {
-            updateTriggerConditionRemoveButtons();
-          } else {
-            addTriggerConditionRow();
+          updateTriggerConditionRemoveButtons();
+          applyTriggerFilter();
+        });
+
+        triggerConditionList.addEventListener("change", (event) => {
+          const row = event.target.closest("[data-role='trigger-condition']");
+          if (!row) {
+            return;
           }
+          syncTriggerConditionRow(row);
+          applyTriggerFilter();
+        });
+
+        triggerConditionList.addEventListener("input", (event) => {
+          const row = event.target.closest("[data-role='trigger-condition']");
+          if (!row) {
+            return;
+          }
+          applyTriggerFilter();
         });
       }
 
@@ -1096,11 +1336,15 @@
         }
 
         if (triggerConditionsRoot) {
-          const selectedValues = getTriggerConditionValues();
-          if (selectedValues.length === 1) {
-            payload.trigger = selectedValues[0];
-          } else {
-            payload.trigger = null;
+          const { conditions: selectedValues, errors: conditionErrors } =
+            collectTriggerConditionValues();
+          if (conditionErrors.length > 0) {
+            setAutomationFormMessage(
+              messageTarget,
+              conditionErrors[0],
+              "error"
+            );
+            return;
           }
 
           if (selectedValues.length > 0) {
@@ -1113,8 +1357,10 @@
               match: matchValue,
               conditions: selectedValues,
             };
+            payload.trigger = null;
           } else {
             payload.trigger_filters = null;
+            payload.trigger = null;
           }
         } else if (
           triggerInput instanceof HTMLSelectElement &&
