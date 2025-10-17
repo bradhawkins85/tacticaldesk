@@ -48,12 +48,12 @@
   <div class="form-message" data-role="integration-message" aria-live="polite"></div>
 </section>
 <section class="content-section">
-  {% if module.slug == "discord-webhook-receiver" %}
+  {% if module.slug == "https-post-receiver" %}
   <header class="section-header">
-    <h2>Discord webhook endpoint</h2>
+    <h2>HTTPS POST webhook endpoint</h2>
     <p class="subtitle">
-      Send Discord webhook notifications directly to Tactical Desk. No credential configuration is required for this
-      connector.
+      Accept HTTPS POST calls from any service and automatically expose the payload to Tactical Desk automations. No
+      credential configuration is required for this connector.
     </p>
   </header>
   <div class="integration-endpoint">
@@ -65,21 +65,21 @@
       <div>
         <dt>Endpoint URL</dt>
         <dd>
-          <code data-role="discord-endpoint">{{ discord_webhook_endpoint }}</code>
+          <code data-role="https-post-endpoint">{{ https_post_webhook_endpoint }}</code>
         </dd>
       </div>
     </dl>
     <div class="integration-endpoint__details">
       <p>
-        Point your Discord channel webhooks to this endpoint. Tactical Desk validates the request signature provided by
-        Discord and exposes every field as an automation variable for downstream playbooks.
+        Point any third-party webhook or HTTPS integration to this endpoint. Tactical Desk logs the inbound request,
+        maps common fields to standard variables, and makes them available to downstream playbooks.
       </p>
       <p>
         Sample <code>curl</code> request:
       </p>
-      <pre class="code-block"><code>curl -X POST {{ discord_webhook_endpoint }} \
+      <pre class="code-block"><code>curl -X POST {{ https_post_webhook_endpoint }} \
   -H "Content-Type: application/json" \
-  -d '{"content": "Ticket escalated", "username": "Service Desk"}'</code></pre>
+  -d '{"summary": "Ticket escalated", "details": "Service Desk raised an urgent ticket"}'</code></pre>
     </div>
   </div>
   {% else %}

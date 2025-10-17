@@ -10,17 +10,15 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.discord_webhook import build_discord_variable_context
+from app.core.http_post_webhook import build_http_post_variable_context
 from app.core.db import get_session
 from app.models import WebhookDelivery, utcnow
 from app.schemas import (
-    DiscordWebhookMessage,
-    DiscordWebhookReceipt,
+    HttpPostWebhookReceipt,
     WebhookDeliveryRead,
     WebhookStatus,
 )
 from app.services import dispatch_ticket_event
-from pydantic import ValidationError
 
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 
@@ -43,37 +41,45 @@ async def _get_webhook_by_event_id(
 
 
 @router.post(
-    "/discord",
-    response_model=DiscordWebhookReceipt,
-    name="receive_discord_webhook",
+    "/https-post",
+    response_model=HttpPostWebhookReceipt,
+    name="receive_https_post_webhook",
 )
-async def receive_discord_webhook(
+async def receive_https_post_webhook(
     payload: dict[str, Any] = Body(...),
     session: AsyncSession = Depends(get_session),
-) -> DiscordWebhookReceipt:
+) -> HttpPostWebhookReceipt:
     payload_json = json.dumps(payload, ensure_ascii=False, default=str)
-    logger.debug("Received Discord webhook payload: %s", payload_json)
+    logger.info(
+        "Received HTTPS POST webhook payload",
+        extra={"payload_preview": payload_json[:4096]},
+    )
 
     try:
-        parsed_payload: DiscordWebhookMessage | dict[str, Any]
-        parsed_payload = DiscordWebhookMessage.parse_obj(payload)
-    except ValidationError as exc:
-        logger.warning(
-            "Discord webhook payload validation failed; falling back to raw mapping",
-            extra={
-                "errors": exc.errors(),
-                "payload_preview": payload_json[:4096],
-            },
+        variables = build_http_post_variable_context(payload)
+    except TypeError as exc:
+        logger.error(
+            "HTTPS POST webhook payload rejected: %s",
+            exc,
+            extra={"payload_preview": payload_json[:4096]},
         )
-        parsed_payload = payload
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook payload must be a JSON object",
+        ) from exc
 
-    variables = build_discord_variable_context(parsed_payload)
+    mapped_keys = sorted(key for key, value in variables.items() if value)
+    logger.info(
+        "HTTPS POST webhook mapped keys",
+        extra={"mapped_keys": mapped_keys},
+    )
+
     await dispatch_ticket_event(
         session,
-        event_type="Discord Webhook Received",
+        event_type="HTTP POST Webhook Received",
         extra_variables=variables,
     )
-    return DiscordWebhookReceipt(variables=variables)
+    return HttpPostWebhookReceipt(variables=variables, mapped_keys=mapped_keys)
 
 
 @router.get("/", response_model=list[WebhookDeliveryRead])

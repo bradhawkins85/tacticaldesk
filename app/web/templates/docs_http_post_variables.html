@@ -4,10 +4,11 @@
   <header class="panel__header">
     <div class="panel__intro">
       <span class="automation-editor__kind">Documentation</span>
-      <h2 class="panel__title">Discord webhook variables</h2>
+      <h2 class="panel__title">HTTPS POST webhook variables</h2>
       <p class="panel__subtitle">
-        Tactical Desk parses every field provided by Discord webhooks and exposes them as template variables.
-        Use these keys to personalise automations or downstream integrations that react to Discord messages.
+        Tactical Desk normalises common fields from inbound HTTPS POST payloads and exposes the mapped values as
+        template variables. Use these keys to personalise automations or downstream integrations that react to external
+        webhooks.
       </p>
     </div>
   </header>
@@ -15,31 +16,31 @@
     <div class="automation-action-catalog automation-variable-catalog">
       <div class="automation-action-catalog__header">
         <div class="automation-action-catalog__text">
-          <h3 class="automation-action-catalog__title" id="discord-variable-catalog-title">
-            Available Discord variables
+          <h3 class="automation-action-catalog__title" id="http-post-variable-catalog-title">
+            Available HTTPS POST variables
           </h3>
           <p class="automation-action-catalog__description">
-            Filter or sort to locate Discord payload fields quickly. Wrap any key in double curly braces (for example
-            <code>{{ '{{ discord.content }}' }}</code>) when composing automation messages or webhook bodies.
+            Filter or sort to locate webhook fields quickly. Wrap any key in double curly braces (for example
+            <code>{{ '{{ webhook.summary }}' }}</code>) when composing automation messages or webhook bodies.
           </p>
         </div>
         <div class="automation-action-catalog__filter">
-          <label class="visually-hidden" for="discord-variable-filter">
-            Filter Discord variables
+          <label class="visually-hidden" for="http-post-variable-filter">
+            Filter HTTPS POST variables
           </label>
           <input
-            id="discord-variable-filter"
+            id="http-post-variable-filter"
             type="search"
             class="automation-action-catalog__filter-input"
             placeholder="Filter variables"
             data-role="table-filter"
-            aria-controls="discord-variable-table"
+            aria-controls="http-post-variable-table"
           />
         </div>
       </div>
       <div class="table-container">
         <table
-          id="discord-variable-table"
+          id="http-post-variable-table"
           class="data-table automation-variable-table"
           data-role="sortable-table"
         >
@@ -51,7 +52,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for variable in discord_template_variables %}
+            {% for variable in http_post_template_variables %}
             <tr>
               <td data-cell="variable" data-sort-value="{{ variable.key }}">
                 <code>{{ variable.key }}</code>

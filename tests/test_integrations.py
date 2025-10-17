@@ -21,13 +21,13 @@ def test_seeded_integrations_available():
         assert response.status_code == 200
         payload = response.json()
         slugs = {item["slug"] for item in payload}
-        assert {"syncro-rmm", "tactical-rmm", "xero", "ntfy", "discord-webhook-receiver"}.issubset(slugs)
+        assert {"syncro-rmm", "tactical-rmm", "xero", "ntfy", "https-post-receiver"}.issubset(slugs)
         status_map = {item["slug"]: item["enabled"] for item in payload}
         assert status_map["syncro-rmm"] is True
         assert status_map["tactical-rmm"] is True
         assert status_map["xero"] is False
         assert status_map["ntfy"] is False
-        assert status_map["discord-webhook-receiver"] is False
+        assert status_map["https-post-receiver"] is False
 
 
 def test_toggle_integration_updates_navigation():
@@ -73,13 +73,13 @@ def test_ntfy_integration_fields_rendered():
         assert "Access token" in html
 
 
-def test_discord_webhook_receiver_displays_endpoint_instead_of_form():
+def test_https_post_webhook_receiver_displays_endpoint_instead_of_form():
     with TestClient(app) as client:
-        detail_response = client.get("/integrations/discord-webhook-receiver")
+        detail_response = client.get("/integrations/https-post-receiver")
         assert detail_response.status_code == 200
         html = detail_response.text
-        assert "Discord webhook endpoint" in html
-        assert "No credential configuration is required" in html
-        assert "http://testserver/api/webhooks/discord" in html
+        assert "HTTPS POST webhook endpoint" in html
+        assert "Accept HTTPS POST calls from any service" in html
+        assert "http://testserver/api/webhooks/https-post" in html
         assert "curl -X POST" in html
         assert "integration-settings-form" not in html
