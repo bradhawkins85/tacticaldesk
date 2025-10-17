@@ -101,3 +101,26 @@ def test_discord_webhook_receiver_exposes_variables():
     assert variables["discord.author.username"] == "AlertsBot"
     assert variables["discord.author.bot"] == "true"
     assert variables["discord.thread.name"] == "Major Incident"
+
+
+def test_discord_webhook_accepts_third_party_payload():
+    payload = {
+        "content": "Alert triggered from monitoring",
+        "embeds": [
+            {
+                "title": "Server Health",
+                "description": "CPU usage is above threshold",
+            }
+        ],
+        "extra_source": "acme-monitor",  # Ensure non-Discord keys are accepted
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/api/webhooks/discord", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    variables = body["variables"]
+    assert variables["discord.content"] == "Alert triggered from monitoring"
+    assert variables["discord.embeds_count"] == "1"

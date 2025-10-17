@@ -471,10 +471,12 @@ class DiscordUser(BaseModel):
 
 
 class DiscordWebhookMessage(BaseModel):
-    id: str
-    type: int
+    """Inbound Discord-compatible webhook payload."""
+
+    id: Optional[str] = None
+    type: Optional[int] = None
     content: Optional[str] = None
-    channel_id: str
+    channel_id: Optional[str] = None
     guild_id: Optional[str] = None
     application_id: Optional[str] = None
     webhook_id: Optional[str] = None
