@@ -459,8 +459,8 @@ class WebhookDeliveryRead(BaseModel):
 
 
 class DiscordUser(BaseModel):
-    id: str
-    username: str
+    id: Optional[str] = None
+    username: Optional[str] = None
     discriminator: Optional[str] = None
     avatar: Optional[str] = None
     bot: Optional[bool] = None
@@ -500,6 +500,20 @@ class DiscordWebhookMessage(BaseModel):
 
     class Config:
         extra = "allow"
+
+    @validator(
+        "attachments",
+        "embeds",
+        "mentions",
+        "mention_roles",
+        "components",
+        pre=True,
+        always=True,
+    )
+    def _default_empty_list(cls, value):  # type: ignore[no-untyped-def]
+        if value is None:
+            return []
+        return value
 
 
 class DiscordWebhookReceipt(BaseModel):
