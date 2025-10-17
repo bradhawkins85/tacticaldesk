@@ -81,3 +81,4 @@
 - 2025-10-17T04:45:00Z Feature: Allowed Discord webhook receiver to accept third-party payloads by relaxing schema validation and adding coverage for generic webhook posts.
 - 2025-10-17T03:30:00Z Feature: Enabled Discord webhook received automations to trigger event workflows and expose payload variables for actions.
 - 2025-10-17T05:15:00Z Fix: Hardened Discord webhook ingestion to accept null collection fields and partial author data while adding regression coverage.
+- 2025-10-17T04:32:20Z Fix: Resolved Discord webhook 422 errors by tolerating non-standard payloads and logging incoming events for troubleshooting.

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+import json
+import logging
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,8 +20,11 @@ from app.schemas import (
     WebhookStatus,
 )
 from app.services import dispatch_ticket_event
+from pydantic import ValidationError
 
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
+
+logger = logging.getLogger(__name__)
 
 
 async def _get_webhook_by_event_id(
@@ -41,10 +48,26 @@ async def _get_webhook_by_event_id(
     name="receive_discord_webhook",
 )
 async def receive_discord_webhook(
-    payload: DiscordWebhookMessage,
+    payload: dict[str, Any] = Body(...),
     session: AsyncSession = Depends(get_session),
 ) -> DiscordWebhookReceipt:
-    variables = build_discord_variable_context(payload)
+    payload_json = json.dumps(payload, ensure_ascii=False, default=str)
+    logger.debug("Received Discord webhook payload: %s", payload_json)
+
+    try:
+        parsed_payload: DiscordWebhookMessage | dict[str, Any]
+        parsed_payload = DiscordWebhookMessage.parse_obj(payload)
+    except ValidationError as exc:
+        logger.warning(
+            "Discord webhook payload validation failed; falling back to raw mapping",
+            extra={
+                "errors": exc.errors(),
+                "payload_preview": payload_json[:4096],
+            },
+        )
+        parsed_payload = payload
+
+    variables = build_discord_variable_context(parsed_payload)
     await dispatch_ticket_event(
         session,
         event_type="Discord Webhook Received",
