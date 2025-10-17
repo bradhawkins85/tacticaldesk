@@ -77,3 +77,4 @@
 - 2025-10-16T18:05:00Z Fix: Documented how to embed ticket template variables inside automation content and webhooks.
 - 2025-10-17T02:17:23Z Feature: Added Discord webhook receiver module with API endpoint, automation variables, seeded integration, and docs reference.
 - 2025-10-16T18:30:00Z Feature: Added regex trigger operator for event automation value matching.
+- 2025-10-17T03:30:00Z Feature: Enabled Discord webhook received automations to trigger event workflows and expose payload variables for actions.

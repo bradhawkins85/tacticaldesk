@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine
 from app.main import app
-from app.models import WebhookDelivery, utcnow
+from app.models import Automation, WebhookDelivery, utcnow
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +36,26 @@ async def _create_delivery(event_id: str = "whk-test") -> None:
             next_retry_at=now + timedelta(minutes=3),
         )
         session.add(delivery)
+        await session.commit()
+
+
+async def _create_discord_automation() -> None:
+    engine = await get_engine()
+    async with AsyncSession(engine) as session:
+        automation = Automation(
+            name="Discord responder",
+            description="Notify on Discord webhook",
+            playbook="Alerting",
+            kind="event",
+            trigger="Discord Webhook Received",
+            ticket_actions=[
+                {
+                    "action": "send-ntfy-notification",
+                    "value": "Discord webhook reported: {{ discord.content }}",
+                }
+            ],
+        )
+        session.add(automation)
         await session.commit()
 
 
@@ -101,3 +121,33 @@ def test_discord_webhook_receiver_exposes_variables():
     assert variables["discord.author.username"] == "AlertsBot"
     assert variables["discord.author.bot"] == "true"
     assert variables["discord.thread.name"] == "Major Incident"
+
+
+def test_discord_webhook_triggers_automation(monkeypatch):
+    asyncio.run(_create_discord_automation())
+
+    captured: dict[str, object] = {}
+
+    async def fake_ntfy(session, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "app.services.automation_events.send_ntfy_notification",
+        fake_ntfy,
+    )
+
+    payload = {
+        "id": "9876543210",
+        "type": 0,
+        "content": "Intrusion detected",
+        "channel_id": "123456789",
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/api/webhooks/discord", json=payload)
+
+    assert response.status_code == 200
+    assert captured["message"] == "Discord webhook reported: Intrusion detected"
+    assert captured["automation_name"] == "Discord responder"
+    assert captured["event_type"] == "Discord Webhook Received"
+    assert captured["ticket_identifier"] == "unknown"
