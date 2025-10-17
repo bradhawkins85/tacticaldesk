@@ -75,3 +75,4 @@
 - 2025-10-16T17:58:00Z Fix: Sanitized ntfy notification headers to prevent Unicode encoding errors during ticket updates.
 - 2025-10-16T17:30:00Z Feature: Added ntfy notification automation action with integration module seeding, delivery helper, and regression coverage.
 - 2025-10-16T18:05:00Z Fix: Documented how to embed ticket template variables inside automation content and webhooks.
+- 2025-10-16T18:30:00Z Feature: Added regex trigger operator for event automation value matching.

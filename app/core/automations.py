@@ -117,6 +117,7 @@ TRIGGER_OPERATOR_OPTIONS: tuple[tuple[str, str], ...] = (
     ("equals", "Equals"),
     ("not_equals", "Does not equal"),
     ("contains", "Contains"),
+    ("matches_regex", "Matches regex"),
 )
 
 TRIGGER_OPERATOR_LABELS: dict[str, str] = dict(TRIGGER_OPERATOR_OPTIONS)
