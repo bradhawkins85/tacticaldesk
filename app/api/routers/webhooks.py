@@ -34,7 +34,11 @@ async def _get_webhook_by_event_id(
     return webhook
 
 
-@router.post("/discord", response_model=DiscordWebhookReceipt)
+@router.post(
+    "/discord",
+    response_model=DiscordWebhookReceipt,
+    name="receive_discord_webhook",
+)
 async def receive_discord_webhook(
     payload: DiscordWebhookMessage,
 ) -> DiscordWebhookReceipt:
