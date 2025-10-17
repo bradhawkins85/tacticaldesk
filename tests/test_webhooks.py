@@ -169,6 +169,25 @@ def test_discord_webhook_accepts_null_collections():
     assert variables["discord.mention_roles_count"] == "0"
 
 
+def test_discord_webhook_handles_non_discord_payload_shapes():
+    payload = {
+        "content": "External system alert",
+        "mentions": {"unexpected": "structure"},
+        "attachments": {"filename": "report.json"},
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/api/webhooks/discord", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    variables = body["variables"]
+    assert variables["discord.content"] == "External system alert"
+    assert variables["discord.attachments_count"] == "1"
+    assert variables["discord.mentions_count"] == "1"
+
+
 def test_discord_webhook_triggers_automation(monkeypatch):
     asyncio.run(_create_discord_automation())
 
