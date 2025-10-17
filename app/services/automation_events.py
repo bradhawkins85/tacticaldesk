@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable
 from typing import Any
 
@@ -35,6 +36,15 @@ def _normalize_text(value: Any | None) -> str:
 def _compare_values(operator: str | None, actual: Any | None, expected: Any | None) -> bool:
     if actual is None or expected is None:
         return False
+    if operator == "matches_regex":
+        actual_text = str(actual)
+        pattern_text = str(expected)
+        if not pattern_text:
+            return False
+        try:
+            return re.search(pattern_text, actual_text, re.IGNORECASE) is not None
+        except re.error:
+            return False
     actual_normalized = _normalize_text(actual)
     expected_normalized = _normalize_text(expected)
     if not operator or operator == "equals":
