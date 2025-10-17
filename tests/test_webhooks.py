@@ -133,6 +133,42 @@ def test_discord_webhook_accepts_third_party_payload():
             }
         ],
         "extra_source": "acme-monitor",  # Ensure non-Discord keys are accepted
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/api/webhooks/discord", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    variables = body["variables"]
+    assert variables["discord.content"] == "Alert triggered from monitoring"
+    assert variables["discord.embeds_count"] == "1"
+
+
+def test_discord_webhook_accepts_null_collections():
+    payload = {
+        "content": "Disk usage warning",
+        "attachments": None,
+        "embeds": None,
+        "mentions": None,
+        "mention_roles": None,
+        "components": None,
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/api/webhooks/discord", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    variables = body["variables"]
+    assert variables["discord.attachments_count"] == "0"
+    assert variables["discord.embeds_count"] == "0"
+    assert variables["discord.mentions_count"] == "0"
+    assert variables["discord.mention_roles_count"] == "0"
+
+
 def test_discord_webhook_triggers_automation(monkeypatch):
     asyncio.run(_create_discord_automation())
 
@@ -160,8 +196,8 @@ def test_discord_webhook_triggers_automation(monkeypatch):
     body = response.json()
     assert body["status"] == "accepted"
     variables = body["variables"]
-    assert variables["discord.content"] == "Alert triggered from monitoring"
-    assert variables["discord.embeds_count"] == "1"
+    assert variables["discord.content"] == "Intrusion detected"
+    assert variables["discord.embeds_count"] == "0"
     assert captured["message"] == "Discord webhook reported: Intrusion detected"
     assert captured["automation_name"] == "Discord responder"
     assert captured["event_type"] == "Discord Webhook Received"
