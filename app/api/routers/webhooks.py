@@ -15,6 +15,7 @@ from app.schemas import (
     WebhookDeliveryRead,
     WebhookStatus,
 )
+from app.services import dispatch_ticket_event
 
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 
@@ -41,8 +42,14 @@ async def _get_webhook_by_event_id(
 )
 async def receive_discord_webhook(
     payload: DiscordWebhookMessage,
+    session: AsyncSession = Depends(get_session),
 ) -> DiscordWebhookReceipt:
     variables = build_discord_variable_context(payload)
+    await dispatch_ticket_event(
+        session,
+        event_type="Discord Webhook Received",
+        extra_variables=variables,
+    )
     return DiscordWebhookReceipt(variables=variables)
 
 
