@@ -12,6 +12,7 @@ _BASE_EVENT_TRIGGERS: tuple[str, ...] = (
     "Ticket Status Changed To",
     "Ticket Status Changed From",
     "Ticket Resolved",
+    "Discord Webhook Received",
 )
 
 _CONDITION_TRIGGERS: tuple[str, ...] = (

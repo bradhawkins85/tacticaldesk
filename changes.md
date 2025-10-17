@@ -79,3 +79,4 @@
 - 2025-10-17T03:05:00Z Fix: Replaced Discord webhook receiver credential form with endpoint guidance, styling updates, and regression coverage.
 - 2025-10-16T18:30:00Z Feature: Added regex trigger operator for event automation value matching.
 - 2025-10-17T04:45:00Z Feature: Allowed Discord webhook receiver to accept third-party payloads by relaxing schema validation and adding coverage for generic webhook posts.
+- 2025-10-17T03:30:00Z Feature: Enabled Discord webhook received automations to trigger event workflows and expose payload variables for actions.

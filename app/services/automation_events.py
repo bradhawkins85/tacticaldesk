@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, Mapping
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -143,6 +143,7 @@ async def dispatch_ticket_event(
     ticket_before: dict[str, Any] | None = None,
     ticket_after: dict[str, Any] | None = None,
     ticket_payload: dict[str, Any] | None = None,
+    extra_variables: Mapping[str, Any] | None = None,
 ) -> list[Automation]:
     """Evaluate ticket-driven automations and update trigger metadata."""
 
@@ -167,6 +168,10 @@ async def dispatch_ticket_event(
         ticket_after=context.get("ticket_after"),
         ticket_payload=context.get("ticket_payload"),
     )
+    if extra_variables:
+        for key, value in extra_variables.items():
+            if key and value is not None:
+                variable_context[str(key)] = str(value)
     ticket_identifier = str(
         context.get("ticket_after", {}).get("id")
         or context.get("ticket_payload", {}).get("id")
