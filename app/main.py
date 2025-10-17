@@ -977,6 +977,7 @@ INTEGRATION_SETTINGS_FIELDS: dict[str, list[dict[str, str]]] = {
             "placeholder": "Organisation tenant identifier",
         },
     ],
+    "discord-webhook-receiver": [],
 }
 
 
@@ -1750,6 +1751,10 @@ async def integration_detail(
         )
     ]
 
+    discord_webhook_endpoint = None
+    if module.slug == "discord-webhook-receiver":
+        discord_webhook_endpoint = request.url_for("receive_discord_webhook")
+
     context = await _template_context(
         request=request,
         session=session,
@@ -1758,6 +1763,7 @@ async def integration_detail(
         or "Configure secure access, credentials, and automation hooks for this integration.",
         module=module_info,
         settings_fields=settings_fields,
+        discord_webhook_endpoint=discord_webhook_endpoint,
         active_nav="admin",
         active_admin="integrations",
         active_integration=module.slug,
