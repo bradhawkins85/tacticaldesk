@@ -37,6 +37,7 @@ from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
 from app.core.automation_dispatcher import automation_dispatcher
 from app.core.tickets import ticket_store
+from app.core.discord_webhook import DISCORD_WEBHOOK_VARIABLES
 from app.core.template_variables import AUTOMATION_TEMPLATE_VARIABLES
 from app.models import (
     Automation,
@@ -1840,6 +1841,29 @@ async def docs_ticket_variables(
         automation_template_variables=AUTOMATION_TEMPLATE_VARIABLES,
     )
     return templates.TemplateResponse("docs_ticket_variables.html", context)
+
+
+@app.get(
+    "/docs/discord-variables",
+    response_class=HTMLResponse,
+    name="docs_discord_variables",
+)
+async def docs_discord_variables(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Discord webhook variables",
+        page_subtitle=(
+            "Reference Discord webhook payload fields that Tactical Desk exposes to automations and "
+            "notifications when messages are received."
+        ),
+        active_nav="docs",
+        active_docs="discord_variables",
+        discord_template_variables=DISCORD_WEBHOOK_VARIABLES,
+    )
+    return templates.TemplateResponse("docs_discord_variables.html", context)
 
 
 @app.get(

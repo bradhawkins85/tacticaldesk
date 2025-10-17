@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel docs-panel">
+  <header class="panel__header">
+    <div class="panel__intro">
+      <span class="automation-editor__kind">Documentation</span>
+      <h2 class="panel__title">Discord webhook variables</h2>
+      <p class="panel__subtitle">
+        Tactical Desk parses every field provided by Discord webhooks and exposes them as template variables.
+        Use these keys to personalise automations or downstream integrations that react to Discord messages.
+      </p>
+    </div>
+  </header>
+  <div class="panel__body">
+    <div class="automation-action-catalog automation-variable-catalog">
+      <div class="automation-action-catalog__header">
+        <div class="automation-action-catalog__text">
+          <h3 class="automation-action-catalog__title" id="discord-variable-catalog-title">
+            Available Discord variables
+          </h3>
+          <p class="automation-action-catalog__description">
+            Filter or sort to locate Discord payload fields quickly. Wrap any key in double curly braces (for example
+            <code>{{ '{{ discord.content }}' }}</code>) when composing automation messages or webhook bodies.
+          </p>
+        </div>
+        <div class="automation-action-catalog__filter">
+          <label class="visually-hidden" for="discord-variable-filter">
+            Filter Discord variables
+          </label>
+          <input
+            id="discord-variable-filter"
+            type="search"
+            class="automation-action-catalog__filter-input"
+            placeholder="Filter variables"
+            data-role="table-filter"
+            aria-controls="discord-variable-table"
+          />
+        </div>
+      </div>
+      <div class="table-container">
+        <table
+          id="discord-variable-table"
+          class="data-table automation-variable-table"
+          data-role="sortable-table"
+        >
+          <thead>
+            <tr>
+              <th scope="col" data-sort-key="variable">Variable</th>
+              <th scope="col" data-sort-key="label">Label</th>
+              <th scope="col" data-sort-key="description">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for variable in discord_template_variables %}
+            <tr>
+              <td data-cell="variable" data-sort-value="{{ variable.key }}">
+                <code>{{ variable.key }}</code>
+              </td>
+              <td data-cell="label" data-sort-value="{{ variable.label }}">
+                {{ variable.label }}
+              </td>
+              <td data-cell="description" data-sort-value="{{ variable.description }}">
+                {{ variable.description }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
