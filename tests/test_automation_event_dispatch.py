@@ -60,3 +60,43 @@ async def test_dispatch_invokes_ntfy_notification(monkeypatch):
         assert captured["automation_name"] == "Ntfy responder"
         assert captured["event_type"] == "Ticket Created"
         assert captured["ticket_identifier"] == "501"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_applies_regex_operator():
+    engine = await get_engine()
+    async with AsyncSession(engine) as session:
+        automation = Automation(
+            name="Regex watcher",
+            description="Matches regex subjects",
+            playbook="Alerting",
+            kind="event",
+            trigger="Ticket Updated by Technician",
+            trigger_filters={
+                "match": "all",
+                "conditions": [
+                    {
+                        "type": "Ticket Subject",
+                        "operator": "matches_regex",
+                        "value": r"^Server \d+ Down$",
+                    }
+                ],
+            },
+        )
+        session.add(automation)
+        await session.commit()
+
+        untriggered = await dispatch_ticket_event(
+            session,
+            event_type="Ticket Updated by Technician",
+            ticket_after={"id": 200, "subject": "Service Outage"},
+        )
+        assert not untriggered
+
+        triggered = await dispatch_ticket_event(
+            session,
+            event_type="Ticket Updated by Technician",
+            ticket_after={"id": 201, "subject": "server 42 down"},
+        )
+        assert triggered
+        assert triggered[0] is automation

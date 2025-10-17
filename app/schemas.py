@@ -137,7 +137,7 @@ class RunbookLabelRename(BaseModel):
 
 class AutomationTriggerCondition(BaseModel):
     type: str = Field(max_length=255)
-    operator: Optional[Literal["equals", "not_equals", "contains"]] = None
+    operator: Optional[Literal["equals", "not_equals", "contains", "matches_regex"]] = None
     value: Optional[str] = Field(default=None, max_length=255)
 
     @classmethod
