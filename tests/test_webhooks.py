@@ -123,6 +123,16 @@ def test_discord_webhook_receiver_exposes_variables():
     assert variables["discord.thread.name"] == "Major Incident"
 
 
+def test_discord_webhook_accepts_third_party_payload():
+    payload = {
+        "content": "Alert triggered from monitoring",
+        "embeds": [
+            {
+                "title": "Server Health",
+                "description": "CPU usage is above threshold",
+            }
+        ],
+        "extra_source": "acme-monitor",  # Ensure non-Discord keys are accepted
 def test_discord_webhook_triggers_automation(monkeypatch):
     asyncio.run(_create_discord_automation())
 
@@ -147,6 +157,11 @@ def test_discord_webhook_triggers_automation(monkeypatch):
         response = client.post("/api/webhooks/discord", json=payload)
 
     assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    variables = body["variables"]
+    assert variables["discord.content"] == "Alert triggered from monitoring"
+    assert variables["discord.embeds_count"] == "1"
     assert captured["message"] == "Discord webhook reported: Intrusion detected"
     assert captured["automation_name"] == "Discord responder"
     assert captured["event_type"] == "Discord Webhook Received"
