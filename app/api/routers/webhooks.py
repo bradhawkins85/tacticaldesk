@@ -6,9 +6,15 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.discord_webhook import build_discord_variable_context
 from app.core.db import get_session
 from app.models import WebhookDelivery, utcnow
-from app.schemas import WebhookDeliveryRead, WebhookStatus
+from app.schemas import (
+    DiscordWebhookMessage,
+    DiscordWebhookReceipt,
+    WebhookDeliveryRead,
+    WebhookStatus,
+)
 
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 
@@ -26,6 +32,14 @@ async def _get_webhook_by_event_id(
             detail="Webhook delivery not found",
         )
     return webhook
+
+
+@router.post("/discord", response_model=DiscordWebhookReceipt)
+async def receive_discord_webhook(
+    payload: DiscordWebhookMessage,
+) -> DiscordWebhookReceipt:
+    variables = build_discord_variable_context(payload)
+    return DiscordWebhookReceipt(variables=variables)
 
 
 @router.get("/", response_model=list[WebhookDeliveryRead])

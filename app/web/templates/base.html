@@ -131,6 +131,14 @@
               <span class="nav-icon" aria-hidden="true">🧾</span>
               <span>Ticket Variables</span>
             </a>
+            <a
+              class="nav-sublink{% if current_docs == 'discord_variables' %} is-active{% endif %}"
+              href="{{ url_for('docs_discord_variables') }}"
+              {% if current_docs == 'discord_variables' %}aria-current="page"{% endif %}
+            >
+              <span class="nav-icon" aria-hidden="true">💬</span>
+              <span>Discord Variables</span>
+            </a>
           </div>
         </nav>
         <footer class="sidebar-footer">
