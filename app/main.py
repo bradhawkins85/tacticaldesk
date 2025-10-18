@@ -37,7 +37,7 @@ from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine, get_session
 from app.core.automation_dispatcher import automation_dispatcher
 from app.core.tickets import ticket_store
-from app.core.discord_webhook import DISCORD_WEBHOOK_VARIABLES
+from app.core.http_post_webhook import HTTP_POST_TEMPLATE_VARIABLES
 from app.core.template_variables import AUTOMATION_TEMPLATE_VARIABLES
 from app.models import (
     Automation,
@@ -977,7 +977,7 @@ INTEGRATION_SETTINGS_FIELDS: dict[str, list[dict[str, str]]] = {
             "placeholder": "Organisation tenant identifier",
         },
     ],
-    "discord-webhook-receiver": [],
+    "https-post-receiver": [],
 }
 
 
@@ -1751,9 +1751,9 @@ async def integration_detail(
         )
     ]
 
-    discord_webhook_endpoint = None
-    if module.slug == "discord-webhook-receiver":
-        discord_webhook_endpoint = request.url_for("receive_discord_webhook")
+    https_post_webhook_endpoint = None
+    if module.slug == "https-post-receiver":
+        https_post_webhook_endpoint = request.url_for("receive_https_post_webhook")
 
     context = await _template_context(
         request=request,
@@ -1763,7 +1763,7 @@ async def integration_detail(
         or "Configure secure access, credentials, and automation hooks for this integration.",
         module=module_info,
         settings_fields=settings_fields,
-        discord_webhook_endpoint=discord_webhook_endpoint,
+        https_post_webhook_endpoint=https_post_webhook_endpoint,
         active_nav="admin",
         active_admin="integrations",
         active_integration=module.slug,
@@ -1850,26 +1850,26 @@ async def docs_ticket_variables(
 
 
 @app.get(
-    "/docs/discord-variables",
+    "/docs/https-post-variables",
     response_class=HTMLResponse,
-    name="docs_discord_variables",
+    name="docs_https_post_variables",
 )
-async def docs_discord_variables(
+async def docs_https_post_variables(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
     context = await _template_context(
         request=request,
         session=session,
-        page_title="Discord webhook variables",
+        page_title="HTTPS POST webhook variables",
         page_subtitle=(
-            "Reference Discord webhook payload fields that Tactical Desk exposes to automations and "
-            "notifications when messages are received."
+            "Reference standardized HTTPS POST payload fields that Tactical Desk exposes to automations "
+            "and notifications when external systems post data."
         ),
         active_nav="docs",
-        active_docs="discord_variables",
-        discord_template_variables=DISCORD_WEBHOOK_VARIABLES,
+        active_docs="https_post_variables",
+        http_post_template_variables=HTTP_POST_TEMPLATE_VARIABLES,
     )
-    return templates.TemplateResponse("docs_discord_variables.html", context)
+    return templates.TemplateResponse("docs_http_post_variables.html", context)
 
 
 @app.get(

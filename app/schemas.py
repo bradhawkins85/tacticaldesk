@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, constr, root_validator, validator
 
@@ -458,64 +458,7 @@ class WebhookDeliveryRead(BaseModel):
         orm_mode = True
 
 
-class DiscordUser(BaseModel):
-    id: Optional[str] = None
-    username: Optional[str] = None
-    discriminator: Optional[str] = None
-    avatar: Optional[str] = None
-    bot: Optional[bool] = None
-    global_name: Optional[str] = Field(default=None, max_length=100)
-
-    class Config:
-        extra = "allow"
-
-
-class DiscordWebhookMessage(BaseModel):
-    """Inbound Discord-compatible webhook payload."""
-
-    id: Optional[str] = None
-    type: Optional[int] = None
-    content: Optional[str] = None
-    channel_id: Optional[str] = None
-    guild_id: Optional[str] = None
-    application_id: Optional[str] = None
-    webhook_id: Optional[str] = None
-    timestamp: Optional[datetime] = None
-    edited_timestamp: Optional[datetime] = None
-    mention_everyone: bool = False
-    tts: bool = False
-    pinned: bool = False
-    flags: Optional[int] = None
-    attachments: list[Dict[str, Any]] = Field(default_factory=list)
-    embeds: list[Dict[str, Any]] = Field(default_factory=list)
-    mentions: list[DiscordUser] = Field(default_factory=list)
-    mention_roles: list[str] = Field(default_factory=list)
-    components: list[Dict[str, Any]] = Field(default_factory=list)
-    author: Optional[DiscordUser] = None
-    member: Optional[Dict[str, Any]] = None
-    interaction: Optional[Dict[str, Any]] = None
-    message_reference: Optional[Dict[str, Any]] = None
-    referenced_message: Optional[Dict[str, Any]] = None
-    thread: Optional[Dict[str, Any]] = None
-
-    class Config:
-        extra = "allow"
-
-    @validator(
-        "attachments",
-        "embeds",
-        "mentions",
-        "mention_roles",
-        "components",
-        pre=True,
-        always=True,
-    )
-    def _default_empty_list(cls, value):  # type: ignore[no-untyped-def]
-        if value is None:
-            return []
-        return value
-
-
-class DiscordWebhookReceipt(BaseModel):
+class HttpPostWebhookReceipt(BaseModel):
     status: Literal["accepted"] = "accepted"
     variables: Dict[str, str]
+    mapped_keys: List[str] = Field(default_factory=list)

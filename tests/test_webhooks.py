@@ -39,19 +39,19 @@ async def _create_delivery(event_id: str = "whk-test") -> None:
         await session.commit()
 
 
-async def _create_discord_automation() -> None:
+async def _create_https_post_automation() -> None:
     engine = await get_engine()
     async with AsyncSession(engine) as session:
         automation = Automation(
-            name="Discord responder",
-            description="Notify on Discord webhook",
+            name="Webhook responder",
+            description="Notify on HTTPS POST webhook",
             playbook="Alerting",
             kind="event",
-            trigger="Discord Webhook Received",
+            trigger="HTTP POST Webhook Received",
             ticket_actions=[
                 {
                     "action": "send-ntfy-notification",
-                    "value": "Discord webhook reported: {{ discord.content }}",
+                    "value": "Webhook summary: {{ webhook.summary }}",
                 }
             ],
         )
@@ -84,112 +84,87 @@ def test_pause_resume_delete_webhook():
         assert "whk-900" not in remaining_ids
 
 
-def test_discord_webhook_receiver_exposes_variables():
+def test_https_post_webhook_receiver_maps_standard_fields():
     payload = {
-        "id": "123456789012345678",
-        "type": 0,
-        "content": "Incident acknowledged",
-        "channel_id": "9988776655",
-        "guild_id": "11223344",
+        "id": "evt-100",
+        "type": "alert.raised",
+        "summary": "Incident acknowledged",
+        "details": "An operator acknowledged the incident.",
+        "severity": "high",
+        "source": "operations-monitor",
         "timestamp": "2025-01-01T10:00:00+00:00",
-        "author": {
-            "id": "556677",
-            "username": "AlertsBot",
-            "discriminator": "0001",
-            "bot": True,
+        "url": "https://status.example/incidents/evt-100",
+        "tags": ["incident", "acknowledged"],
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/api/webhooks/https-post", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    assert "webhook.summary" in body["mapped_keys"]
+    variables = body["variables"]
+    assert variables["webhook.summary"] == "Incident acknowledged"
+    assert variables["webhook.details"] == "An operator acknowledged the incident."
+    assert variables["webhook.severity"] == "high"
+    assert variables["webhook.source"] == "operations-monitor"
+    assert "status.example" in variables["webhook.reference"]
+    assert "incident" in variables["webhook.tags"]
+    assert "Incident acknowledged" in variables["webhook.raw"]
+
+
+def test_https_post_webhook_receiver_handles_nested_payloads():
+    payload = {
+        "event": {
+            "id": "evt-200",
+            "type": "status.change",
+            "time": "2025-02-02T09:30:00Z",
+            "detail": {
+                "title": "Ticket updated",
+                "description": "Ticket moved to investigating",
+                "user": {"name": "Alex"},
+            },
         },
-        "attachments": [
-            {"id": "991", "filename": "incident-report.txt", "size": 2048}
-        ],
-        "embeds": [
-            {"title": "Incident Report", "type": "rich", "description": "Details"}
-        ],
-        "mention_roles": ["123456"],
-        "thread": {"id": "776655", "name": "Major Incident"},
+        "metadata": {
+            "links": {"permalink": "https://tickets.example/tk-123"},
+            "labels": ["ticket", "update"],
+        },
     }
 
     with TestClient(app) as client:
-        response = client.post("/api/webhooks/discord", json=payload)
+        response = client.post("/api/webhooks/https-post", json=payload)
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "accepted"
-    variables = body["variables"]
-    assert variables["discord.content"] == "Incident acknowledged"
-    assert variables["discord.attachments_count"] == "1"
-    assert "incident-report.txt" in variables["discord.attachments"]
-    assert variables["discord.author.username"] == "AlertsBot"
-    assert variables["discord.author.bot"] == "true"
-    assert variables["discord.thread.name"] == "Major Incident"
+    variables = response.json()["variables"]
+    assert variables["webhook.id"] == "evt-200"
+    assert variables["webhook.type"] == "status.change"
+    assert variables["webhook.summary"] == "Ticket updated"
+    assert variables["webhook.actor"] == "Alex"
+    assert variables["webhook.reference"].endswith("tk-123")
+    assert "ticket" in variables["webhook.tags"]
 
 
-def test_discord_webhook_accepts_third_party_payload():
+def test_https_post_webhook_receiver_counts_collections():
     payload = {
-        "content": "Alert triggered from monitoring",
-        "embeds": [
-            {
-                "title": "Server Health",
-                "description": "CPU usage is above threshold",
-            }
+        "records": [
+            {"id": 1, "name": "CPU"},
+            {"id": 2, "name": "Memory"},
         ],
-        "extra_source": "acme-monitor",  # Ensure non-Discord keys are accepted
+        "details": "Multiple resources breached thresholds.",
     }
 
     with TestClient(app) as client:
-        response = client.post("/api/webhooks/discord", json=payload)
+        response = client.post("/api/webhooks/https-post", json=payload)
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "accepted"
-    variables = body["variables"]
-    assert variables["discord.content"] == "Alert triggered from monitoring"
-    assert variables["discord.embeds_count"] == "1"
+    variables = response.json()["variables"]
+    assert variables["webhook.attachments_count"] == "2"
+    assert variables["webhook.details"] == "Multiple resources breached thresholds."
 
 
-def test_discord_webhook_accepts_null_collections():
-    payload = {
-        "content": "Disk usage warning",
-        "attachments": None,
-        "embeds": None,
-        "mentions": None,
-        "mention_roles": None,
-        "components": None,
-    }
-
-    with TestClient(app) as client:
-        response = client.post("/api/webhooks/discord", json=payload)
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "accepted"
-    variables = body["variables"]
-    assert variables["discord.attachments_count"] == "0"
-    assert variables["discord.embeds_count"] == "0"
-    assert variables["discord.mentions_count"] == "0"
-    assert variables["discord.mention_roles_count"] == "0"
-
-
-def test_discord_webhook_handles_non_discord_payload_shapes():
-    payload = {
-        "content": "External system alert",
-        "mentions": {"unexpected": "structure"},
-        "attachments": {"filename": "report.json"},
-    }
-
-    with TestClient(app) as client:
-        response = client.post("/api/webhooks/discord", json=payload)
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "accepted"
-    variables = body["variables"]
-    assert variables["discord.content"] == "External system alert"
-    assert variables["discord.attachments_count"] == "1"
-    assert variables["discord.mentions_count"] == "1"
-
-
-def test_discord_webhook_triggers_automation(monkeypatch):
-    asyncio.run(_create_discord_automation())
+def test_https_post_webhook_triggers_automation(monkeypatch):
+    asyncio.run(_create_https_post_automation())
 
     captured: dict[str, object] = {}
 
@@ -202,22 +177,20 @@ def test_discord_webhook_triggers_automation(monkeypatch):
     )
 
     payload = {
-        "id": "9876543210",
-        "type": 0,
-        "content": "Intrusion detected",
-        "channel_id": "123456789",
+        "id": "evt-300",
+        "summary": "Intrusion detected",
+        "severity": "critical",
     }
 
     with TestClient(app) as client:
-        response = client.post("/api/webhooks/discord", json=payload)
+        response = client.post("/api/webhooks/https-post", json=payload)
 
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "accepted"
     variables = body["variables"]
-    assert variables["discord.content"] == "Intrusion detected"
-    assert variables["discord.embeds_count"] == "0"
-    assert captured["message"] == "Discord webhook reported: Intrusion detected"
-    assert captured["automation_name"] == "Discord responder"
-    assert captured["event_type"] == "Discord Webhook Received"
+    assert variables["webhook.summary"] == "Intrusion detected"
+    assert captured["message"] == "Webhook summary: Intrusion detected"
+    assert captured["automation_name"] == "Webhook responder"
+    assert captured["event_type"] == "HTTP POST Webhook Received"
     assert captured["ticket_identifier"] == "unknown"

@@ -82,3 +82,4 @@
 - 2025-10-17T03:30:00Z Feature: Enabled Discord webhook received automations to trigger event workflows and expose payload variables for actions.
 - 2025-10-17T05:15:00Z Fix: Hardened Discord webhook ingestion to accept null collection fields and partial author data while adding regression coverage.
 - 2025-10-17T04:32:20Z Fix: Resolved Discord webhook 422 errors by tolerating non-standard payloads and logging incoming events for troubleshooting.
+- 2025-10-17T06:30:00Z Feature: Replaced the Discord webhook receiver with a generic HTTPS POST mapper, logging, updated documentation, and integration migration.
