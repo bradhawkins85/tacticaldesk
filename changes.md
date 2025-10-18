@@ -83,3 +83,4 @@
 - 2025-10-17T05:15:00Z Fix: Hardened Discord webhook ingestion to accept null collection fields and partial author data while adding regression coverage.
 - 2025-10-17T04:32:20Z Fix: Resolved Discord webhook 422 errors by tolerating non-standard payloads and logging incoming events for troubleshooting.
 - 2025-10-17T06:30:00Z Feature: Replaced the Discord webhook receiver with a generic HTTPS POST mapper, logging, updated documentation, and integration migration.
+- 2025-10-17T08:30:00Z Feature: Added ChatGPT MCP connector service, secured API endpoints, and tests enabling MCP-driven access across integrations, organizations, contacts, automations, webhooks, and tickets.

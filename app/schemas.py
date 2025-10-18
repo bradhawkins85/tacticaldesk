@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, EmailStr, Field, constr, root_validator, validator
 
@@ -457,6 +457,39 @@ class WebhookDeliveryRead(BaseModel):
     class Config:
         orm_mode = True
 
+
+class MCPOperation(str, Enum):
+    LIST = "list"
+    RETRIEVE = "retrieve"
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+    SEARCH = "search"
+    APPEND_REPLY = "append-reply"
+
+
+class MCPResourceDescriptor(BaseModel):
+    slug: str = Field(max_length=64)
+    name: str = Field(max_length=255)
+    description: str = Field(max_length=1024)
+    operations: List[str]
+
+
+class MCPExecutionRequest(BaseModel):
+    resource: str = Field(max_length=64)
+    operation: MCPOperation
+    identifier: Optional[Union[int, str]] = None
+    payload: Optional[Dict[str, Any]] = None
+    filters: Optional[Dict[str, Any]] = None
+    limit: Optional[int] = Field(default=50, ge=1, le=500)
+    offset: Optional[int] = Field(default=0, ge=0)
+
+
+class MCPExecutionResponse(BaseModel):
+    resource: str
+    operation: MCPOperation
+    data: Any
+    meta: Dict[str, Any] = Field(default_factory=dict)
 
 class HttpPostWebhookReceipt(BaseModel):
     status: Literal["accepted"] = "accepted"
