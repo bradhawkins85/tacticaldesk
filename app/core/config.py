@@ -56,6 +56,11 @@ class Settings(BaseSettings):
         description="Default ntfy access token",
         env="TACTICAL_DESK_NTFY_TOKEN",
     )
+    mcp_api_key: str | None = Field(
+        default=None,
+        description="API key required for ChatGPT MCP connector",
+        env="TACTICAL_DESK_MCP_API_KEY",
+    )
 
     class Config:
         env_file = ".env"

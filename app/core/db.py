@@ -154,3 +154,9 @@ async def get_session() -> AsyncSession:
     async_session = _SESSION_FACTORY
     async with async_session() as session:
         yield session
+
+
+async def get_session_factory() -> sessionmaker[AsyncSession]:
+    await get_engine()
+    assert _SESSION_FACTORY is not None
+    return _SESSION_FACTORY
