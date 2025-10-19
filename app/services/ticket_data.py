@@ -1,8 +1,89 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import re
 
 from app.core.tickets import ticket_store
+
+
+def slugify_label(value: str) -> str:
+    tokens = re.findall(r"[a-z0-9]+", value.lower())
+    return "-".join(tokens) or "general"
+
+
+def describe_age(delta: timedelta) -> str:
+    total_seconds = int(delta.total_seconds())
+    if total_seconds <= 0:
+        return "Just now"
+    minutes = total_seconds // 60
+    if minutes < 1:
+        return "Less than a minute ago"
+    hours = minutes // 60
+    days = hours // 24
+    weeks = days // 7
+    if weeks >= 1:
+        return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+    if days >= 1:
+        return f"{days} day{'s' if days != 1 else ''} ago"
+    if hours >= 1:
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+
+
+def enrich_ticket_record(
+    ticket: dict[str, object], now_utc: datetime
+) -> dict[str, object]:
+    base = dict(ticket)
+    last_reply_dt = base.get("last_reply_dt")
+    if isinstance(last_reply_dt, datetime):
+        if last_reply_dt.tzinfo is None:
+            last_reply_dt = last_reply_dt.replace(tzinfo=timezone.utc)
+    else:
+        last_reply_dt = now_utc
+    base["last_reply_dt"] = last_reply_dt
+    last_reply_iso = (
+        last_reply_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+    age_delta = now_utc - last_reply_dt
+
+    status_value = str(base.get("status", ""))
+    priority_value = str(base.get("priority", ""))
+    assignment_value = str(base.get("assignment", ""))
+    queue_value = str(base.get("queue", ""))
+    team_value = str(base.get("team", ""))
+    category_value = str(base.get("category", ""))
+
+    filter_tokens = {
+        "all",
+        f"status-{slugify_label(status_value)}",
+        f"priority-{slugify_label(priority_value)}",
+        f"assignment-{slugify_label(assignment_value)}",
+        f"queue-{slugify_label(queue_value)}",
+        f"team-{slugify_label(team_value)}",
+        f"category-{slugify_label(category_value)}",
+    }
+    if base.get("is_starred"):
+        filter_tokens.add("flagged")
+    if base.get("assets_visible"):
+        filter_tokens.add("assets-visible")
+
+    labels = base.get("labels") or []
+    if not isinstance(labels, list):
+        labels = []
+    base["labels"] = labels
+    if "channel" not in base:
+        base["channel"] = "Portal"
+
+    enriched = {
+        **base,
+        "last_reply_iso": last_reply_iso,
+        "age_display": describe_age(age_delta),
+        "filter_tokens": sorted(filter_tokens),
+        "status_token": slugify_label(status_value),
+        "priority_token": slugify_label(priority_value),
+        "assignment_token": slugify_label(assignment_value),
+    }
+    return enriched
 
 
 def build_ticket_records(now_utc: datetime) -> list[dict[str, object]]:

@@ -57,6 +57,56 @@ def test_ticket_create_dispatches_automation_event():
         )
 
 
+def test_api_ticket_creation_endpoint():
+    with TestClient(app) as client:
+        payload = {
+            "subject": "VPN tunnel degraded",
+            "customer": "Blue Harbor Finance",
+            "customer_email": "infra@blueharbor.example",
+            "status": "Open",
+            "priority": "High",
+            "team": "Network operations",
+            "assignment": "Unassigned",
+            "queue": "Critical response",
+            "category": "Incident",
+            "summary": "Automated monitoring detected packet loss exceeding threshold.",
+        }
+
+        response = client.post("/api/tickets", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["ticket"]["subject"] == payload["subject"]
+        assert data["ticket_id"].startswith("TD-")
+
+        redirect = data["redirect_url"]
+        assert redirect
+        detail_response = client.get(redirect)
+        assert detail_response.status_code == 200
+        assert payload["subject"] in detail_response.text
+
+
+def test_api_ticket_creation_validation_errors():
+    with TestClient(app) as client:
+        payload = {
+            "subject": "",
+            "customer": "Example Corp",
+            "customer_email": "not-an-email",
+            "status": "Open",
+            "priority": "High",
+            "team": "Tier 1",
+            "assignment": "Unassigned",
+            "queue": "General",
+            "category": "Support",
+            "summary": "Placeholder summary",
+        }
+
+        response = client.post("/api/tickets", json=payload)
+        assert response.status_code == 422
+        body = response.json()
+        assert "subject" in str(body)
+        assert "customer_email" in str(body)
+
+
 def test_ticket_update_persists_overrides():
     with TestClient(app) as client:
         form_payload = {

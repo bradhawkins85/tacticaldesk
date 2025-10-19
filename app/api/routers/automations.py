@@ -22,6 +22,7 @@ from app.schemas import (
     AutomationTicketAction,
     AutomationTriggerFilter,
     AutomationUpdate,
+    AutomationCreate,
 )
 
 router = APIRouter(prefix="/api/automations", tags=["Automations"])
@@ -236,6 +237,97 @@ async def list_runbook_labels(
     *, session: AsyncSession = Depends(get_session)
 ) -> list[RunbookLabelSummary]:
     return await _collect_runbook_labels(session)
+
+
+@router.post("/", response_model=AutomationRead, status_code=status.HTTP_201_CREATED)
+async def create_automation(
+    *, payload: AutomationCreate, session: AsyncSession = Depends(get_session)
+) -> AutomationRead:
+    kind = _normalize_kind(payload.kind)
+    if kind is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Automation kind is required.",
+        )
+
+    name = _ensure_required_text(payload.name, "Name")
+    playbook = _ensure_required_text(payload.playbook, "Runbook label")
+    description = _clean_optional_text(payload.description)
+    status_label = _clean_optional_text(payload.status)
+
+    cron_expression = None
+    if kind == "scheduled":
+        cron_expression = _normalize_cron_expression(
+            payload.cron_expression,
+            allow_empty=False,
+        )
+    elif payload.cron_expression:
+        cron_expression = _normalize_cron_expression(
+            payload.cron_expression,
+            allow_empty=True,
+        )
+
+    trigger_filters_model: AutomationTriggerFilter | None = None
+    trigger_value: str | None = None
+
+    if payload.trigger_filters is not None:
+        trigger_filters_model = _normalize_trigger_filters(
+            payload.trigger_filters,
+            automation_kind=kind,
+        )
+
+    if kind == "event":
+        if trigger_filters_model is None:
+            trigger_value = _clean_optional_text(payload.trigger)
+            if not trigger_value:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="At least one trigger condition is required for event automations.",
+                )
+            if trigger_value not in EVENT_TRIGGER_SET:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Unsupported automation trigger",
+                )
+        else:
+            if len(trigger_filters_model.conditions) == 1:
+                trigger_value = trigger_filters_model.conditions[0].display_text()
+            else:
+                trigger_value = None
+    else:
+        trigger_value = None
+
+    ticket_actions = _normalize_ticket_actions(payload.ticket_actions)
+    ticket_actions_payload = (
+        [action.dict() for action in ticket_actions] if ticket_actions else None
+    )
+
+    next_run_at = _normalize_datetime(payload.next_run_at)
+    last_run_at = _normalize_datetime(payload.last_run_at)
+    last_trigger_at = _normalize_datetime(payload.last_trigger_at)
+
+    automation = Automation(
+        name=name,
+        description=description,
+        playbook=playbook,
+        kind=kind,
+        cron_expression=cron_expression,
+        trigger=trigger_value,
+        trigger_filters=(
+            trigger_filters_model.dict() if trigger_filters_model is not None else None
+        ),
+        ticket_actions=ticket_actions_payload,
+        status=status_label,
+        next_run_at=next_run_at,
+        last_run_at=last_run_at,
+        last_trigger_at=last_trigger_at,
+    )
+
+    session.add(automation)
+    await session.commit()
+    await session.refresh(automation)
+
+    return AutomationRead.from_orm(automation)
 
 
 @router.patch("/runbook-labels/{label}", response_model=list[RunbookLabelSummary])

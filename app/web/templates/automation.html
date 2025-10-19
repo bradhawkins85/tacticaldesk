@@ -1,7 +1,15 @@
 {% extends "base.html" %}
 {% block header_actions %}
-<button class="primary-button" type="button" data-action="launch-runbook">Launch runbook</button>
-<button class="secondary-button" type="button" data-action="view-logs">View logs</button>
+<div class="automation-header-actions">
+  <div class="automation-header-actions__group">
+    <a class="primary-button" href="{{ url_for('automation_create_event') }}">New event automation</a>
+    <a class="secondary-button" href="{{ url_for('automation_create_scheduled') }}">New scheduled automation</a>
+  </div>
+  <div class="automation-header-actions__group">
+    <button class="primary-button" type="button" data-action="launch-runbook">Launch runbook</button>
+    <button class="secondary-button" type="button" data-action="view-logs">View logs</button>
+  </div>
+</div>
 {% endblock %}
 {% block content %}
 <section class="panel automation-section">

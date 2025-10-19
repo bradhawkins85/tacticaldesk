@@ -1052,6 +1052,30 @@
     return parsed.toISOString();
   }
 
+  async function createAutomation(payload) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch(`/api/automations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.detail || "Unable to create automation");
+      }
+      return data;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async function patchAutomation(automationId, payload) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
@@ -1091,6 +1115,8 @@
   if (automationEditPage) {
     const automationId = automationEditPage.dataset.automationId;
     const returnUrl = automationEditPage.dataset.returnUrl;
+    const automationKind = automationEditPage.dataset.automationKind || "";
+    const automationMode = automationEditPage.dataset.mode || "edit";
     const form = automationEditPage.querySelector("[data-role='automation-edit-form']");
     const messageTarget = automationEditPage.querySelector("[data-role='automation-message']");
     const submitButton = form?.querySelector("[data-role='automation-submit']");
@@ -1819,10 +1845,19 @@
         if (!submitButton) {
           return;
         }
-        if (!automationId) {
+        const isCreateMode = automationMode === "create";
+        if (!isCreateMode && !automationId) {
           setAutomationFormMessage(
             messageTarget,
             "Unable to determine automation identifier.",
+            "error"
+          );
+          return;
+        }
+        if (isCreateMode && !automationKind) {
+          setAutomationFormMessage(
+            messageTarget,
+            "Automation type metadata is missing.",
             "error"
           );
           return;
@@ -1943,12 +1978,42 @@
           payload.last_trigger_at = localInputToIso(lastTriggerInput.value);
         }
 
-        setAutomationFormMessage(messageTarget, "Updating automation…");
+        const pendingMessage = isCreateMode
+          ? "Creating automation…"
+          : "Updating automation…";
+        setAutomationFormMessage(messageTarget, pendingMessage);
         const previousLabel = submitButton.textContent;
         submitButton.disabled = true;
-        submitButton.textContent = "Saving…";
+        submitButton.textContent = isCreateMode ? "Creating…" : "Saving…";
 
         try {
+          if (isCreateMode) {
+            const requestPayload = { ...payload, kind: automationKind };
+            const created = await createAutomation(requestPayload);
+            if (created) {
+              const createdId = created.id;
+              const createdKind = created.kind || automationKind;
+              let destination = returnUrl || "/automation";
+              if (createdId != null && createdId !== "") {
+                const encodedId = encodeURIComponent(createdId);
+                if (createdKind === "scheduled") {
+                  destination = `/automation/scheduled/${encodedId}`;
+                } else if (createdKind === "event") {
+                  destination = `/automation/event/${encodedId}`;
+                }
+              }
+              setAutomationFormMessage(
+                messageTarget,
+                "Automation created successfully.",
+                "success"
+              );
+              setTimeout(() => {
+                window.location.href = destination;
+              }, 800);
+            }
+            return;
+          }
+
           const updated = await patchAutomation(automationId, payload);
           if (updated) {
             if (typeof updated.name === "string" && nameInput) {

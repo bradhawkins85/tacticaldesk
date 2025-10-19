@@ -306,6 +306,22 @@ body.has-open-modal {
   gap: 12px;
 }
 
+.automation-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.automation-header-actions__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
 .icon-button,
 .primary-button,
 .secondary-button {
