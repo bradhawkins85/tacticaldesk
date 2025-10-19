@@ -90,3 +90,4 @@
 - 2025-10-19T09:45:00Z Feature: Enhanced Syncro import with selectable companies, ticket scope controls, throttled pagination, and API surface for company discovery.
 - 2025-10-19T09:41:53Z Feature: Rebuilt the mobile experience into an installable PWA with responsive sidebar controls, bottom navigation, and offline-ready static caching.
 - 2025-10-19T10:05:00Z Fix: Reworked PWA asset strategy to reuse existing branding icons and refresh service worker caching.
+- 2025-10-19T10:24:27Z Fix: Restored the mobile more menu by keeping the sidebar available and sliding it into view on small screens.
