@@ -1,16 +1,19 @@
 {% extends "base.html" %}
 
-{% block header_actions %}
-<a
-  class="button"
-  href="{{ url_for('admin_organization_create') }}"
-  target="_blank"
-  rel="noopener noreferrer"
->
-  <span aria-hidden="true">➕</span>
-  <span>Create organisation</span>
-</a>
-{% endblock %}
+{% set sidebar_actions_parent = 'admin:organisations' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <a
+    class="primary-button"
+    href="{{ url_for('admin_organization_create') }}"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <span aria-hidden="true">➕</span>
+    <span>Create organisation</span>
+  </a>
+</div>
+{% endset %}
 
 {% block content %}
 <div class="organization-workspace">

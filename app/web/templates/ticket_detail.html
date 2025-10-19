@@ -1,7 +1,10 @@
 {% extends "base.html" %}
-{% block header_actions %}
-<a class="secondary-button" href="{{ url_for('tickets') }}" target="_self">Back to tickets</a>
-{% endblock %}
+{% set sidebar_actions_parent = 'tickets' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <a class="secondary-button" href="{{ url_for('tickets') }}">Back to tickets</a>
+</div>
+{% endset %}
 {% block content %}
 <div class="ticket-detail" data-ticket-id="{{ ticket.id }}">
   <section class="ticket-detail__overview" aria-labelledby="ticket-overview-title">

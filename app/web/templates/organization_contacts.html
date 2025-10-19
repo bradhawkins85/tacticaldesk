@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 
-{% block header_actions %}
-<a class="button button--ghost" href="{{ url_for('admin_organisations') }}">
-  ← Back to organisations
-</a>
-<button class="button" type="button" data-action="contact-new">
-  <span aria-hidden="true">➕</span>
-  <span>Add contact</span>
-</button>
-{% endblock %}
+{% set sidebar_actions_parent = 'admin:organisations' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <a class="secondary-button" href="{{ url_for('admin_organisations') }}">← Back to organisations</a>
+  <button class="primary-button" type="button" data-action="contact-new">
+    <span aria-hidden="true">➕</span>
+    <span>Add contact</span>
+  </button>
+</div>
+{% endset %}
 
 {% block content %}
 <div

@@ -23,6 +23,26 @@
     applyTheme(currentTheme === "dark" ? "light" : "dark");
   });
 
+  document.addEventListener("click", (event) => {
+    const toggle = event.target.closest("[data-action='toggle-nav']");
+    if (!toggle) {
+      return;
+    }
+    const targetSelector = toggle.getAttribute("data-target");
+    if (!targetSelector) {
+      return;
+    }
+    const content = document.querySelector(targetSelector);
+    if (!content) {
+      return;
+    }
+    const expanded = toggle.getAttribute("aria-expanded") === "true";
+    const nextState = !expanded;
+    toggle.setAttribute("aria-expanded", nextState ? "true" : "false");
+    toggle.classList.toggle("is-active", nextState);
+    content.hidden = !nextState;
+  });
+
   const sidebar = document.querySelector("[data-role='sidebar']");
   const sidebarOverlay = document.querySelector("[data-role='sidebar-overlay']");
   const openSidebarButtons = Array.from(

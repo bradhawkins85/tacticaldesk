@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
-{% block header_actions %}
-<a class="button button--ghost" href="{{ url_for('admin_organisations') }}">
-  ← Back to organisations
-</a>
-{% endblock %}
+{% set sidebar_actions_parent = 'admin:organisations' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <a class="secondary-button" href="{{ url_for('admin_organisations') }}">← Back to organisations</a>
+</div>
+{% endset %}
 
 {% block content %}
 <section class="panel organization-form-panel">

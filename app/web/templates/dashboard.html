@@ -1,8 +1,11 @@
 {% extends "base.html" %}
-{% block header_actions %}
-<button class="primary-button" type="button" data-action="new-ticket">New Ticket</button>
-<button class="secondary-button" type="button" data-action="refresh">Refresh</button>
-{% endblock %}
+{% set sidebar_actions_parent = 'dashboard' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <button class="primary-button" type="button" data-action="new-ticket">New Ticket</button>
+  <button class="secondary-button" type="button" data-action="refresh">Refresh</button>
+</div>
+{% endset %}
 {% block content %}
 <section class="content-section">
   <header class="section-header">
