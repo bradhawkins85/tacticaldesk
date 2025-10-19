@@ -92,3 +92,4 @@
 - 2025-10-19T10:05:00Z Fix: Reworked PWA asset strategy to reuse existing branding icons and refresh service worker caching.
 - 2025-10-19T10:24:27Z Fix: Restored the mobile more menu by keeping the sidebar available and sliding it into view on small screens.
 - 2025-10-19T11:15:00Z Fix: Corrected mobile layout overflow by constraining shell and table widths to the device viewport.
+- 2025-10-19T12:45:00Z Feature: Moved header action controls into collapsible sidebar menus with nested admin/doc sections defaulting to a collapsed state.

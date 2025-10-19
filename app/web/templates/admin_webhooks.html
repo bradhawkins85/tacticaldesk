@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
-{% block header_actions %}
-  <button class="secondary-button" type="button" data-action="webhook-refresh">
-    Refresh
-  </button>
-{% endblock %}
+{% set sidebar_actions_parent = 'admin:webhooks' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <button class="secondary-button" type="button" data-action="webhook-refresh">Refresh</button>
+</div>
+{% endset %}
 
 {% block content %}
   <section class="panel">

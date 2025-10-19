@@ -33,132 +33,377 @@
           <span class="brand-name">{{ app_name }}</span>
         </div>
         {% set current_nav = active_nav | default('', true) %}
+        {% set current_admin = active_admin | default('', true) %}
+        {% set current_docs = active_docs | default('', true) %}
+        {% set current_integration = active_integration | default('', true) %}
+        {% set actions_parent = sidebar_actions_parent | default('', true) | trim %}
+        {% set actions_content = sidebar_actions | default('', true) %}
+        {% set has_actions = actions_content | trim %}
         <nav id="sidebar-navigation" class="sidebar-nav" aria-label="Primary">
-          <a
-            class="nav-link{% if current_nav == 'dashboard' %} is-active{% endif %}"
-            href="{{ url_for('dashboard') }}"
-            {% if current_nav == 'dashboard' %}aria-current="page"{% endif %}
-          >
-            <span class="nav-icon" aria-hidden="true">🏠</span>
-            <span>Dashboard</span>
-          </a>
-          <a
-            class="nav-link{% if current_nav == 'tickets' %} is-active{% endif %}"
-            href="{{ url_for('tickets') }}"
-            {% if current_nav == 'tickets' %}aria-current="page"{% endif %}
-          >
-            <span class="nav-icon" aria-hidden="true">🎫</span>
-            <span>Tickets</span>
-          </a>
-          <a
-            class="nav-link{% if current_nav == 'analytics' %} is-active{% endif %}"
-            href="{{ url_for('analytics') }}"
-            {% if current_nav == 'analytics' %}aria-current="page"{% endif %}
-          >
-            <span class="nav-icon" aria-hidden="true">📊</span>
-            <span>Analytics</span>
-          </a>
-          {% set current_admin = active_admin | default('', true) %}
-          <div class="nav-group" role="group" aria-labelledby="admin-nav-heading">
-            <p id="admin-nav-heading" class="nav-heading{% if current_admin %} is-active{% endif %}">
-              <span class="nav-icon" aria-hidden="true">🛡️</span>
-              <span>Admin</span>
-            </p>
-            <a
-              class="nav-sublink{% if current_admin == 'automation' %} is-active{% endif %}"
-              href="{{ url_for('automation') }}"
-              {% if current_admin == 'automation' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">🤖</span>
-              <span>Automation</span>
-            </a>
-            <a
-              class="nav-sublink{% if current_admin == 'organisations' %} is-active{% endif %}"
-              href="{{ url_for('admin_organisations') }}"
-              {% if current_admin == 'organisations' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">🏢</span>
-              <span>Organisations</span>
-            </a>
-            <a
-              class="nav-sublink{% if current_admin == 'webhooks' %} is-active{% endif %}"
-              href="{{ url_for('admin_webhooks') }}"
-              {% if current_admin == 'webhooks' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">🔁</span>
-              <span>Webhooks</span>
-            </a>
-            {% set current_integration = active_integration | default('', true) %}
-            <div
-              class="nav-subgroup"
-              role="group"
-              aria-labelledby="integrations-nav-heading"
-              data-role="integration-nav"
-            >
-              <p
-                id="integrations-nav-heading"
-                class="nav-heading nav-heading--sub{% if current_admin == 'integrations' %} is-active{% endif %}"
-              >
-                <span class="nav-icon" aria-hidden="true">🌐</span>
-                <span>Integration modules</span>
-              </p>
+          {% set dashboard_actions = has_actions and actions_parent == 'dashboard' %}
+          {% set dashboard_open = dashboard_actions and current_nav == 'dashboard' %}
+          <div class="nav-item" data-nav-item>
+            <div class="nav-item__main">
               <a
-                class="nav-sublink nav-sublink--nested{% if current_admin == 'integrations' and not current_integration %} is-active{% endif %}"
-                href="{{ url_for('integrations_index') }}"
-                {% if current_admin == 'integrations' and not current_integration %}aria-current="page"{% endif %}
+                class="nav-link{% if current_nav == 'dashboard' %} is-active{% endif %}"
+                href="{{ url_for('dashboard') }}"
+                {% if current_nav == 'dashboard' %}aria-current="page"{% endif %}
               >
-                <span class="nav-icon" aria-hidden="true">🔌</span>
-                <span>Manage</span>
+                <span class="nav-icon" aria-hidden="true">🏠</span>
+                <span>Dashboard</span>
               </a>
-              {% if integration_nav %}
-              {% for integration in integration_nav %}
-              <a
-                class="nav-sublink nav-sublink--nested{% if current_integration == integration.slug %} is-active{% endif %}"
-                href="{{ url_for('integration_detail', slug=integration.slug) }}"
-                data-integration-link="{{ integration.slug }}"
-                {% if current_integration == integration.slug %}aria-current="page"{% endif %}
+              {% if dashboard_actions %}
+              <button
+                class="nav-item__toggle{% if dashboard_open %} is-active{% endif %}"
+                type="button"
+                data-action="toggle-nav"
+                data-target="#nav-dashboard-actions"
+                aria-controls="nav-dashboard-actions"
+                aria-expanded="{{ 'true' if dashboard_open else 'false' }}"
               >
-                <span class="nav-icon" aria-hidden="true">{{ integration.icon }}</span>
-                <span>{{ integration.name }}</span>
-              </a>
-              {% endfor %}
-              {% else %}
-              <p class="nav-empty nav-empty--nested">No integrations enabled</p>
+                <span class="visually-hidden">Toggle dashboard actions</span>
+                <span aria-hidden="true" class="nav-toggle-icon"></span>
+              </button>
               {% endif %}
             </div>
+            {% if dashboard_actions %}
+            <div id="nav-dashboard-actions" class="nav-submenu nav-submenu--primary" {% if not dashboard_open %}hidden{% endif %}>
+              {{ actions_content | safe }}
+            </div>
+            {% endif %}
           </div>
-          {% set current_docs = active_docs | default('', true) %}
-          <div class="nav-group" role="group" aria-labelledby="docs-nav-heading">
-            <p id="docs-nav-heading" class="nav-heading{% if current_nav == 'docs' %} is-active{% endif %}">
+          {% set tickets_actions = has_actions and actions_parent == 'tickets' %}
+          {% set tickets_open = tickets_actions and current_nav == 'tickets' %}
+          <div class="nav-item" data-nav-item>
+            <div class="nav-item__main">
+              <a
+                class="nav-link{% if current_nav == 'tickets' %} is-active{% endif %}"
+                href="{{ url_for('tickets') }}"
+                {% if current_nav == 'tickets' %}aria-current="page"{% endif %}
+              >
+                <span class="nav-icon" aria-hidden="true">🎫</span>
+                <span>Tickets</span>
+              </a>
+              {% if tickets_actions %}
+              <button
+                class="nav-item__toggle{% if tickets_open %} is-active{% endif %}"
+                type="button"
+                data-action="toggle-nav"
+                data-target="#nav-tickets-actions"
+                aria-controls="nav-tickets-actions"
+                aria-expanded="{{ 'true' if tickets_open else 'false' }}"
+              >
+                <span class="visually-hidden">Toggle ticket actions</span>
+                <span aria-hidden="true" class="nav-toggle-icon"></span>
+              </button>
+              {% endif %}
+            </div>
+            {% if tickets_actions %}
+            <div id="nav-tickets-actions" class="nav-submenu nav-submenu--primary" {% if not tickets_open %}hidden{% endif %}>
+              {{ actions_content | safe }}
+            </div>
+            {% endif %}
+          </div>
+          {% set analytics_actions = has_actions and actions_parent == 'analytics' %}
+          {% set analytics_open = analytics_actions and current_nav == 'analytics' %}
+          <div class="nav-item" data-nav-item>
+            <div class="nav-item__main">
+              <a
+                class="nav-link{% if current_nav == 'analytics' %} is-active{% endif %}"
+                href="{{ url_for('analytics') }}"
+                {% if current_nav == 'analytics' %}aria-current="page"{% endif %}
+              >
+                <span class="nav-icon" aria-hidden="true">📊</span>
+                <span>Analytics</span>
+              </a>
+              {% if analytics_actions %}
+              <button
+                class="nav-item__toggle{% if analytics_open %} is-active{% endif %}"
+                type="button"
+                data-action="toggle-nav"
+                data-target="#nav-analytics-actions"
+                aria-controls="nav-analytics-actions"
+                aria-expanded="{{ 'true' if analytics_open else 'false' }}"
+              >
+                <span class="visually-hidden">Toggle analytics actions</span>
+                <span aria-hidden="true" class="nav-toggle-icon"></span>
+              </button>
+              {% endif %}
+            </div>
+            {% if analytics_actions %}
+            <div id="nav-analytics-actions" class="nav-submenu nav-submenu--primary" {% if not analytics_open %}hidden{% endif %}>
+              {{ actions_content | safe }}
+            </div>
+            {% endif %}
+          </div>
+          {% set admin_group_open = current_admin %}
+          <div class="nav-collapsible" data-nav-collapsible>
+            <button
+              id="admin-nav-heading"
+              class="nav-collapsible__toggle{% if admin_group_open %} is-active{% endif %}"
+              type="button"
+              data-action="toggle-nav"
+              data-target="#nav-admin-group"
+              aria-controls="nav-admin-group"
+              aria-expanded="{{ 'true' if admin_group_open else 'false' }}"
+            >
+              <span class="nav-icon" aria-hidden="true">🛡️</span>
+              <span>Admin</span>
+              <span aria-hidden="true" class="nav-toggle-icon"></span>
+            </button>
+            <div id="nav-admin-group" class="nav-collapsible__content" {% if not admin_group_open %}hidden{% endif %}>
+              {% set admin_automation_actions = has_actions and actions_parent == 'admin:automation' %}
+              {% set admin_automation_open = admin_automation_actions and current_admin == 'automation' %}
+              <div class="nav-item nav-item--nested" data-nav-item>
+                <div class="nav-item__main">
+                  <a
+                    class="nav-sublink{% if current_admin == 'automation' %} is-active{% endif %}"
+                    href="{{ url_for('automation') }}"
+                    {% if current_admin == 'automation' %}aria-current="page"{% endif %}
+                  >
+                    <span class="nav-icon" aria-hidden="true">🤖</span>
+                    <span>Automation</span>
+                  </a>
+                  {% if admin_automation_actions %}
+                  <button
+                    class="nav-item__toggle{% if admin_automation_open %} is-active{% endif %}"
+                    type="button"
+                    data-action="toggle-nav"
+                    data-target="#nav-automation-actions"
+                    aria-controls="nav-automation-actions"
+                    aria-expanded="{{ 'true' if admin_automation_open else 'false' }}"
+                  >
+                    <span class="visually-hidden">Toggle automation actions</span>
+                    <span aria-hidden="true" class="nav-toggle-icon"></span>
+                  </button>
+                  {% endif %}
+                </div>
+                {% if admin_automation_actions %}
+                <div id="nav-automation-actions" class="nav-submenu nav-submenu--nested" {% if not admin_automation_open %}hidden{% endif %}>
+                  {{ actions_content | safe }}
+                </div>
+                {% endif %}
+              </div>
+              {% set admin_org_actions = has_actions and actions_parent == 'admin:organisations' %}
+              {% set admin_org_open = admin_org_actions and current_admin == 'organisations' %}
+              <div class="nav-item nav-item--nested" data-nav-item>
+                <div class="nav-item__main">
+                  <a
+                    class="nav-sublink{% if current_admin == 'organisations' %} is-active{% endif %}"
+                    href="{{ url_for('admin_organisations') }}"
+                    {% if current_admin == 'organisations' %}aria-current="page"{% endif %}
+                  >
+                    <span class="nav-icon" aria-hidden="true">🏢</span>
+                    <span>Organisations</span>
+                  </a>
+                  {% if admin_org_actions %}
+                  <button
+                    class="nav-item__toggle{% if admin_org_open %} is-active{% endif %}"
+                    type="button"
+                    data-action="toggle-nav"
+                    data-target="#nav-organisations-actions"
+                    aria-controls="nav-organisations-actions"
+                    aria-expanded="{{ 'true' if admin_org_open else 'false' }}"
+                  >
+                    <span class="visually-hidden">Toggle organisation actions</span>
+                    <span aria-hidden="true" class="nav-toggle-icon"></span>
+                  </button>
+                  {% endif %}
+                </div>
+                {% if admin_org_actions %}
+                <div id="nav-organisations-actions" class="nav-submenu nav-submenu--nested" {% if not admin_org_open %}hidden{% endif %}>
+                  {{ actions_content | safe }}
+                </div>
+                {% endif %}
+              </div>
+              {% set admin_webhook_actions = has_actions and actions_parent == 'admin:webhooks' %}
+              {% set admin_webhook_open = admin_webhook_actions and current_admin == 'webhooks' %}
+              <div class="nav-item nav-item--nested" data-nav-item>
+                <div class="nav-item__main">
+                  <a
+                    class="nav-sublink{% if current_admin == 'webhooks' %} is-active{% endif %}"
+                    href="{{ url_for('admin_webhooks') }}"
+                    {% if current_admin == 'webhooks' %}aria-current="page"{% endif %}
+                  >
+                    <span class="nav-icon" aria-hidden="true">🔁</span>
+                    <span>Webhooks</span>
+                  </a>
+                  {% if admin_webhook_actions %}
+                  <button
+                    class="nav-item__toggle{% if admin_webhook_open %} is-active{% endif %}"
+                    type="button"
+                    data-action="toggle-nav"
+                    data-target="#nav-webhook-actions"
+                    aria-controls="nav-webhook-actions"
+                    aria-expanded="{{ 'true' if admin_webhook_open else 'false' }}"
+                  >
+                    <span class="visually-hidden">Toggle webhook actions</span>
+                    <span aria-hidden="true" class="nav-toggle-icon"></span>
+                  </button>
+                  {% endif %}
+                </div>
+                {% if admin_webhook_actions %}
+                <div id="nav-webhook-actions" class="nav-submenu nav-submenu--nested" {% if not admin_webhook_open %}hidden{% endif %}>
+                  {{ actions_content | safe }}
+                </div>
+                {% endif %}
+              </div>
+              {% set admin_integration_actions = has_actions and actions_parent == 'admin:integrations' %}
+              {% set admin_integration_open = admin_integration_actions and current_admin == 'integrations' %}
+              <div class="nav-collapsible nav-collapsible--nested" data-nav-collapsible>
+                <button
+                  id="integrations-nav-heading"
+                  class="nav-collapsible__toggle{% if current_admin == 'integrations' %} is-active{% endif %}"
+                  type="button"
+                  data-action="toggle-nav"
+                  data-target="#nav-integrations-group"
+                  aria-controls="nav-integrations-group"
+                  aria-expanded="{{ 'true' if current_admin == 'integrations' else 'false' }}"
+                >
+                  <span class="nav-icon" aria-hidden="true">🌐</span>
+                  <span>Integration modules</span>
+                  <span aria-hidden="true" class="nav-toggle-icon"></span>
+                </button>
+                <div id="nav-integrations-group" class="nav-collapsible__content" {% if current_admin != 'integrations' %}hidden{% endif %}>
+                  <div class="nav-item nav-item--nested" data-nav-item>
+                    <div class="nav-item__main">
+                      <a
+                        class="nav-sublink{% if current_admin == 'integrations' and not current_integration %} is-active{% endif %}"
+                        href="{{ url_for('integrations_index') }}"
+                        {% if current_admin == 'integrations' and not current_integration %}aria-current="page"{% endif %}
+                      >
+                        <span class="nav-icon" aria-hidden="true">🔌</span>
+                        <span>Manage</span>
+                      </a>
+                      {% if admin_integration_actions %}
+                      <button
+                        class="nav-item__toggle{% if admin_integration_open %} is-active{% endif %}"
+                        type="button"
+                        data-action="toggle-nav"
+                        data-target="#nav-integrations-actions"
+                        aria-controls="nav-integrations-actions"
+                        aria-expanded="{{ 'true' if admin_integration_open else 'false' }}"
+                      >
+                        <span class="visually-hidden">Toggle integration actions</span>
+                        <span aria-hidden="true" class="nav-toggle-icon"></span>
+                      </button>
+                      {% endif %}
+                    </div>
+                    {% if admin_integration_actions %}
+                    <div id="nav-integrations-actions" class="nav-submenu nav-submenu--nested" {% if not admin_integration_open %}hidden{% endif %}>
+                      {{ actions_content | safe }}
+                    </div>
+                    {% endif %}
+                  </div>
+                  {% if integration_nav %}
+                  {% for integration in integration_nav %}
+                  <div class="nav-item nav-item--nested" data-nav-item>
+                    <a
+                      class="nav-sublink{% if current_integration == integration.slug %} is-active{% endif %}"
+                      href="{{ url_for('integration_detail', slug=integration.slug) }}"
+                      data-integration-link="{{ integration.slug }}"
+                      {% if current_integration == integration.slug %}aria-current="page"{% endif %}
+                    >
+                      <span class="nav-icon" aria-hidden="true">{{ integration.icon }}</span>
+                      <span>{{ integration.name }}</span>
+                    </a>
+                  </div>
+                  {% endfor %}
+                  {% else %}
+                  <p class="nav-empty nav-empty--nested">No integrations enabled</p>
+                  {% endif %}
+                </div>
+              </div>
+              {% set admin_maintenance_actions = has_actions and actions_parent == 'admin:maintenance' %}
+              {% set admin_maintenance_open = admin_maintenance_actions and current_admin == 'maintenance' %}
+              <div class="nav-item nav-item--nested" data-nav-item>
+                <div class="nav-item__main">
+                  <a
+                    class="nav-sublink{% if current_admin == 'maintenance' %} is-active{% endif %}"
+                    href="{{ url_for('maintenance') }}"
+                    {% if current_admin == 'maintenance' %}aria-current="page"{% endif %}
+                  >
+                    <span class="nav-icon" aria-hidden="true">🛠️</span>
+                    <span>Maintenance</span>
+                  </a>
+                  {% if admin_maintenance_actions %}
+                  <button
+                    class="nav-item__toggle{% if admin_maintenance_open %} is-active{% endif %}"
+                    type="button"
+                    data-action="toggle-nav"
+                    data-target="#nav-maintenance-actions"
+                    aria-controls="nav-maintenance-actions"
+                    aria-expanded="{{ 'true' if admin_maintenance_open else 'false' }}"
+                  >
+                    <span class="visually-hidden">Toggle maintenance actions</span>
+                    <span aria-hidden="true" class="nav-toggle-icon"></span>
+                  </button>
+                  {% endif %}
+                </div>
+                {% if admin_maintenance_actions %}
+                <div id="nav-maintenance-actions" class="nav-submenu nav-submenu--nested" {% if not admin_maintenance_open %}hidden{% endif %}>
+                  {{ actions_content | safe }}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% set docs_group_open = current_nav == 'docs' %}
+          <div class="nav-collapsible" data-nav-collapsible>
+            <button
+              id="docs-nav-heading"
+              class="nav-collapsible__toggle{% if docs_group_open %} is-active{% endif %}"
+              type="button"
+              data-action="toggle-nav"
+              data-target="#nav-docs-group"
+              aria-controls="nav-docs-group"
+              aria-expanded="{{ 'true' if docs_group_open else 'false' }}"
+            >
               <span class="nav-icon" aria-hidden="true">📚</span>
               <span>Docs</span>
-            </p>
-            <a
-              class="nav-sublink{% if current_docs == 'api_docs' %} is-active{% endif %}"
-              href="{{ url_for('admin_api_docs') }}"
-              {% if current_docs == 'api_docs' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">📘</span>
-              <span>API Docs</span>
-            </a>
-            <a
-              class="nav-sublink{% if current_docs == 'ticket_variables' %} is-active{% endif %}"
-              href="{{ url_for('docs_ticket_variables') }}"
-              {% if current_docs == 'ticket_variables' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">🧾</span>
-              <span>Ticket Variables</span>
-            </a>
-            <a
-              class="nav-sublink{% if current_docs == 'https_post_variables' %} is-active{% endif %}"
-              href="{{ url_for('docs_https_post_variables') }}"
-              {% if current_docs == 'https_post_variables' %}aria-current="page"{% endif %}
-            >
-              <span class="nav-icon" aria-hidden="true">💬</span>
-              <span>HTTPS POST Variables</span>
-            </a>
+              <span aria-hidden="true" class="nav-toggle-icon"></span>
+            </button>
+            <div id="nav-docs-group" class="nav-collapsible__content" {% if not docs_group_open %}hidden{% endif %}>
+              <a
+                class="nav-sublink{% if current_docs == 'api_docs' %} is-active{% endif %}"
+                href="{{ url_for('admin_api_docs') }}"
+                {% if current_docs == 'api_docs' %}aria-current="page"{% endif %}
+              >
+                <span class="nav-icon" aria-hidden="true">📘</span>
+                <span>API Docs</span>
+              </a>
+              <a
+                class="nav-sublink{% if current_docs == 'ticket_variables' %} is-active{% endif %}"
+                href="{{ url_for('docs_ticket_variables') }}"
+                {% if current_docs == 'ticket_variables' %}aria-current="page"{% endif %}
+              >
+                <span class="nav-icon" aria-hidden="true">🧾</span>
+                <span>Ticket Variables</span>
+              </a>
+              <a
+                class="nav-sublink{% if current_docs == 'https_post_variables' %} is-active{% endif %}"
+                href="{{ url_for('docs_https_post_variables') }}"
+                {% if current_docs == 'https_post_variables' %}aria-current="page"{% endif %}
+              >
+                <span class="nav-icon" aria-hidden="true">💬</span>
+                <span>HTTPS POST Variables</span>
+              </a>
+            </div>
           </div>
         </nav>
+        <div class="sidebar-controls" role="region" aria-label="User controls">
+          <button class="sidebar-control" type="button" data-action="toggle-theme">
+            <span class="sidebar-control__icon" aria-hidden="true">🌓</span>
+            <span>Toggle theme</span>
+          </button>
+          <div class="profile-chip profile-chip--sidebar" role="presentation">
+            <span class="profile-initials">SA</span>
+            <div class="profile-details">
+              <span class="profile-name">Super Admin</span>
+              <span class="profile-role">System administrator</span>
+            </div>
+          </div>
+        </div>
         <footer class="sidebar-footer">
           <p>&copy; {{ app_name }} {{ current_year }}</p>
         </footer>
@@ -181,16 +426,6 @@
               {% if page_subtitle %}
               <p class="subtitle">{{ page_subtitle }}</p>
               {% endif %}
-            </div>
-          </div>
-          <div class="header-actions">
-            {% block header_actions %}{% endblock %}
-            <button class="icon-button" type="button" data-action="toggle-theme" aria-label="Toggle theme">
-              <span class="icon">🌓</span>
-            </button>
-            <div class="profile-chip" role="button" tabindex="0">
-              <span class="profile-initials">SA</span>
-              <span class="profile-name">Super Admin</span>
             </div>
           </div>
         </header>

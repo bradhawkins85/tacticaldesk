@@ -1,17 +1,18 @@
 {% extends "base.html" %}
-{% block header_actions %}
-<div class="ticket-header-actions">
-  <label class="ticket-sort" for="ticket-sort-select">
-    <span class="ticket-sort__label">Sort</span>
-    <select id="ticket-sort-select" name="ticket-sort" class="ticket-sort__select">
+{% set sidebar_actions_parent = 'tickets' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <label class="nav-field" for="ticket-sort-select">
+    <span class="nav-field__label">Sort</span>
+    <select id="ticket-sort-select" name="ticket-sort" class="nav-field__control">
       {% for option in ticket_sort_options %}
       <option value="{{ option.value }}"{% if loop.first %} selected{% endif %}>{{ option.label }}</option>
       {% endfor %}
     </select>
   </label>
-  <label class="ticket-sort" for="asset-visibility-select">
-    <span class="ticket-sort__label">Assets visibility</span>
-    <select id="asset-visibility-select" name="asset-visibility" class="ticket-sort__select">
+  <label class="nav-field" for="asset-visibility-select">
+    <span class="nav-field__label">Assets visibility</span>
+    <select id="asset-visibility-select" name="asset-visibility" class="nav-field__control">
       {% for option in asset_view_options %}
       <option value="{{ option.value }}"{% if loop.first %} selected{% endif %}>{{ option.label }}</option>
       {% endfor %}
@@ -20,7 +21,7 @@
   <button class="primary-button" type="button" data-action="ticket-create-open">New ticket</button>
   <button class="secondary-button" type="button" data-action="ticket-refresh">Refresh</button>
 </div>
-{% endblock %}
+{% endset %}
 {% block content %}
 <div class="ticket-workspace" role="region" aria-label="Ticket workspace">
   <aside class="ticket-sidebar" aria-label="Ticket filters">

@@ -1,8 +1,11 @@
 {% extends "base.html" %}
-{% block header_actions %}
-<button class="secondary-button" type="button" data-action="export-analytics">Export</button>
-<button class="secondary-button" type="button" data-action="schedule-report">Schedule report</button>
-{% endblock %}
+{% set sidebar_actions_parent = 'analytics' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <button class="secondary-button" type="button" data-action="export-analytics">Export analytics</button>
+  <button class="secondary-button" type="button" data-action="schedule-report">Schedule report</button>
+</div>
+{% endset %}
 {% block content %}
 <section class="content-section">
   <header class="section-header">

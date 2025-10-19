@@ -1,7 +1,10 @@
 {% extends "base.html" %}
-{% block header_actions %}
-<a class="secondary-button" href="{{ url_for('automation') }}">Back to automations</a>
-{% endblock %}
+{% set sidebar_actions_parent = 'admin:automation' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <a class="secondary-button" href="{{ url_for('automation') }}">Back to automations</a>
+</div>
+{% endset %}
 {% block content %}
 <section
   class="panel automation-editor"

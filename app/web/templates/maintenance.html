@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 
-{% block header_actions %}
+{% set sidebar_actions_parent = 'admin:maintenance' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
   <span class="status-pill {% if installers_enabled %}status-pill--success{% else %}status-pill--warning{% endif %}">
     {% if installers_enabled %}Installers enabled{% else %}Installers locked{% endif %}
   </span>
-{% endblock %}
+</div>
+{% endset %}
 
 {% block content %}
   <section class="panel">
