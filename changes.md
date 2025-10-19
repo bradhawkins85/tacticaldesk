@@ -91,3 +91,4 @@
 - 2025-10-19T09:41:53Z Feature: Rebuilt the mobile experience into an installable PWA with responsive sidebar controls, bottom navigation, and offline-ready static caching.
 - 2025-10-19T10:05:00Z Fix: Reworked PWA asset strategy to reuse existing branding icons and refresh service worker caching.
 - 2025-10-19T10:24:27Z Fix: Restored the mobile more menu by keeping the sidebar available and sliding it into view on small screens.
+- 2025-10-19T11:15:00Z Fix: Corrected mobile layout overflow by constraining shell and table widths to the device viewport.
