@@ -23,6 +23,169 @@
     applyTheme(currentTheme === "dark" ? "light" : "dark");
   });
 
+  const sidebar = document.querySelector("[data-role='sidebar']");
+  const sidebarOverlay = document.querySelector("[data-role='sidebar-overlay']");
+  const openSidebarButtons = Array.from(
+    document.querySelectorAll("[data-action='open-sidebar']")
+  );
+  const closeSidebarButtons = Array.from(
+    document.querySelectorAll("[data-action='close-sidebar']")
+  );
+  const focusableSelectors =
+    "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+  const mobileSidebarQuery =
+    typeof window.matchMedia === "function"
+      ? window.matchMedia("(max-width: 1024px)")
+      : null;
+  let sidebarLastTrigger = null;
+
+  function setSidebarExpanded(expanded) {
+    const value = expanded ? "true" : "false";
+    openSidebarButtons.forEach((button) => button.setAttribute("aria-expanded", value));
+    if (sidebarOverlay) {
+      sidebarOverlay.setAttribute("aria-hidden", expanded ? "false" : "true");
+    }
+  }
+
+  function isMobileSidebar() {
+    return Boolean(mobileSidebarQuery?.matches);
+  }
+
+  function syncSidebarForViewport() {
+    if (!sidebar) {
+      return;
+    }
+    if (isMobileSidebar()) {
+      const isOpen = document.body.classList.contains("sidebar-open");
+      sidebar.setAttribute("aria-hidden", isOpen ? "false" : "true");
+      if (!isOpen) {
+        setSidebarExpanded(false);
+      }
+    } else {
+      sidebar.removeAttribute("aria-hidden");
+      document.body.classList.remove("sidebar-open");
+      setSidebarExpanded(false);
+    }
+  }
+
+  function focusFirstSidebarControl() {
+    if (!sidebar) {
+      return;
+    }
+    const focusable = Array.from(sidebar.querySelectorAll(focusableSelectors)).filter((element) => {
+      if (element.hasAttribute("disabled")) {
+        return false;
+      }
+      if (element.getAttribute("aria-hidden") === "true") {
+        return false;
+      }
+      const rects = element.getClientRects();
+      return rects.length > 0;
+    });
+    const target = focusable[0] || sidebar;
+    if (typeof target.focus === "function") {
+      target.focus({ preventScroll: true });
+    }
+  }
+
+  function openSidebar() {
+    if (!sidebar) {
+      return;
+    }
+    sidebarLastTrigger = document.activeElement;
+    document.body.classList.add("sidebar-open");
+    setSidebarExpanded(true);
+    sidebar.setAttribute("aria-hidden", "false");
+    focusFirstSidebarControl();
+  }
+
+  function closeSidebar({ restoreFocus = true } = {}) {
+    if (!sidebar) {
+      return;
+    }
+    document.body.classList.remove("sidebar-open");
+    setSidebarExpanded(false);
+    if (isMobileSidebar()) {
+      sidebar.setAttribute("aria-hidden", "true");
+    } else {
+      sidebar.removeAttribute("aria-hidden");
+    }
+    if (restoreFocus && sidebarLastTrigger && typeof sidebarLastTrigger.focus === "function") {
+      sidebarLastTrigger.focus({ preventScroll: true });
+    }
+  }
+
+  openSidebarButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      openSidebar();
+    });
+  });
+
+  closeSidebarButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      closeSidebar();
+    });
+  });
+
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", () => {
+      closeSidebar();
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.body.classList.contains("sidebar-open")) {
+      event.preventDefault();
+      closeSidebar();
+    }
+  });
+
+  if (sidebar) {
+    sidebar.addEventListener("keydown", (event) => {
+      if (event.key !== "Tab" || !document.body.classList.contains("sidebar-open")) {
+        return;
+      }
+      const focusable = Array.from(sidebar.querySelectorAll(focusableSelectors)).filter((element) => {
+        if (element.hasAttribute("disabled")) {
+          return false;
+        }
+        if (element.getAttribute("aria-hidden") === "true") {
+          return false;
+        }
+        const rects = element.getClientRects();
+        return rects.length > 0;
+      });
+      if (focusable.length === 0) {
+        event.preventDefault();
+        sidebar.focus({ preventScroll: true });
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+  }
+
+  const handleViewportChange = () => {
+    syncSidebarForViewport();
+  };
+
+  if (mobileSidebarQuery) {
+    if (typeof mobileSidebarQuery.addEventListener === "function") {
+      mobileSidebarQuery.addEventListener("change", handleViewportChange);
+    } else if (typeof mobileSidebarQuery.addListener === "function") {
+      mobileSidebarQuery.addListener(handleViewportChange);
+    }
+  }
+
+  syncSidebarForViewport();
+
   async function submitJsonForm(form, url) {
     const messageEl = form.querySelector("[data-role='form-message']");
     if (messageEl) {
@@ -2926,4 +3089,12 @@
       }
     });
   });
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("/static/js/service-worker.js")
+        .catch((error) => console.error("Service worker registration failed", error));
+    });
+  }
 })();
