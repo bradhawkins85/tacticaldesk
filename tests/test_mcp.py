@@ -7,13 +7,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.core.db import dispose_engine
 from app.core.tickets import ticket_store
 from app.main import app
 
 
 @pytest.fixture
-def mcp_client(monkeypatch) -> Iterator[Tuple[TestClient, str]]:
+def mcp_client(monkeypatch, tmp_path) -> Iterator[Tuple[TestClient, str]]:
     api_key = "test-mcp-key"
+    db_path = tmp_path / "mcp.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{db_path}")
+    asyncio.run(dispose_engine())
     get_settings.cache_clear()
     monkeypatch.setenv("TACTICAL_DESK_MCP_API_KEY", api_key)
     asyncio.run(ticket_store.reset())
@@ -22,6 +26,8 @@ def mcp_client(monkeypatch) -> Iterator[Tuple[TestClient, str]]:
     asyncio.run(ticket_store.reset())
     get_settings.cache_clear()
     monkeypatch.delenv("TACTICAL_DESK_MCP_API_KEY", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    asyncio.run(dispose_engine())
 
 
 def test_mcp_requires_configuration(monkeypatch) -> None:
