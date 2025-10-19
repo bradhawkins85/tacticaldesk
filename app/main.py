@@ -24,6 +24,7 @@ from app.api.routers import auth as auth_router
 from app.api.routers import automations as automations_router
 from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
+from app.api.routers import mcp as mcp_router
 from app.api.routers import organizations as organizations_router
 from app.api.routers import webhooks as webhooks_router
 from app.core.automations import (
@@ -58,6 +59,7 @@ from app.schemas import (
     WebhookStatus,
 )
 from app.services import dispatch_ticket_event
+from app.services.ticket_data import build_ticket_records, fetch_ticket_records
 from pydantic import ValidationError
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -87,6 +89,7 @@ app.include_router(integrations_router.router)
 app.include_router(maintenance_router.router)
 app.include_router(organizations_router.router)
 app.include_router(webhooks_router.router)
+app.include_router(mcp_router.router)
 
 
 @app.get("/api/docs", include_in_schema=False, name="api_docs_swagger_ui")
@@ -285,11 +288,6 @@ def describe_age(delta: timedelta) -> str:
     if hours >= 1:
         return f"{hours} hour{'s' if hours != 1 else ''} ago"
     return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-
-
-async def _fetch_ticket_records(now_utc: datetime) -> list[dict[str, object]]:
-    seed_tickets = build_ticket_records(now_utc)
-    return await ticket_store.apply_overrides(seed_tickets)
 
 
 def _enrich_ticket_record(
@@ -660,249 +658,6 @@ async def _prepare_ticket_detail_context(
     }
 
 
-def build_ticket_records(now_utc: datetime) -> list[dict[str, object]]:
-    seed_tickets: list[dict[str, object]] = [
-        {
-            "id": "TD-4821",
-            "subject": "Query for Opensource Project",
-            "customer": "Quest Logistics",
-            "customer_email": "quest.labs@example.com",
-            "status": "Open",
-            "priority": "High",
-            "team": "Tier 1",
-            "category": "Support",
-            "assignment": "Unassigned",
-            "queue": "Critical response",
-            "channel": "Email",
-            "last_reply_dt": now_utc - timedelta(days=2, hours=6),
-            "labels": ["SLA watch"],
-            "is_starred": True,
-            "assets_visible": True,
-            "created_at_dt": now_utc - timedelta(days=3, hours=2),
-            "due_at_dt": now_utc + timedelta(hours=6),
-            "summary": "Investigating packet loss impacting the VPN tunnel between HQ and warehouse sites.",
-            "history": [
-                {
-                    "actor": "Quest Logistics · Alicia Patel",
-                    "direction": "inbound",
-                    "channel": "Email",
-                    "summary": "Client reports recurring VPN tunnel flaps on Cisco ASA.",
-                    "body": (
-                        "Hi Tactical Desk team,\n\n"
-                        "We're continuing to see the HQ ↔ warehouse VPN tunnel drop every few hours. "
-                        "The ASA event log shows keepalive failures. Can you confirm the monitoring profile "
-                        "is still applied?"
-                    ),
-                    "timestamp_dt": now_utc - timedelta(days=2, hours=6),
-                },
-                {
-                    "actor": "Super Admin",
-                    "direction": "outbound",
-                    "channel": "Portal reply",
-                    "summary": "Requested logs and scheduled joint troubleshooting session.",
-                    "body": (
-                        "Thanks Alicia, we're correlating the drops with ISP latency spikes. "
-                        "Please upload the latest ASA tech support bundle. We also reserved a remote session "
-                        "for tomorrow 09:00 AM your time."
-                    ),
-                    "timestamp_dt": now_utc - timedelta(days=1, hours=18),
-                },
-                {
-                    "actor": "Quest Logistics · Alicia Patel",
-                    "direction": "inbound",
-                    "channel": "Portal reply",
-                    "summary": "Uploaded diagnostics and confirmed maintenance window availability.",
-                    "body": (
-                        "Bundle uploaded here: https://share.example.com/asa-bundle.zip\n"
-                        "Confirmed maintenance window tomorrow 09:00 AM."
-                    ),
-                    "timestamp_dt": now_utc - timedelta(days=1, hours=3),
-                },
-            ],
-            "watchers": ["network.ops@example.com", "tier1@tacticaldesk.example"],
-        },
-        {
-            "id": "TD-4820",
-            "subject": "Welcome to U Desk",
-            "customer": "Demo Customer",
-            "customer_email": "customer@demo.com",
-            "status": "Pending",
-            "priority": "Medium",
-            "team": "Customer success",
-            "category": "Onboarding",
-            "assignment": "Shared",
-            "queue": "Service requests",
-            "channel": "Portal",
-            "last_reply_dt": now_utc - timedelta(days=3, hours=4),
-            "labels": ["First response"],
-            "is_starred": False,
-            "assets_visible": False,
-            "created_at_dt": now_utc - timedelta(days=4, hours=5),
-            "due_at_dt": now_utc + timedelta(days=1, hours=2),
-            "summary": "Coordinating the onboarding runbook and provisioning initial workspace access.",
-            "history": [
-                {
-                    "actor": "Demo Customer · Maria Gomez",
-                    "direction": "inbound",
-                    "channel": "Portal reply",
-                    "summary": "Shared the user list and SSO metadata for onboarding.",
-                    "body": (
-                        "Attached the CSV with our first 25 agents. The Azure AD SAML metadata is also uploaded. "
-                        "Let us know once SSO is staged so we can test."
-                    ),
-                    "timestamp_dt": now_utc - timedelta(days=3, hours=4),
-                },
-                {
-                    "actor": "Customer Success · Liam Chen",
-                    "direction": "outbound",
-                    "channel": "Email",
-                    "summary": "Confirmed receipt and outlined deployment milestones.",
-                    "body": (
-                        "Thanks Maria! We'll import the agent roster today and target SSO testing by Friday. "
-                        "You'll receive calendar invites for the onboarding workshops shortly."
-                    ),
-                    "timestamp_dt": now_utc - timedelta(days=2, hours=20),
-                },
-            ],
-            "watchers": ["onboarding@tacticaldesk.example"],
-        },
-        {
-            "id": "TD-4819",
-            "subject": "MFA reset follow-up",
-            "customer": "Northwind IT",
-            "customer_email": "support@northwind.example",
-            "status": "Answered",
-            "priority": "Low",
-            "team": "Tier 2",
-            "category": "Security",
-            "assignment": "My tickets",
-            "queue": "Critical response",
-            "channel": "Chat",
-            "last_reply_dt": now_utc - timedelta(hours=5, minutes=30),
-            "labels": ["Security"],
-            "is_starred": False,
-            "assets_visible": True,
-            "created_at_dt": now_utc - timedelta(days=1, hours=2),
-            "due_at_dt": now_utc + timedelta(hours=10),
-            "summary": "Verifying conditional access baseline after forced MFA reset for executive accounts.",
-            "history": [
-                {
-                    "actor": "Northwind IT · Calvin Shaw",
-                    "direction": "inbound",
-                    "channel": "Chat",
-                    "summary": "Requested confirmation the emergency access accounts were disabled post-incident.",
-                    "body": (
-                        "We reset 14 exec accounts last night. Can you double-check the emergency accounts are disabled "
-                        "again and provide an audit extract?"
-                    ),
-                    "timestamp_dt": now_utc - timedelta(hours=5, minutes=30),
-                },
-                {
-                    "actor": "Tier 2 · Priya Desai",
-                    "direction": "outbound",
-                    "channel": "Chat",
-                    "summary": "Shared Azure AD audit log confirming emergency access removal.",
-                    "body": "Export attached and emergency accounts back to disabled state.",
-                    "timestamp_dt": now_utc - timedelta(hours=4, minutes=55),
-                },
-            ],
-            "watchers": ["security@tacticaldesk.example"],
-        },
-        {
-            "id": "TD-4818",
-            "subject": "Quarterly backup validation",
-            "customer": "Axcelerate",
-            "customer_email": "ops@axcelerate.example",
-            "status": "Resolved",
-            "priority": "Medium",
-            "team": "Automation",
-            "category": "Infrastructure",
-            "assignment": "Shared",
-            "queue": "Automation handoff",
-            "channel": "Workflow",
-            "last_reply_dt": now_utc - timedelta(days=1, hours=1),
-            "labels": ["Automation"],
-            "is_starred": False,
-            "assets_visible": True,
-            "created_at_dt": now_utc - timedelta(days=8),
-            "due_at_dt": now_utc - timedelta(hours=2),
-            "summary": "Completed validation cycle for Axcelerate production backups across regions.",
-            "history": [
-                {
-                    "actor": "Automation Bot",
-                    "direction": "system",
-                    "channel": "Workflow",
-                    "summary": "Validation workflow executed across 12 backup sets.",
-                    "body": "All restore drills completed successfully. Reports archived in /reports/q1.",
-                    "timestamp_dt": now_utc - timedelta(days=1, hours=1),
-                },
-            ],
-            "watchers": ["automation@tacticaldesk.example"],
-        },
-        {
-            "id": "TD-4817",
-            "subject": "Password spray detected",
-            "customer": "SyncroRMM",
-            "customer_email": "soc@syncro.example",
-            "status": "Closed",
-            "priority": "High",
-            "team": "Incident response",
-            "category": "Security",
-            "assignment": "Shared",
-            "queue": "Critical response",
-            "channel": "Automation",
-            "last_reply_dt": now_utc - timedelta(days=6, hours=2),
-            "labels": ["Post incident"],
-            "is_starred": False,
-            "assets_visible": False,
-            "created_at_dt": now_utc - timedelta(days=6, hours=18),
-            "due_at_dt": now_utc - timedelta(days=4),
-            "summary": "Closed major incident after coordinated response to global password spray alerts.",
-            "history": [
-                {
-                    "actor": "Automation Bot",
-                    "direction": "system",
-                    "channel": "Automation",
-                    "summary": "Webhook alert from SIEM acknowledging containment.",
-                    "body": "Incident runbook completed. Accounts rotated and IP ranges blocked.",
-                    "timestamp_dt": now_utc - timedelta(days=6, hours=2),
-                },
-            ],
-            "watchers": ["soc@syncro.example", "irlead@tacticaldesk.example"],
-        },
-        {
-            "id": "TD-4816",
-            "subject": "Spam newsletter opt-out",
-            "customer": "Marketing",
-            "customer_email": "noreply@marketing.example",
-            "status": "Spam",
-            "priority": "Low",
-            "team": "Triage",
-            "category": "Spam",
-            "assignment": "Trashed",
-            "queue": "Inbox cleanup",
-            "channel": "Email",
-            "last_reply_dt": now_utc - timedelta(days=14, hours=5),
-            "labels": [],
-            "is_starred": False,
-            "assets_visible": False,
-            "created_at_dt": now_utc - timedelta(days=14, hours=6),
-            "due_at_dt": None,
-            "summary": "Junk marketing request automatically classified and suppressed.",
-            "history": [
-                {
-                    "actor": "Filter Engine",
-                    "direction": "system",
-                    "channel": "Email",
-                    "summary": "Message quarantined as spam per policy.",
-                    "body": "No analyst action required.",
-                    "timestamp_dt": now_utc - timedelta(days=14, hours=5),
-                },
-            ],
-            "watchers": [],
-        },
-    ]
-    return seed_tickets
 
 
 DEFAULT_INTEGRATION_ICON = "🔌"
@@ -1242,7 +997,7 @@ async def tickets_view(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
-    seed_tickets = await _fetch_ticket_records(now_utc)
+    seed_tickets = await fetch_ticket_records(now_utc)
     open_modal = request.query_params.get("new") == "1"
     context = await _build_ticket_listing_context(
         request=request,
@@ -1293,7 +1048,7 @@ async def ticket_create_view(
                 content={"detail": detail_message, "errors": error_messages},
             )
 
-        seed_tickets = await _fetch_ticket_records(now_utc)
+        seed_tickets = await fetch_ticket_records(now_utc)
         context = await _build_ticket_listing_context(
             request=request,
             session=session,
@@ -1309,7 +1064,7 @@ async def ticket_create_view(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
-    seed_tickets = await _fetch_ticket_records(now_utc)
+    seed_tickets = await fetch_ticket_records(now_utc)
     existing_ids = [ticket["id"] for ticket in seed_tickets]
     created_ticket = await ticket_store.create_ticket(
         **payload.dict(),
