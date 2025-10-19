@@ -1937,20 +1937,12 @@ body.sidebar-open .app-sidebar-overlay {
 }
 
 @media (max-width: 768px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .app-sidebar {
-    display: none;
-  }
-
   .app-header {
-    padding: 0 16px;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   }
 
   .app-main {
-    padding: 16px;
+    padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
   }
 
   .ticket-table {
@@ -1970,6 +1962,7 @@ body.sidebar-open .app-sidebar-overlay {
     min-width: 100%;
     max-width: 100%;
   }
+}
 
   .table-wrapper,
   .table-container {
