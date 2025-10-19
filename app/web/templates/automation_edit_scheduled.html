@@ -6,14 +6,15 @@
 <section
   class="panel automation-editor"
   data-role="automation-edit-page"
-  data-automation-id="{{ automation.id }}"
+  data-automation-id="{{ automation.id or '' }}"
   data-automation-kind="{{ automation.kind }}"
   data-return-url="{{ url_for('automation') }}"
+  data-mode="{{ 'create' if is_new|default(False) else 'edit' }}"
 >
   <header class="panel__header">
     <div class="panel__intro">
       <span class="automation-editor__kind">Scheduled automation</span>
-      <h2 class="panel__title">{{ automation.name }}</h2>
+      <h2 class="panel__title">{{ automation.name or 'New scheduled automation' }}</h2>
       <p class="panel__subtitle">
         Configure cron-based execution windows and upcoming run history for this automation.
       </p>
@@ -282,7 +283,9 @@
       <div class="automation-editor__message" data-role="automation-message" role="status" aria-live="polite"></div>
       <div class="automation-editor__actions">
         <a class="secondary-button" href="{{ url_for('automation') }}">Cancel</a>
-        <button class="primary-button" type="submit" data-role="automation-submit">Save changes</button>
+        <button class="primary-button" type="submit" data-role="automation-submit">
+          {{ 'Create automation' if is_new|default(False) else 'Save changes' }}
+        </button>
       </div>
     </form>
   </div>

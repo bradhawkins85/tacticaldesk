@@ -62,6 +62,48 @@ def test_seeded_automations_visible_in_api_and_ui():
         assert "Incident escalation" in html
 
 
+def test_create_event_automation_via_api_and_ui():
+    with TestClient(app) as client:
+        payload = {
+            "name": "Endpoint isolation responder",
+            "description": "Escalate and notify when isolation automation stalls.",
+            "playbook": "Security operations",
+            "kind": "event",
+            "trigger": "Ticket Created",
+            "status": "Active",
+            "ticket_actions": [
+                {"action": "add-public-comment", "value": "Automated notification sent."}
+            ],
+        }
+
+        response = client.post("/api/automations", json=payload)
+        assert response.status_code == 201
+        body = response.json()
+        assert body["name"] == payload["name"]
+        assert body["kind"] == "event"
+        automation_id = body["id"]
+
+        ui_response = client.get(f"/automation/event/{automation_id}")
+        assert ui_response.status_code == 200
+        html = ui_response.text
+        assert payload["name"] in html
+        assert "Automated notification" in html
+
+
+def test_create_scheduled_automation_requires_cron():
+    with TestClient(app) as client:
+        payload = {
+            "name": "Daily maintenance sweep",
+            "description": "Ensure patch window compliance cadence exists.",
+            "playbook": "Operations",
+            "kind": "scheduled",
+        }
+
+        response = client.post("/api/automations", json=payload)
+        assert response.status_code == 400
+        assert "Cron" in response.json().get("detail", "")
+
+
 def test_update_scheduled_automation():
     with TestClient(app) as client:
         scheduled = client.get("/api/automations", params={"kind": "scheduled"})

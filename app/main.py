@@ -26,6 +26,7 @@ from app.api.routers import integrations as integrations_router
 from app.api.routers import maintenance as maintenance_router
 from app.api.routers import mcp as mcp_router
 from app.api.routers import organizations as organizations_router
+from app.api.routers import tickets as tickets_router
 from app.api.routers import webhooks as webhooks_router
 from app.core.automations import (
     EVENT_AUTOMATION_ACTIONS,
@@ -59,7 +60,12 @@ from app.schemas import (
     WebhookStatus,
 )
 from app.services import dispatch_ticket_event
-from app.services.ticket_data import build_ticket_records, fetch_ticket_records
+from app.services.ticket_data import (
+    build_ticket_records,
+    enrich_ticket_record,
+    fetch_ticket_records,
+    slugify_label,
+)
 from pydantic import ValidationError
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -90,6 +96,7 @@ app.include_router(maintenance_router.router)
 app.include_router(organizations_router.router)
 app.include_router(webhooks_router.router)
 app.include_router(mcp_router.router)
+app.include_router(tickets_router.router)
 
 
 @app.get("/api/docs", include_in_schema=False, name="api_docs_swagger_ui")
@@ -109,11 +116,6 @@ async def api_docs_swagger_ui(request: Request) -> HTMLResponse:
 )
 async def swagger_ui_redirect() -> HTMLResponse:
     return get_swagger_ui_oauth2_redirect_html()
-
-
-def slugify(value: str) -> str:
-    tokens = re.findall(r"[a-z0-9]+", value.lower())
-    return "-".join(tokens) or "general"
 
 
 DEFAULT_AUTOMATION_OUTPUT_SELECTOR = "#automation-update-output"
@@ -245,6 +247,36 @@ def _automation_to_view_model(automation: Automation) -> dict[str, object]:
     }
 
 
+def _empty_automation_view(kind: str) -> dict[str, object]:
+    is_event = kind == "event"
+    default_trigger = "Ticket Created" if is_event else None
+    default_trigger_display = default_trigger or "—"
+    return {
+        "id": "",
+        "name": "",
+        "description": "",
+        "playbook": "",
+        "kind": kind,
+        "cron_expression": "" if kind == "scheduled" else None,
+        "trigger": default_trigger,
+        "trigger_display": default_trigger_display,
+        "trigger_sort": "",
+        "trigger_filters": None,
+        "status": "",
+        "next_run_iso": "",
+        "last_run_iso": "",
+        "last_trigger_iso": "",
+        "ticket_actions": [],
+        "action": None,
+        "action_label": None,
+        "action_endpoint": None,
+        "action_output_selector": DEFAULT_AUTOMATION_OUTPUT_SELECTOR,
+        "manual_run_endpoint": None,
+        "delete_endpoint": None,
+        "supports_manual_run": kind == "scheduled",
+    }
+
+
 def _derive_ticket_update_event_type(
     ticket_before: dict[str, object], ticket_after: dict[str, object]
 ) -> str:
@@ -271,81 +303,6 @@ async def _load_automation(
     return automation
 
 
-def describe_age(delta: timedelta) -> str:
-    total_seconds = int(delta.total_seconds())
-    if total_seconds <= 0:
-        return "Just now"
-    minutes = total_seconds // 60
-    if minutes < 1:
-        return "Less than a minute ago"
-    hours = minutes // 60
-    days = hours // 24
-    weeks = days // 7
-    if weeks >= 1:
-        return f"{weeks} week{'s' if weeks != 1 else ''} ago"
-    if days >= 1:
-        return f"{days} day{'s' if days != 1 else ''} ago"
-    if hours >= 1:
-        return f"{hours} hour{'s' if hours != 1 else ''} ago"
-    return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-
-
-def _enrich_ticket_record(
-    ticket: dict[str, object], now_utc: datetime
-) -> dict[str, object]:
-    base = dict(ticket)
-    last_reply_dt = base.get("last_reply_dt")
-    if isinstance(last_reply_dt, datetime):
-        if last_reply_dt.tzinfo is None:
-            last_reply_dt = last_reply_dt.replace(tzinfo=timezone.utc)
-    else:
-        last_reply_dt = now_utc
-    base["last_reply_dt"] = last_reply_dt
-    last_reply_iso = (
-        last_reply_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-    )
-    age_delta = now_utc - last_reply_dt
-
-    status_value = str(base.get("status", ""))
-    priority_value = str(base.get("priority", ""))
-    assignment_value = str(base.get("assignment", ""))
-    queue_value = str(base.get("queue", ""))
-    team_value = str(base.get("team", ""))
-    category_value = str(base.get("category", ""))
-
-    filter_tokens = {
-        "all",
-        f"status-{slugify(status_value)}",
-        f"priority-{slugify(priority_value)}",
-        f"assignment-{slugify(assignment_value)}",
-        f"queue-{slugify(queue_value)}",
-        f"team-{slugify(team_value)}",
-        f"category-{slugify(category_value)}",
-    }
-    if base.get("is_starred"):
-        filter_tokens.add("flagged")
-    if base.get("assets_visible"):
-        filter_tokens.add("assets-visible")
-
-    labels = base.get("labels") or []
-    if not isinstance(labels, list):
-        labels = []
-    base["labels"] = labels
-    if "channel" not in base:
-        base["channel"] = "Portal"
-
-    enriched = {
-        **base,
-        "last_reply_iso": last_reply_iso,
-        "age_display": describe_age(age_delta),
-        "filter_tokens": sorted(filter_tokens),
-        "status_token": slugify(status_value),
-        "priority_token": slugify(priority_value),
-        "assignment_token": slugify(assignment_value),
-    }
-    return enriched
-
-
 async def _build_ticket_listing_context(
     *,
     request: Request,
@@ -362,7 +319,7 @@ async def _build_ticket_listing_context(
 
     enriched_tickets: list[dict[str, object]] = []
     for ticket in tickets_raw:
-        enriched = _enrich_ticket_record(ticket, now_utc)
+        enriched = enrich_ticket_record(ticket, now_utc)
         enriched_tickets.append(enriched)
         status_counter.update([str(enriched.get("status", ""))])
         assignment_counter.update([str(enriched.get("assignment", ""))])
@@ -393,7 +350,12 @@ async def _build_ticket_listing_context(
         {
             "title": "Queues",
             "filters": [
-                {"key": f"queue-{slugify(name)}", "label": name, "icon": "🗂️", "count": queue_counter.get(name, 0)}
+                {
+                    "key": f"queue-{slugify_label(name)}",
+                    "label": name,
+                    "icon": "🗂️",
+                    "count": queue_counter.get(name, 0),
+                }
                 for name in sorted(name for name in queue_counter if name)
             ],
         },
@@ -1070,7 +1032,7 @@ async def ticket_create_view(
         **payload.dict(),
         existing_ids=existing_ids,
     )
-    enriched_ticket = _enrich_ticket_record(created_ticket, now_utc)
+    enriched_ticket = enrich_ticket_record(created_ticket, now_utc)
 
     await automation_dispatcher.dispatch(
         event_type="Ticket Created",
@@ -1363,6 +1325,69 @@ async def automation_view(
     return templates.TemplateResponse("automation.html", context)
 
 
+@app.get(
+    "/automation/scheduled/new",
+    response_class=HTMLResponse,
+    name="automation_create_scheduled",
+)
+async def automation_create_scheduled_view(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    automation_view = _empty_automation_view("scheduled")
+    runbook_labels = await _list_runbook_labels(session)
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Create scheduled automation",
+        page_subtitle="Configure cadence, metadata, and monitoring for a new scheduled runbook.",
+        active_nav="admin",
+        active_admin="automation",
+        automation=automation_view,
+        cron_reference_url=CRON_REFERENCE_URL,
+        event_trigger_options=EVENT_TRIGGER_OPTIONS,
+        trigger_operator_options=TRIGGER_OPERATOR_OPTIONS,
+        value_required_trigger_options=sorted(VALUE_REQUIRED_TRIGGER_OPTIONS),
+        runbook_labels=runbook_labels,
+        is_new=True,
+    )
+    return templates.TemplateResponse("automation_edit_scheduled.html", context)
+
+
+@app.get(
+    "/automation/event/new",
+    response_class=HTMLResponse,
+    name="automation_create_event",
+)
+async def automation_create_event_view(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    automation_view = _empty_automation_view("event")
+    runbook_labels = await _list_runbook_labels(session)
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Create event automation",
+        page_subtitle="Choose platform triggers and response actions for a new event playbook.",
+        active_nav="admin",
+        active_admin="automation",
+        automation=automation_view,
+        event_trigger_options=EVENT_TRIGGER_OPTIONS,
+        trigger_operator_options=TRIGGER_OPERATOR_OPTIONS,
+        value_required_trigger_options=sorted(VALUE_REQUIRED_TRIGGER_OPTIONS),
+        automation_actions=[
+            {"name": action, "slug": slugify_label(action)}
+            for action in EVENT_AUTOMATION_ACTIONS
+        ],
+        runbook_labels=runbook_labels,
+        is_new=True,
+    )
+    return templates.TemplateResponse("automation_edit_event.html", context)
+
+
 CRON_REFERENCE_URL = "https://crontab.guru/"
 
 
@@ -1433,7 +1458,7 @@ async def automation_edit_event_view(
         trigger_operator_options=TRIGGER_OPERATOR_OPTIONS,
         value_required_trigger_options=sorted(VALUE_REQUIRED_TRIGGER_OPTIONS),
         automation_actions=[
-            {"name": action, "slug": slugify(action)}
+            {"name": action, "slug": slugify_label(action)}
             for action in EVENT_AUTOMATION_ACTIONS
         ],
         runbook_labels=runbook_labels,

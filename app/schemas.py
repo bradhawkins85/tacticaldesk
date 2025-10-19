@@ -364,6 +364,25 @@ class AutomationUpdate(BaseModel):
     )
 
 
+class AutomationCreate(BaseModel):
+    name: str = Field(max_length=255, min_length=1)
+    description: Optional[str] = Field(default=None, max_length=2048)
+    playbook: str = Field(max_length=255, min_length=1)
+    kind: Literal["scheduled", "event"]
+    cron_expression: Optional[str] = Field(default=None, max_length=255)
+    trigger: Optional[str] = Field(default=None, max_length=255)
+    status: Optional[str] = Field(default=None, max_length=64)
+    next_run_at: Optional[datetime] = None
+    last_run_at: Optional[datetime] = None
+    last_trigger_at: Optional[datetime] = None
+    trigger_filters: Optional[AutomationTriggerFilter] = None
+    ticket_actions: Optional[list[Any]] = None
+
+    def dict(self, *args, **kwargs):  # type: ignore[override]
+        kwargs.setdefault("exclude_none", True)
+        return super().dict(*args, **kwargs)
+
+
 class AutomationRead(BaseModel):
     id: int
     name: str
@@ -399,6 +418,10 @@ class TicketUpdate(BaseModel):
     summary: TicketSummaryText
 
 
+class TicketCreate(TicketUpdate):
+    pass
+
+
 class TicketReply(BaseModel):
     to: EmailStr
     cc: Optional[str] = Field(default="", max_length=1024)
@@ -406,6 +429,36 @@ class TicketReply(BaseModel):
     message: TicketMessageText
     public_reply: bool = True
     add_signature: bool = True
+
+
+class TicketCreatedPayload(BaseModel):
+    id: str
+    subject: str
+    customer: str
+    customer_email: EmailStr
+    status: str
+    priority: str
+    team: str
+    assignment: str
+    queue: str
+    category: str
+    summary: str
+    channel: Optional[str]
+    labels: list[str]
+    filter_tokens: list[str]
+    status_token: str
+    priority_token: str
+    assignment_token: str
+    last_reply_iso: str
+    age_display: str
+    detail_url: Optional[str] = None
+
+
+class TicketCreateResponse(BaseModel):
+    detail: str
+    ticket_id: str
+    ticket: TicketCreatedPayload
+    redirect_url: str
 class ContactBase(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     job_title: Optional[str] = Field(default=None, max_length=255)
