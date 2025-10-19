@@ -276,6 +276,53 @@ body.sidebar-open .app-sidebar-overlay {
   gap: 8px;
 }
 
+.nav-actions a,
+.nav-actions button,
+.nav-actions .primary-button,
+.nav-actions .secondary-button,
+.nav-actions .icon-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: flex-start;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: inherit;
+  box-shadow: none;
+  text-align: left;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-actions a:hover,
+.nav-actions a:focus,
+.nav-actions button:hover,
+.nav-actions button:focus {
+  background: rgba(148, 163, 184, 0.18);
+  border-color: rgba(148, 163, 184, 0.35);
+  outline: none;
+  transform: none;
+}
+
+.nav-actions a:focus-visible,
+.nav-actions button:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.65);
+  outline-offset: 2px;
+}
+
+.nav-actions a.is-active,
+.nav-actions button.is-active {
+  background: rgba(37, 99, 235, 0.25);
+  border-color: rgba(37, 99, 235, 0.65);
+  color: #f8fafc;
+}
+
 .nav-field {
   display: flex;
   flex-direction: column;
