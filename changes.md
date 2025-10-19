@@ -88,3 +88,5 @@
 - 2025-10-19T07:51:49Z Fix: Updated organisation creation link to launch in a separate tab for reliable access to the add company UI.
 - 2025-10-19T07:58:36Z Feature: Added Syncro import workflow to pull companies and tickets into Tactical Desk with API endpoint, ticket store sync, and regression coverage.
 - 2025-10-19T09:45:00Z Feature: Enhanced Syncro import with selectable companies, ticket scope controls, throttled pagination, and API surface for company discovery.
+- 2025-10-19T09:41:53Z Feature: Rebuilt the mobile experience into an installable PWA with responsive sidebar controls, bottom navigation, and offline-ready static caching.
+- 2025-10-19T10:05:00Z Fix: Reworked PWA asset strategy to reuse existing branding icons and refresh service worker caching.
