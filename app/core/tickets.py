@@ -100,6 +100,7 @@ class TicketStore:
         self._overrides: Dict[str, StoredTicketOverride] = {}
         self._replies: Dict[str, List[dict[str, object]]] = {}
         self._created: Dict[str, StoredTicketRecord] = {}
+        self._external_sources: Dict[str, Dict[str, StoredTicketRecord]] = {}
         self._sequence_floor = 5000
         self._ticket_sequence = self._sequence_floor
         self._deleted_customers: Set[str] = set()
@@ -135,6 +136,9 @@ class TicketStore:
                 highest = max(highest, self._extract_ticket_number(value))
         for value in self._created:
             highest = max(highest, self._extract_ticket_number(value))
+        for records in self._external_sources.values():
+            for value in records:
+                highest = max(highest, self._extract_ticket_number(value))
         for value in self._overrides:
             highest = max(highest, self._extract_ticket_number(value))
         self._ticket_sequence = max(highest, self._sequence_floor) + 1
@@ -148,6 +152,8 @@ class TicketStore:
             merged: list[dict[str, object]] = [
                 record.as_ticket() for record in self._created.values()
             ]
+            for records in self._external_sources.values():
+                merged.extend(record.as_ticket() for record in records.values())
             for ticket in tickets:
                 override = self._overrides.get(ticket["id"])  # type: ignore[index]
                 if override is None:
@@ -311,6 +317,19 @@ class TicketStore:
             self._ticket_sequence = self._sequence_floor
             self._deleted_customers.clear()
             self._deleted_emails.clear()
+            self._external_sources.clear()
+
+    async def sync_external_records(
+        self, source: str, records: Iterable[StoredTicketRecord]
+    ) -> None:
+        """Replace the external ticket catalogue for a given source."""
+
+        normalized_source = source.strip().lower() or "external"
+        async with self._lock:
+            bucket: Dict[str, StoredTicketRecord] = {}
+            for record in records:
+                bucket[record.id] = record
+            self._external_sources[normalized_source] = bucket
 
     async def delete_tickets_for_organization(
         self,
@@ -340,6 +359,17 @@ class TicketStore:
                 if self._is_deleted(override.customer, override.customer_email):
                     self._overrides.pop(ticket_id, None)
                     self._replies.pop(ticket_id, None)
+
+            for source, records in list(self._external_sources.items()):
+                filtered: Dict[str, StoredTicketRecord] = {}
+                for ticket_id, record in records.items():
+                    if self._is_deleted(record.customer, record.customer_email):
+                        continue
+                    filtered[ticket_id] = record
+                if filtered:
+                    self._external_sources[source] = filtered
+                else:
+                    self._external_sources.pop(source, None)
 
 
 ticket_store = TicketStore()

@@ -10,6 +10,16 @@ from app.schemas import (
     IntegrationModuleCreate,
     IntegrationModuleRead,
     IntegrationModuleUpdate,
+    SyncroCompanySummary,
+    SyncroImportRequest,
+    SyncroImportResponse,
+)
+from app.services.syncro import (
+    SyncroAPIError,
+    SyncroConfigurationError,
+    SyncroTicketImportOptions,
+    fetch_syncro_companies,
+    import_syncro_data,
 )
 
 router = APIRouter(prefix="/api/integrations", tags=["Integrations"])
@@ -80,6 +90,82 @@ async def get_integration_module(
 ) -> IntegrationModuleRead:
     module = await _get_integration_by_slug(slug, session)
     return IntegrationModuleRead.from_orm(module)
+
+
+@router.get(
+    "/syncro-rmm/companies",
+    response_model=list[SyncroCompanySummary],
+    status_code=status.HTTP_200_OK,
+)
+async def list_syncro_companies(
+    session: AsyncSession = Depends(get_session),
+) -> list[SyncroCompanySummary]:
+    try:
+        companies = await fetch_syncro_companies(session)
+    except SyncroConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except SyncroAPIError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    return [
+        SyncroCompanySummary(
+            external_id=company.external_id,
+            name=company.name,
+            slug=company.slug,
+            description=company.description,
+            contact_email=company.contact_email,
+        )
+        for company in companies
+    ]
+
+
+@router.post(
+    "/syncro-rmm/import",
+    response_model=SyncroImportResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def run_syncro_import(
+    payload: SyncroImportRequest,
+    session: AsyncSession = Depends(get_session),
+) -> SyncroImportResponse:
+    ticket_options = SyncroTicketImportOptions(
+        mode=payload.tickets.mode.value,
+        ticket_number=payload.tickets.ticket_number,
+        range_start=payload.tickets.range_start,
+        range_end=payload.tickets.range_end,
+    )
+
+    try:
+        summary = await import_syncro_data(
+            session,
+            company_ids=payload.company_ids,
+            ticket_options=ticket_options,
+        )
+    except SyncroConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except SyncroAPIError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    return SyncroImportResponse(
+        detail="Syncro data imported successfully.",
+        companies_created=summary.companies_created,
+        companies_updated=summary.companies_updated,
+        tickets_imported=summary.tickets_imported,
+        tickets_skipped=summary.tickets_skipped,
+        last_synced_at=summary.last_synced_at,
+    )
 
 
 @router.patch("/{slug}", response_model=IntegrationModuleRead)
