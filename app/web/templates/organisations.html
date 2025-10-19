@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 
 {% block header_actions %}
-<a class="button" href="{{ url_for('admin_organization_create') }}">
+<a
+  class="button"
+  href="{{ url_for('admin_organization_create') }}"
+  target="_blank"
+  rel="noopener noreferrer"
+>
   <span aria-hidden="true">➕</span>
   <span>Create organisation</span>
 </a>
