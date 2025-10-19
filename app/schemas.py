@@ -87,6 +87,82 @@ class IntegrationModuleRead(BaseModel):
         orm_mode = True
 
 
+class SyncroTicketImportMode(str, Enum):
+    ALL = "all"
+    SINGLE = "single"
+    RANGE = "range"
+
+
+class SyncroTicketImport(BaseModel):
+    mode: SyncroTicketImportMode = SyncroTicketImportMode.ALL
+    ticket_number: Optional[int] = Field(default=None, ge=1)
+    range_start: Optional[int] = Field(default=None, ge=1)
+    range_end: Optional[int] = Field(default=None, ge=1)
+
+    @root_validator
+    def _validate_configuration(cls, values: dict[str, Any]) -> dict[str, Any]:
+        mode = values.get("mode", SyncroTicketImportMode.ALL)
+        ticket_number = values.get("ticket_number")
+        range_start = values.get("range_start")
+        range_end = values.get("range_end")
+
+        if mode == SyncroTicketImportMode.SINGLE:
+            if ticket_number is None:
+                raise ValueError("ticket_number is required when mode is 'single'")
+        elif mode == SyncroTicketImportMode.RANGE:
+            if range_start is None or range_end is None:
+                raise ValueError("range_start and range_end are required when mode is 'range'")
+            if range_start > range_end:
+                raise ValueError("range_start cannot be greater than range_end")
+        else:
+            # Clear unused values for ALL mode to avoid accidental downstream usage.
+            values["ticket_number"] = None
+            values["range_start"] = None
+            values["range_end"] = None
+
+        return values
+
+
+class SyncroImportRequest(BaseModel):
+    company_ids: Optional[List[int]] = None
+    tickets: SyncroTicketImport = Field(default_factory=SyncroTicketImport)
+
+    @validator("company_ids", pre=True)
+    def _normalize_company_ids(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, (list, tuple, set)):
+            cleaned: list[int] = []
+            seen: set[int] = set()
+            for item in value:
+                if item is None:
+                    continue
+                number = int(item)
+                if number in seen:
+                    continue
+                seen.add(number)
+                cleaned.append(number)
+            return cleaned
+        raise TypeError("company_ids must be a list of integers")
+
+
+class SyncroCompanySummary(BaseModel):
+    external_id: int
+    name: str
+    slug: str
+    description: Optional[str]
+    contact_email: Optional[str]
+
+
+class SyncroImportResponse(BaseModel):
+    detail: str
+    companies_created: int
+    companies_updated: int
+    tickets_imported: int
+    tickets_skipped: int
+    last_synced_at: datetime
+
+
 class OrganizationBase(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     slug: Optional[str] = Field(
