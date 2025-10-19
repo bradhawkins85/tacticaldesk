@@ -85,5 +85,6 @@
 - 2025-10-17T06:30:00Z Feature: Replaced the Discord webhook receiver with a generic HTTPS POST mapper, logging, updated documentation, and integration migration.
 - 2025-10-17T08:30:00Z Feature: Added ChatGPT MCP connector service, secured API endpoints, and tests enabling MCP-driven access across integrations, organizations, contacts, automations, webhooks, and tickets.
 - 2025-10-17T09:10:00Z Feature: Enabled creating tickets and automations via API and admin UI with new editor flows, responsive controls, and regression tests.
+- 2025-10-19T07:51:49Z Fix: Updated organisation creation link to launch in a separate tab for reliable access to the add company UI.
 - 2025-10-19T07:58:36Z Feature: Added Syncro import workflow to pull companies and tickets into Tactical Desk with API endpoint, ticket store sync, and regression coverage.
 - 2025-10-19T09:45:00Z Feature: Enhanced Syncro import with selectable companies, ticket scope controls, throttled pagination, and API surface for company discovery.
