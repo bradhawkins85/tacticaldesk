@@ -118,3 +118,5 @@
 - 2025-10-20T15:50:00Z Fix: Removed runbook launch, log viewing, refresh, and maintenance sidebar controls to declutter navigation.
 - 2025-10-20T02:52:33Z Fix: Configured .gitattributes to merge changes.md entries using the union strategy.
 - 2025-10-20T03:14:03Z Fix: Synced Syncro ticket imports to prefer contact emails for customers and subscribe destination email watchers while filtering restricted recipients.
+- 2025-10-20T16:20:00Z Fix: Removed redundant "Back to workspace" and "Back to tickets" links from the ticket sidebar actions to streamline navigation.
+- 2025-10-20T16:10:00Z Fix: Ensured Syncro ticket history summaries pair subjects with actors so technician replies no longer duplicate in summaries and bodies.
