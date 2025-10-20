@@ -241,7 +241,8 @@ async def test_syncro_import_creates_companies_and_tickets():
     assert ticket["watchers"] == ["lead@acme.test"]
     history = ticket["history"]
     assert len(history) == 5
-    assert history[0]["summary"] == "Office printer offline"
+    assert history[0]["summary"] == "Printer offline — Jordan Smith"
+    assert history[0]["body"] == "Office printer offline"
 
     customer_reply = next(
         entry
@@ -250,6 +251,7 @@ async def test_syncro_import_creates_companies_and_tickets():
     )
     assert customer_reply["direction"] == "inbound"
     assert customer_reply["actor"] == "Acme Contact"
+    assert customer_reply["summary"] == "Contact — Acme Contact"
 
     technician_reply = next(
         entry
@@ -258,16 +260,19 @@ async def test_syncro_import_creates_companies_and_tickets():
     )
     assert technician_reply["direction"] == "outbound"
     assert technician_reply["actor"] == "Jordan Smith"
+    assert technician_reply["summary"] == "Update — Jordan Smith"
 
     status_note = next(
         entry for entry in history if entry["body"] == "Left voicemail for customer."
     )
     assert status_note["direction"] == "internal"
+    assert status_note["summary"] == "Status — Jordan Smith"
 
     hidden_note = next(
         entry for entry in history if entry["body"] == "Reset printer queue cache."
     )
     assert hidden_note["direction"] == "internal"
+    assert hidden_note["summary"] == "Update — Jordan Smith"
     assert "SYNCRO-1002" not in ids
 
 
