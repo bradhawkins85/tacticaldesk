@@ -112,3 +112,5 @@
 - 2025-10-20T12:30:00Z Feature: Logged integration API requests to the webhook monitor, surfaced request/response details in the admin UI, and auto-paused deliveries when modules are disabled.
 - 2025-10-20T01:53:00Z Fix: Normalized Syncro ticket payloads to accept nested ticket objects so imports register fetched records.
 - 2025-10-20T02:07:35Z Feature: Replaced the ticket creation modal with a dedicated page, updated navigation links, and added validation coverage for the new workflow.
+- 2025-10-20T13:45:00Z Feature: Relocated webhook retry results to a standalone plain report page launched from the admin monitor.
+- 2025-10-20T14:20:00Z Fix: Restored webhook monitor table and moved per-event results to plain standalone pages opened from each row.

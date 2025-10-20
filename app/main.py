@@ -7,13 +7,12 @@ from pathlib import Path
 from urllib.parse import parse_qs
 import re
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
@@ -1931,6 +1930,7 @@ def _serialize_webhook(delivery: WebhookDelivery) -> dict[str, object]:
         "module_slug": delivery.module_slug,
         "request_method": delivery.request_method,
         "request_url": delivery.request_url,
+        "request_payload": delivery.request_payload,
         "status": delivery.status,
         "status_label": status_label,
         "response_status_code": delivery.response_status_code,
@@ -1989,6 +1989,10 @@ async def admin_webhooks(
 ) -> HTMLResponse:
     deliveries = await _ensure_demo_webhooks(session)
     webhook_failures = [_serialize_webhook(delivery) for delivery in deliveries]
+    for entry in webhook_failures:
+        entry["result_url"] = request.url_for(
+            "admin_webhook_result", webhook_id=entry["id"]
+        )
     context = await _template_context(
         request=request,
         session=session,
@@ -1999,6 +2003,37 @@ async def admin_webhooks(
         active_admin="webhooks",
     )
     return templates.TemplateResponse("admin_webhooks.html", context)
+
+
+@app.get(
+    "/admin/webhooks/{webhook_id}/result",
+    response_class=HTMLResponse,
+    name="admin_webhook_result",
+)
+async def admin_webhook_result(
+    request: Request,
+    webhook_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    delivery = await _get_webhook_delivery_or_404(session, webhook_id)
+    webhook = _serialize_webhook(delivery)
+    context = {
+        "request": request,
+        "webhook": webhook,
+    }
+    return templates.TemplateResponse("webhook_result.html", context)
+
+
+async def _get_webhook_delivery_or_404(
+    session: AsyncSession, webhook_id: str
+) -> WebhookDelivery:
+    result = await session.execute(
+        select(WebhookDelivery).where(WebhookDelivery.event_id == webhook_id)
+    )
+    delivery = result.scalar_one_or_none()
+    if delivery is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Webhook not found")
+    return delivery
 
 
 @app.get("/health", tags=["System"])
