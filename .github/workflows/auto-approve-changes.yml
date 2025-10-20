@@ -1,0 +1,41 @@
+name: Auto-approve changes.md (only)
+
+on:
+  # If PRs can come from forks, use pull_request_target (see note below).
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'changes.md'
+
+jobs:
+  auto-approve:
+    # Don’t run for drafts
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      # Not strictly needed for the PAT, but good hygiene
+      pull-requests: write
+
+    steps:
+      # No checkout needed; we just inspect files via API.
+      - name: Verify only `changes.md` changed
+        id: onlyfile
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request
+            const { owner, repo } = context.repo
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              { owner, repo, pull_number: pr.number, per_page: 100 }
+            )
+            const paths = files.map(f => f.filename)
+            core.info(`Changed files: ${paths.join(', ') || '(none)'}`)
+            const onlyChangesMd = paths.length === 1 && paths[0].toLowerCase() === 'changes.md'
+            core.setOutput('only', String(onlyChangesMd))
+
+      - name: Auto-approve
+        if: steps.onlyfile.outputs.only == 'true'
+        uses: hmarr/auto-approve-action@v4
+        with:
+          github-token: ${{ secrets.AUTO_APPROVE_TOKEN }}
