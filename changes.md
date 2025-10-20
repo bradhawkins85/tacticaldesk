@@ -110,3 +110,4 @@
 - 2025-10-20T01:32:13Z Fix: Restored ticket creation modal visibility by aligning client controls with modal visibility classes.
 - 2025-10-20T11:55:00Z Fix: Updated ticket create action to open the dedicated workspace in a new tab for reliable ticket authoring.
 - 2025-10-20T01:53:00Z Fix: Normalized Syncro ticket payloads to accept nested ticket objects so imports register fetched records.
+- 2025-10-20T02:07:35Z Feature: Replaced the ticket creation modal with a dedicated page, updated navigation links, and added validation coverage for the new workflow.

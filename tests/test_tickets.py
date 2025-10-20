@@ -57,13 +57,21 @@ def test_ticket_create_dispatches_automation_event():
         )
 
 
-def test_ticket_new_route_renders_modal_open():
+def test_ticket_new_route_renders_creation_page():
     with TestClient(app) as client:
         response = client.get("/tickets/new")
         assert response.status_code == 200
         html = response.text
-        assert "data-role=\"ticket-create-modal\"" in html
-        assert "data-open=\"true\"" in html
+        assert "Create new ticket" in html
+        assert "Ticket details" in html
+        assert "name=\"subject\"" in html
+
+
+def test_tickets_route_redirects_to_create_when_query_flag_present():
+    with TestClient(app) as client:
+        response = client.get("/tickets?new=1", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"].endswith("/tickets/new")
 
 
 def test_api_ticket_creation_endpoint():
@@ -114,6 +122,29 @@ def test_api_ticket_creation_validation_errors():
         body = response.json()
         assert "subject" in str(body)
         assert "customer_email" in str(body)
+
+
+def test_ticket_create_form_validation_errors_rendered():
+    with TestClient(app) as client:
+        form_payload = {
+            "subject": " ",
+            "customer": "Quest Logistics",
+            "customer_email": "invalid-email",
+            "status": "Open",
+            "priority": "High",
+            "team": "Tier 1",
+            "assignment": "Unassigned",
+            "queue": "Critical response",
+            "category": "Support",
+            "summary": "Investigating packet loss impacting the VPN tunnel between HQ and warehouse sites.",
+        }
+
+        response = client.post("/tickets", data=form_payload)
+        assert response.status_code == 422
+        html = response.text
+        assert "Subject cannot be empty." in html
+        assert "Customer email must be a valid email address." in html
+        assert "value=\"invalid-email\"" in html
 
 
 def test_ticket_update_persists_overrides():

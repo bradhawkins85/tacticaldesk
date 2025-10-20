@@ -55,6 +55,7 @@ from app.schemas import (
     AutomationTriggerFilter,
     OrganizationCreate,
     OrganizationUpdate,
+    TicketCreate,
     TicketReply,
     TicketUpdate,
     WebhookStatus,
@@ -303,15 +304,60 @@ async def _load_automation(
     return automation
 
 
+def _derive_ticket_form_defaults(
+    *,
+    tickets_raw: list[dict[str, object]],
+    form_overrides: dict[str, str] | None = None,
+) -> dict[str, object]:
+    status_options = sorted(
+        {str(ticket.get("status")) for ticket in tickets_raw if ticket.get("status")}
+    )
+    priority_options = sorted(
+        {str(ticket.get("priority")) for ticket in tickets_raw if ticket.get("priority")}
+    )
+    team_options = sorted(
+        {str(ticket.get("team")) for ticket in tickets_raw if ticket.get("team")}
+    )
+    assignment_options = sorted(
+        {str(ticket.get("assignment")) for ticket in tickets_raw if ticket.get("assignment")}
+    )
+    queue_options = sorted(
+        {str(ticket.get("queue")) for ticket in tickets_raw if ticket.get("queue")}
+    )
+
+    default_form = {field: "" for field in TICKET_FORM_FIELDS}
+    if status_options:
+        default_form["status"] = status_options[0]
+    if priority_options:
+        default_form["priority"] = priority_options[0]
+    if team_options:
+        default_form["team"] = team_options[0]
+    if assignment_options:
+        default_form["assignment"] = assignment_options[0]
+    if queue_options:
+        default_form["queue"] = queue_options[0]
+
+    if form_overrides:
+        for key, value in form_overrides.items():
+            if key in default_form:
+                default_form[key] = value
+
+    return {
+        "ticket_form": default_form,
+        "ticket_status_options": status_options,
+        "ticket_priority_options": priority_options,
+        "ticket_team_options": team_options,
+        "ticket_assignment_options": assignment_options,
+        "ticket_queue_options": queue_options,
+    }
+
+
 async def _build_ticket_listing_context(
     *,
     request: Request,
     session: AsyncSession,
     now_utc: datetime,
     tickets_raw: list[dict[str, object]],
-    new_ticket_form: dict[str, str] | None = None,
-    new_ticket_errors: list[str] | None = None,
-    open_modal: bool = False,
 ) -> dict[str, object]:
     status_counter: Counter[str] = Counter()
     assignment_counter: Counter[str] = Counter()
@@ -361,25 +407,6 @@ async def _build_ticket_listing_context(
         },
     ]
 
-    status_options = sorted({str(ticket.get("status")) for ticket in tickets_raw if ticket.get("status")})
-    priority_options = sorted({str(ticket.get("priority")) for ticket in tickets_raw if ticket.get("priority")})
-    team_options = sorted({str(ticket.get("team")) for ticket in tickets_raw if ticket.get("team")})
-    assignment_options = sorted({str(ticket.get("assignment")) for ticket in tickets_raw if ticket.get("assignment")})
-    queue_options = sorted({str(ticket.get("queue")) for ticket in tickets_raw if ticket.get("queue")})
-
-    default_form = {field: "" for field in TICKET_FORM_FIELDS}
-    if status_options:
-        default_form["status"] = status_options[0]
-    if priority_options:
-        default_form["priority"] = priority_options[0]
-    if team_options:
-        default_form["team"] = team_options[0]
-    if assignment_options:
-        default_form["assignment"] = assignment_options[0]
-    if queue_options:
-        default_form["queue"] = queue_options[0]
-    default_form.update(new_ticket_form or {})
-
     context = await _template_context(
         request=request,
         session=session,
@@ -387,15 +414,38 @@ async def _build_ticket_listing_context(
         page_subtitle="Track queues, escalations, and SLA risk across every service channel.",
         tickets=enriched_tickets,
         ticket_filter_groups=ticket_filter_groups,
-        ticket_status_options=status_options,
-        ticket_priority_options=priority_options,
-        ticket_team_options=team_options,
-        ticket_assignment_options=assignment_options,
-        ticket_queue_options=queue_options,
-        new_ticket_form=default_form,
-        new_ticket_errors=new_ticket_errors or [],
-        open_ticket_modal=open_modal,
         active_nav="tickets",
+    )
+    return context
+
+
+async def _build_ticket_create_context(
+    *,
+    request: Request,
+    session: AsyncSession,
+    now_utc: datetime,
+    tickets_raw: list[dict[str, object]],
+    form_data: dict[str, str] | None = None,
+    form_errors: list[str] | None = None,
+) -> dict[str, object]:
+    form_defaults = _derive_ticket_form_defaults(
+        tickets_raw=tickets_raw,
+        form_overrides=form_data,
+    )
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Create ticket",
+        page_subtitle="Collect routing metadata before the first response.",
+        active_nav="tickets",
+        ticket_form=form_defaults["ticket_form"],
+        ticket_status_options=form_defaults["ticket_status_options"],
+        ticket_priority_options=form_defaults["ticket_priority_options"],
+        ticket_team_options=form_defaults["ticket_team_options"],
+        ticket_assignment_options=form_defaults["ticket_assignment_options"],
+        ticket_queue_options=form_defaults["ticket_queue_options"],
+        ticket_form_errors=form_errors or [],
     )
     return context
 
@@ -960,13 +1010,14 @@ async def tickets_view(
 ) -> HTMLResponse:
     now_utc = datetime.now(timezone.utc)
     seed_tickets = await fetch_ticket_records(now_utc)
-    open_modal = request.query_params.get("new") == "1"
+    if request.query_params.get("new") == "1":
+        redirect_url = request.url_for("ticket_new")
+        return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
     context = await _build_ticket_listing_context(
         request=request,
         session=session,
         now_utc=now_utc,
         tickets_raw=seed_tickets,
-        open_modal=open_modal,
     )
     return templates.TemplateResponse("tickets.html", context)
 
@@ -975,18 +1026,15 @@ async def tickets_view(
 async def ticket_new_view(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
-    """Render the ticket workspace with the creation modal open."""
-
     now_utc = datetime.now(timezone.utc)
     seed_tickets = await fetch_ticket_records(now_utc)
-    context = await _build_ticket_listing_context(
+    context = await _build_ticket_create_context(
         request=request,
         session=session,
         now_utc=now_utc,
         tickets_raw=seed_tickets,
-        open_modal=True,
     )
-    return templates.TemplateResponse("tickets.html", context)
+    return templates.TemplateResponse("ticket_create.html", context)
 
 
 @app.post("/tickets", response_class=HTMLResponse, name="ticket_create")
@@ -1018,7 +1066,7 @@ async def ticket_create_view(
     sanitized_form = {field: raw_form.get(field, "").strip() for field in TICKET_FORM_FIELDS}
 
     try:
-        payload = TicketUpdate(**sanitized_form)
+        payload = TicketCreate(**sanitized_form)
     except ValidationError as exc:
         error_messages = _format_validation_errors(exc)
         if expects_json:
@@ -1029,17 +1077,16 @@ async def ticket_create_view(
             )
 
         seed_tickets = await fetch_ticket_records(now_utc)
-        context = await _build_ticket_listing_context(
+        context = await _build_ticket_create_context(
             request=request,
             session=session,
             now_utc=now_utc,
             tickets_raw=seed_tickets,
-            new_ticket_form=sanitized_form,
-            new_ticket_errors=error_messages,
-            open_modal=True,
+            form_data=sanitized_form,
+            form_errors=error_messages,
         )
         return templates.TemplateResponse(
-            "tickets.html",
+            "ticket_create.html",
             context,
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )

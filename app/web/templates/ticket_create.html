@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% set sidebar_actions_parent = 'tickets' %}
+{% set sidebar_actions %}
+<div class="nav-actions">
+  <a class="secondary-button" href="{{ url_for('tickets') }}">Back to workspace</a>
+</div>
+{% endset %}
+{% block content %}
+<div class="ticket-create" role="region" aria-label="Create ticket">
+  <header class="ticket-create__header">
+    <div>
+      <h1>Create new ticket</h1>
+      <p>Capture the initial metadata to route requests through the unified workspace.</p>
+    </div>
+    <div class="ticket-create__header-actions">
+      <a class="secondary-button" href="{{ url_for('tickets') }}">Unified workspace</a>
+    </div>
+  </header>
+  <section class="ticket-create__panel" aria-labelledby="ticket-create-form-title">
+    {% if ticket_form_errors %}
+    <div class="alert alert--error" role="alert">
+      <ul>
+        {% for message in ticket_form_errors %}
+        <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <form class="ticket-create__form" method="post" action="{{ url_for('ticket_create') }}">
+      <div class="ticket-create__intro">
+        <h2 id="ticket-create-form-title">Ticket details</h2>
+        <p>Update the ticket metadata and save to apply changes across collaborative workspaces.</p>
+      </div>
+      <div class="ticket-create__grid">
+        <label class="ticket-detail__field">
+          <span>Subject</span>
+          <input type="text" name="subject" value="{{ ticket_form.subject }}" autocomplete="off" required />
+        </label>
+        <label class="ticket-detail__field">
+          <span>Customer</span>
+          <input type="text" name="customer" value="{{ ticket_form.customer }}" autocomplete="off" required />
+        </label>
+        <label class="ticket-detail__field">
+          <span>Customer email</span>
+          <input type="email" name="customer_email" value="{{ ticket_form.customer_email }}" autocomplete="off" required />
+        </label>
+        <label class="ticket-detail__field">
+          <span>Status</span>
+          <select name="status" required>
+            {% for option in ticket_status_options %}
+            <option value="{{ option }}"{% if option == ticket_form.status %} selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Priority</span>
+          <select name="priority" required>
+            {% for option in ticket_priority_options %}
+            <option value="{{ option }}"{% if option == ticket_form.priority %} selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Team</span>
+          <select name="team" required>
+            {% for option in ticket_team_options %}
+            <option value="{{ option }}"{% if option == ticket_form.team %} selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Assignment</span>
+          <select name="assignment" required>
+            {% for option in ticket_assignment_options %}
+            <option value="{{ option }}"{% if option == ticket_form.assignment %} selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Queue</span>
+          <select name="queue" required>
+            {% for option in ticket_queue_options %}
+            <option value="{{ option }}"{% if option == ticket_form.queue %} selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ticket-detail__field">
+          <span>Category</span>
+          <input type="text" name="category" value="{{ ticket_form.category }}" autocomplete="off" required />
+        </label>
+      </div>
+      <label class="ticket-detail__field ticket-detail__field--textarea">
+        <span>Summary</span>
+        <textarea name="summary" rows="3" required>{{ ticket_form.summary }}</textarea>
+      </label>
+      <div class="ticket-create__meta">
+        <div>
+          <h3>Labels</h3>
+          <p class="ticket-create__meta-note">Assign labels after creation from the ticket workspace.</p>
+        </div>
+        <div>
+          <h3>Watchers</h3>
+          <p class="ticket-create__meta-note">Subscribe teammates once the ticket is created.</p>
+        </div>
+      </div>
+      <div class="ticket-create__actions">
+        <button type="submit" class="primary-button">Create ticket</button>
+        <a class="secondary-button" href="{{ url_for('tickets') }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

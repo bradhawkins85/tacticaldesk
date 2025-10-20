@@ -295,89 +295,6 @@
   const sortableTables = Array.from(document.querySelectorAll("[data-role='sortable-table']"));
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
-  const ticketCreateModal = document.querySelector("[data-role='ticket-create-modal']");
-  const ticketCreateForm = ticketCreateModal?.querySelector("[data-role='ticket-create-form']");
-  const ticketCreateMessage = ticketCreateForm?.querySelector("[data-role='form-message']");
-  let ticketCreateLastFocus = null;
-
-  function resetTicketCreateForm() {
-    if (!ticketCreateForm) {
-      return;
-    }
-    ticketCreateForm.reset();
-    if (ticketCreateMessage) {
-      ticketCreateMessage.textContent = "";
-      ticketCreateMessage.classList.remove("error", "success");
-    }
-  }
-
-  function isTicketCreateModalOpen() {
-    return ticketCreateModal?.classList.contains("is-visible") ?? false;
-  }
-
-  function openTicketCreateModal() {
-    if (!ticketCreateModal) {
-      window.location.href = "/tickets?new=1";
-      return;
-    }
-    if (isTicketCreateModalOpen()) {
-      return;
-    }
-    const activeElement = document.activeElement;
-    ticketCreateLastFocus =
-      activeElement instanceof HTMLElement ? activeElement : null;
-    ticketCreateModal.classList.add("is-visible");
-    ticketCreateModal.setAttribute("aria-hidden", "false");
-    document.body.classList.add("has-open-modal");
-    const subjectInput = ticketCreateForm?.querySelector("input[name='subject']");
-    if (subjectInput) {
-      subjectInput.focus();
-    }
-  }
-
-  function closeTicketCreateModal({ restoreFocus = true } = {}) {
-    if (!ticketCreateModal || !isTicketCreateModalOpen()) {
-      return;
-    }
-    ticketCreateModal.classList.remove("is-visible");
-    ticketCreateModal.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("has-open-modal");
-    resetTicketCreateForm();
-    if (restoreFocus && ticketCreateLastFocus && typeof ticketCreateLastFocus.focus === "function") {
-      ticketCreateLastFocus.focus();
-    }
-    ticketCreateLastFocus = null;
-  }
-
-  if (ticketCreateModal && ticketCreateModal.dataset.open === "true") {
-    openTicketCreateModal();
-    ticketCreateModal.dataset.open = "false";
-  }
-
-  if (ticketCreateForm) {
-    ticketCreateForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const submitButton = ticketCreateForm.querySelector("button[type='submit']");
-      if (submitButton) {
-        submitButton.disabled = true;
-      }
-      const targetUrl = ticketCreateForm.getAttribute("action") || "/tickets";
-      const result = await submitJsonForm(ticketCreateForm, targetUrl);
-      if (submitButton) {
-        submitButton.disabled = false;
-      }
-      if (result) {
-        closeTicketCreateModal();
-        if (result.redirect_url) {
-          window.open(result.redirect_url, "_blank", "noopener,noreferrer");
-        }
-        setTimeout(() => {
-          window.location.reload();
-        }, 400);
-      }
-    });
-  }
-
   function updateTableRowVisibility(row) {
     if (!row) {
       return;
@@ -440,13 +357,6 @@
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) {
       element.textContent = parsed.toLocaleString();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && ticketCreateModal?.classList.contains("is-open")) {
-      event.preventDefault();
-      closeTicketCreateModal();
     }
   });
 
@@ -1702,32 +1612,16 @@
     const dashboardNewTicket = event.target.closest("[data-action='new-ticket']");
     if (dashboardNewTicket) {
       event.preventDefault();
-      if (ticketCreateModal) {
-        openTicketCreateModal();
-      } else {
-        window.location.href = "/tickets?new=1";
-      }
+      const targetUrl = dashboardNewTicket.getAttribute("data-href") || "/tickets/new";
+      window.location.href = targetUrl;
       return;
     }
 
     const ticketCreateOpenButton = event.target.closest("[data-action='ticket-create-open']");
     if (ticketCreateOpenButton) {
       event.preventDefault();
-      const targetUrl =
-        ticketCreateOpenButton.getAttribute("data-href") || "/tickets/new";
-      const newWindow = window.open(targetUrl, "_blank", "noopener,noreferrer");
-      if (newWindow) {
-        newWindow.opener = null;
-      } else {
-        window.location.href = targetUrl;
-      }
-      return;
-    }
-
-    const ticketCreateCloseButton = event.target.closest("[data-action='ticket-create-close']");
-    if (ticketCreateCloseButton) {
-      event.preventDefault();
-      closeTicketCreateModal();
+      const targetUrl = ticketCreateOpenButton.getAttribute("data-href") || "/tickets/new";
+      window.location.href = targetUrl;
       return;
     }
 
