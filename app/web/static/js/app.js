@@ -1461,7 +1461,14 @@
     const ticketCreateOpenButton = event.target.closest("[data-action='ticket-create-open']");
     if (ticketCreateOpenButton) {
       event.preventDefault();
-      openTicketCreateModal();
+      const targetUrl =
+        ticketCreateOpenButton.getAttribute("data-href") || "/tickets/new";
+      const newWindow = window.open(targetUrl, "_blank", "noopener,noreferrer");
+      if (newWindow) {
+        newWindow.opener = null;
+      } else {
+        window.location.href = targetUrl;
+      }
       return;
     }
 

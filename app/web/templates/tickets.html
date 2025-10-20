@@ -2,7 +2,14 @@
 {% set sidebar_actions_parent = 'tickets' %}
 {% set sidebar_actions %}
 <div class="nav-actions">
-  <button class="primary-button" type="button" data-action="ticket-create-open">New ticket</button>
+  <button
+    class="primary-button"
+    type="button"
+    data-action="ticket-create-open"
+    data-href="{{ url_for('ticket_new') }}"
+  >
+    New ticket
+  </button>
 </div>
 {% endset %}
 {% block content %}
