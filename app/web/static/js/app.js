@@ -3278,7 +3278,7 @@
     const contactSearchInput = contactPage.querySelector("[data-role='table-filter']");
     const contactEmptyState = contactPage.querySelector("[data-role='contact-empty-state']");
     const contactCountTarget = contactPage.querySelector("[data-role='contact-count']");
-    const newContactButton = document.querySelector("[data-action='contact-new']");
+    const newContactButtons = document.querySelectorAll("[data-action='contact-new']");
     const contactResetButton = contactForm?.querySelector("[data-action='contact-reset']");
     const contactCloseTriggers = contactModal
       ? contactModal.querySelectorAll("[data-action='contact-modal-close']")
@@ -3613,10 +3613,12 @@
       }
     });
 
-    if (newContactButton) {
-      newContactButton.addEventListener("click", () => {
-        resetContactForm();
-        openContactModal("create");
+    if (newContactButtons.length) {
+      newContactButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          resetContactForm();
+          openContactModal("create");
+        });
       });
     }
 

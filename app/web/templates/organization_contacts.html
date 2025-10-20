@@ -49,6 +49,15 @@
           </div>
         </dl>
       </div>
+      <div class="contact-directory__actions">
+        <button class="primary-button" type="button" data-action="contact-new">
+          <span aria-hidden="true">➕</span>
+          <span>Add contact</span>
+        </button>
+        <p class="contact-directory__hint">
+          Add escalation contacts so every team can reach the right person quickly.
+        </p>
+      </div>
     </div>
     <div class="panel__filters contact-directory__filters">
       <label class="form-field form-field--inline" for="contact-filter">
@@ -153,7 +162,15 @@
             data-role="contact-empty-state"
           >
             <td colspan="7">
-              No contacts have been recorded for this organisation yet. Add the first point of contact to begin.
+              <div class="contact-empty__content">
+                <p>
+                  No contacts have been recorded for this organisation yet. Add the first point of contact to begin.
+                </p>
+                <button class="primary-button" type="button" data-action="contact-new">
+                  <span aria-hidden="true">➕</span>
+                  <span>Add contact</span>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
