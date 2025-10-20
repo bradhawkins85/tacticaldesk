@@ -165,7 +165,7 @@ async def test_syncro_import_creates_companies_and_tickets():
         module.enabled = True
         module.settings.update(
             {
-                "base_url": "https://syncro.test",
+                "subdomain": "syncro",
                 "api_key": "test-key",
             }
         )
@@ -236,7 +236,7 @@ async def test_syncro_import_supports_ticket_range_and_company_selection():
         module.enabled = True
         module.settings.update(
             {
-                "base_url": "https://syncro.test",
+                "subdomain": "syncro",
                 "api_key": "test-key",
             }
         )
@@ -285,7 +285,7 @@ async def test_fetch_syncro_companies_returns_normalized_records():
         module.enabled = True
         module.settings.update(
             {
-                "base_url": "https://syncro.test",
+                "subdomain": "syncro",
                 "api_key": "test-key",
             }
         )

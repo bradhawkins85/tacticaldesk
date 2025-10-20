@@ -630,8 +630,29 @@ DEFAULT_SETTINGS_FIELDS = [
     },
 ]
 
+SYNCRO_SETTINGS_FIELDS = [
+    {
+        "key": "subdomain",
+        "label": "Syncro subdomain",
+        "type": "text",
+        "placeholder": "your-company",
+    },
+    {
+        "key": "api_key",
+        "label": "API Key",
+        "type": "password",
+        "placeholder": "Enter the secure API key",
+    },
+    {
+        "key": "webhook_url",
+        "label": "Webhook URL",
+        "type": "url",
+        "placeholder": "https://your-company.syncromsp.com/webhooks",
+    },
+]
+
 INTEGRATION_SETTINGS_FIELDS: dict[str, list[dict[str, str]]] = {
-    "syncro-rmm": DEFAULT_SETTINGS_FIELDS,
+    "syncro-rmm": SYNCRO_SETTINGS_FIELDS,
     "tactical-rmm": DEFAULT_SETTINGS_FIELDS,
     "ntfy": [
         {
