@@ -251,6 +251,18 @@ def _normalize_company(record: dict[str, Any]) -> SyncroCompanyRecord | None:
 
 
 def _normalize_ticket(record: dict[str, Any], *, now: datetime) -> StoredTicketRecord | None:
+    if not isinstance(record, dict):
+        return None
+
+    nested_record = record
+    for key in ("ticket", "data"):
+        nested = nested_record.get(key) if isinstance(nested_record, dict) else None
+        if isinstance(nested, dict):
+            nested_record = nested
+            break
+
+    record = nested_record
+
     ticket_identifier = _clean_text(
         record.get("number")
         or record.get("ticket_number")
