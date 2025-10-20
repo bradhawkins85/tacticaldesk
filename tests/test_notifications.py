@@ -91,3 +91,35 @@ async def test_send_ntfy_notification_sanitizes_headers(monkeypatch):
     assert headers["Title"] == "Auto - Name - Created -"
     assert headers["X-TacticalDesk-Automation"] == "Auto - Name"
     assert headers["X-TacticalDesk-Ticket"] == "TK-"
+
+
+@pytest.mark.asyncio
+async def test_send_ntfy_notification_prefers_topic_override(monkeypatch):
+    monkeypatch.setattr(httpx, "AsyncClient", _DummyAsyncClient)
+    engine = await get_engine()
+
+    async with AsyncSession(engine) as session:
+        result = await session.execute(
+            select(IntegrationModule).where(IntegrationModule.slug == "ntfy")
+        )
+        module = result.scalar_one()
+        module.enabled = True
+        module.settings.update(
+            {
+                "base_url": "https://ntfy.example",
+                "topic": "default-topic",
+            }
+        )
+        await session.commit()
+
+        await send_ntfy_notification(
+            session,
+            message="Ticket escalated",
+            automation_name="Escalation",
+            event_type="Ticket Created",
+            ticket_identifier="TK-123",
+            topic_override="  override-topic  ",
+        )
+
+    captured = getattr(_DummyAsyncClient, "last_call")
+    assert captured["endpoint"] == "https://ntfy.example/override-topic"

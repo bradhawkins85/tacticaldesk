@@ -2770,9 +2770,38 @@ body.sidebar-open .app-sidebar-overlay {
     align-items: flex-start;
 }
 
+.ticket-action__inputs {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
 .ticket-action__value {
     width: 100%;
     resize: vertical;
+}
+
+.ticket-action__topic-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ticket-action__topic-label {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ticket-action__topic-input {
+    width: 100%;
+}
+
+.ticket-action__topic-help {
+    margin: 0;
 }
 
 .ticket-action__remove {

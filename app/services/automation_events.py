@@ -196,6 +196,14 @@ async def dispatch_ticket_event(
                 rendered_value = render_template_value(
                     model.value, variable_context
                 )
+                topic_template = model.topic
+                rendered_topic: str | None = None
+                if topic_template:
+                    candidate = render_template_value(
+                        topic_template, variable_context
+                    ).strip()
+                    if candidate:
+                        rendered_topic = candidate
                 if model.action == "send-ntfy-notification":
                     await send_ntfy_notification(
                         session,
@@ -203,14 +211,18 @@ async def dispatch_ticket_event(
                         automation_name=automation.name,
                         event_type=event_type,
                         ticket_identifier=ticket_identifier,
+                        topic_override=rendered_topic,
                     )
-                rendered_actions.append(
-                    {
-                        "action": model.action,
-                        "value": rendered_value,
-                        "template": model.value,
-                    }
-                )
+                action_entry = {
+                    "action": model.action,
+                    "value": rendered_value,
+                    "template": model.value,
+                }
+                if rendered_topic:
+                    action_entry["topic"] = rendered_topic
+                if topic_template:
+                    action_entry["topic_template"] = topic_template
+                rendered_actions.append(action_entry)
 
         await automation_dispatcher.dispatch(
             event_type="Automation Triggered",

@@ -971,6 +971,24 @@ async def tickets_view(
     return templates.TemplateResponse("tickets.html", context)
 
 
+@app.get("/tickets/new", response_class=HTMLResponse, name="ticket_new")
+async def ticket_new_view(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> HTMLResponse:
+    """Render the ticket workspace with the creation modal open."""
+
+    now_utc = datetime.now(timezone.utc)
+    seed_tickets = await fetch_ticket_records(now_utc)
+    context = await _build_ticket_listing_context(
+        request=request,
+        session=session,
+        now_utc=now_utc,
+        tickets_raw=seed_tickets,
+        open_modal=True,
+    )
+    return templates.TemplateResponse("tickets.html", context)
+
+
 @app.post("/tickets", response_class=HTMLResponse, name="ticket_create")
 async def ticket_create_view(
     request: Request, session: AsyncSession = Depends(get_session)

@@ -177,9 +177,9 @@ def _normalize_ticket_actions(
         items.append(action)
 
     deduped: list[AutomationTicketAction] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     for action in items:
-        key = (action.action, action.value)
+        key = (action.action, action.value, action.topic or "")
         if key in seen:
             continue
         seen.add(key)

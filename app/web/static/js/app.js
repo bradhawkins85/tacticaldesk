@@ -311,30 +311,42 @@
     }
   }
 
+  function isTicketCreateModalOpen() {
+    return ticketCreateModal?.classList.contains("is-visible") ?? false;
+  }
+
   function openTicketCreateModal() {
     if (!ticketCreateModal) {
       window.location.href = "/tickets?new=1";
       return;
     }
-    ticketCreateLastFocus = document.activeElement;
-    ticketCreateModal.classList.add("is-open");
+    if (isTicketCreateModalOpen()) {
+      return;
+    }
+    const activeElement = document.activeElement;
+    ticketCreateLastFocus =
+      activeElement instanceof HTMLElement ? activeElement : null;
+    ticketCreateModal.classList.add("is-visible");
     ticketCreateModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("has-open-modal");
     const subjectInput = ticketCreateForm?.querySelector("input[name='subject']");
     if (subjectInput) {
       subjectInput.focus();
     }
   }
 
-  function closeTicketCreateModal() {
-    if (!ticketCreateModal) {
+  function closeTicketCreateModal({ restoreFocus = true } = {}) {
+    if (!ticketCreateModal || !isTicketCreateModalOpen()) {
       return;
     }
-    ticketCreateModal.classList.remove("is-open");
+    ticketCreateModal.classList.remove("is-visible");
     ticketCreateModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("has-open-modal");
     resetTicketCreateForm();
-    if (ticketCreateLastFocus && typeof ticketCreateLastFocus.focus === "function") {
+    if (restoreFocus && ticketCreateLastFocus && typeof ticketCreateLastFocus.focus === "function") {
       ticketCreateLastFocus.focus();
     }
+    ticketCreateLastFocus = null;
   }
 
   if (ticketCreateModal && ticketCreateModal.dataset.open === "true") {
@@ -2532,7 +2544,20 @@
           } else if (raw.details !== undefined && raw.details !== null) {
             text = String(raw.details);
           }
-          return { action: slug, value: text.trim() };
+          const normalized = { action: slug, value: text.trim() };
+          const topicSource =
+            raw.topic !== undefined && raw.topic !== null
+              ? raw.topic
+              : raw.topic_template !== undefined && raw.topic_template !== null
+              ? raw.topic_template
+              : null;
+          if (topicSource !== null) {
+            const topicText = String(topicSource).trim();
+            if (topicText) {
+              normalized.topic = topicText;
+            }
+          }
+          return normalized;
         }
         return null;
       }
@@ -2555,6 +2580,9 @@
           const valueInput = row.querySelector(
             "[data-role='ticket-action-value']"
           );
+          const topicInput = row.querySelector(
+            "[data-role='ticket-action-topic']"
+          );
           const slug =
             actionSelect instanceof HTMLSelectElement
               ? actionSelect.value
@@ -2567,12 +2595,43 @@
               : "";
           const valueText =
             valueInput instanceof HTMLTextAreaElement ? valueInput.value : "";
-          const haystack = `${label} ${selectedText} ${valueText}`
+          const topicText =
+            topicInput instanceof HTMLInputElement ? topicInput.value : "";
+          const combined = `${label} ${selectedText} ${valueText} ${topicText}`
             .trim()
             .toLowerCase();
-          const matches = query === "" || haystack.includes(query);
+          const matches = query === "" || combined.includes(query);
           row.classList.toggle("is-hidden", !matches);
         });
+      }
+
+      function syncTicketActionRow(row) {
+        if (!row) {
+          return;
+        }
+        const actionSelect = row.querySelector(
+          "[data-role='ticket-action-select']"
+        );
+        const topicField = row.querySelector(
+          "[data-role='ticket-action-topic-field']"
+        );
+        const topicInput = row.querySelector(
+          "[data-role='ticket-action-topic']"
+        );
+        if (!(actionSelect instanceof HTMLSelectElement)) {
+          if (topicField) {
+            topicField.classList.add("is-hidden");
+          }
+          return;
+        }
+        const slug = actionSelect.value.trim().toLowerCase();
+        const shouldShowTopic = slug === "send-ntfy-notification";
+        if (topicField) {
+          topicField.classList.toggle("is-hidden", !shouldShowTopic);
+        }
+        if (!shouldShowTopic && topicInput instanceof HTMLInputElement) {
+          topicInput.value = "";
+        }
       }
 
       function addTicketActionRow(action = null) {
@@ -2593,15 +2652,23 @@
         const valueInput = row.querySelector(
           "[data-role='ticket-action-value']"
         );
+        const topicInput = row.querySelector(
+          "[data-role='ticket-action-topic']"
+        );
         if (action && actionSelect instanceof HTMLSelectElement) {
           actionSelect.value = action.action || "";
         }
         if (action && valueInput instanceof HTMLTextAreaElement) {
           valueInput.value = action.value || "";
         }
+        if (action && topicInput instanceof HTMLInputElement) {
+          topicInput.value = action.topic || "";
+        }
         ticketActionList.appendChild(fragment);
+        const createdRow = ticketActionList.lastElementChild;
+        syncTicketActionRow(createdRow);
         applyTicketActionFilter();
-        return ticketActionList.lastElementChild;
+        return createdRow;
       }
 
       function setTicketActionValues(values) {
@@ -2633,6 +2700,9 @@
           const valueInput = row.querySelector(
             "[data-role='ticket-action-value']"
           );
+          const topicInput = row.querySelector(
+            "[data-role='ticket-action-topic']"
+          );
           const slug =
             actionSelect instanceof HTMLSelectElement
               ? actionSelect.value.trim().toLowerCase()
@@ -2658,7 +2728,14 @@
             errors.push(`Details are required for ticket action ${index + 1}.`);
             return;
           }
-          actions.push({ action: slug, value: valueText });
+          const payload = { action: slug, value: valueText };
+          if (topicInput instanceof HTMLInputElement) {
+            const topicText = topicInput.value.trim();
+            if (topicText) {
+              payload.topic = topicText;
+            }
+          }
+          actions.push(payload);
         });
         return { actions, errors };
       }
@@ -2797,6 +2874,18 @@
           row.remove();
           if (ticketActionList.children.length === 0) {
             addTicketActionRow();
+          }
+          applyTicketActionFilter();
+        });
+
+        ticketActionList.addEventListener("change", (event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          const row = target?.closest("[data-role='ticket-action']");
+          if (!row) {
+            return;
+          }
+          if (target && target.matches("[data-role='ticket-action-select']")) {
+            syncTicketActionRow(row);
           }
           applyTicketActionFilter();
         });

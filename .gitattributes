@@ -1,0 +1,2 @@
+# Keep both sides during merges for our changelog
+changes.md merge=union
