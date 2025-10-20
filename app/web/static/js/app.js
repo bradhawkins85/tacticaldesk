@@ -963,11 +963,12 @@
       syncroImportContainer.dataset.integrationEnabled === "true";
     const integrationSlug =
       syncroImportContainer.dataset.integrationSlug || "syncro-rmm";
-    let pageSize = Number.parseInt(pageSizeSelect?.value || "5", 10);
+    let pageSize = Number.parseInt(pageSizeSelect?.value || "25", 10);
     if (!Number.isFinite(pageSize) || pageSize < 1) {
-      pageSize = 5;
+      pageSize = 25;
     }
     let currentPage = 1;
+    let hasLoadedCompanies = false;
 
     function getSelectedCompanyIds() {
       return Array.from(
@@ -1050,7 +1051,7 @@
       }
 
       if (!Number.isInteger(pageSize) || pageSize < 1) {
-        pageSize = 5;
+        pageSize = 25;
       }
 
       const eligibleRows = dataRows.filter(
@@ -1191,6 +1192,9 @@
       return row;
     }
 
+    const refreshPrompt =
+      'Click "Refresh companies" to load the latest Syncro customer list.';
+
     function renderCompanies(records) {
       if (!tableBody) {
         return;
@@ -1201,9 +1205,12 @@
         row.dataset.role = "syncro-empty-row";
         const cell = document.createElement("td");
         cell.colSpan = 4;
-        cell.textContent = integrationEnabled
-          ? "No Syncro companies were returned."
+        const emptyMessage = integrationEnabled
+          ? hasLoadedCompanies
+            ? "No Syncro companies were returned."
+            : refreshPrompt
           : "Enable the integration to load Syncro companies.";
+        cell.textContent = emptyMessage;
         row.appendChild(cell);
         tableBody.appendChild(row);
         ensureVisibilityFlags(row);
@@ -1267,6 +1274,7 @@
             (data && data.detail) || "Unable to load Syncro companies"
           );
         }
+        hasLoadedCompanies = true;
         renderCompanies(Array.isArray(data) ? data : []);
         if (showStatus && messageTarget) {
           const count = Array.isArray(data) ? data.length : 0;
@@ -1345,7 +1353,11 @@
     syncTicketModeFields();
 
     if (integrationEnabled) {
-      loadCompanies({ showStatus: false });
+      hasLoadedCompanies = false;
+      if (messageTarget) {
+        setStatusMessage(messageTarget, refreshPrompt);
+      }
+      renderCompanies([]);
     } else if (messageTarget) {
       setStatusMessage(
         messageTarget,
@@ -1389,7 +1401,7 @@
     if (pageSizeSelect) {
       pageSizeSelect.addEventListener("change", () => {
         const candidate = Number.parseInt(pageSizeSelect.value, 10);
-        pageSize = Number.isFinite(candidate) && candidate > 0 ? candidate : 5;
+        pageSize = Number.isFinite(candidate) && candidate > 0 ? candidate : 25;
         goToPage(1);
       });
     }
@@ -1646,14 +1658,13 @@
       const enabled = Boolean(detail.enabled);
       setSyncroControlsEnabled(enabled);
       if (enabled) {
+        hasLoadedCompanies = false;
         if (messageTarget) {
-          setStatusMessage(
-            messageTarget,
-            "Syncro integration enabled. Fetching companies…"
-          );
+          setStatusMessage(messageTarget, refreshPrompt);
         }
-        loadCompanies();
+        renderCompanies([]);
       } else {
+        hasLoadedCompanies = false;
         if (messageTarget) {
           setStatusMessage(
             messageTarget,
