@@ -103,4 +103,6 @@
 - 2025-10-20T01:02:02Z Fix: Switched Syncro API authentication to Bearer Authorization headers so requests align with the published API security scheme.
 - 2025-10-20T01:15:00Z Fix: Removed Syncro webhook URL field and repositioned the credentials panel above the company selection table.
 - 2025-10-20T01:42:00Z Fix: Relocated Syncro company refresh tools beside the table header and expanded the credentials panel to full width below the import status.
+- 2025-10-20T02:15:00Z Feature: Enabled event automations to specify custom ntfy topics, including UI controls, API support, and
+  regression coverage for topic overrides.
 - 2025-10-20T02:10:00Z Fix: Restored the /tickets/new route so the new ticket workspace loads with the creation modal for no-JS navigation.

@@ -33,6 +33,7 @@ async def test_dispatch_invokes_ntfy_notification(monkeypatch):
                 {
                     "action": "send-ntfy-notification",
                     "value": "Ticket {{ ticket.id }} assigned to {{ ticket.assignment }}.",
+                    "topic": "{{ ticket.assignment }}",
                 }
             ],
         )
@@ -60,6 +61,7 @@ async def test_dispatch_invokes_ntfy_notification(monkeypatch):
         assert captured["automation_name"] == "Ntfy responder"
         assert captured["event_type"] == "Ticket Created"
         assert captured["ticket_identifier"] == "501"
+        assert captured["topic_override"] == "Duty Officer"
 
 
 @pytest.mark.asyncio

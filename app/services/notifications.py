@@ -52,15 +52,35 @@ async def send_ntfy_notification(
     automation_name: str,
     event_type: str,
     ticket_identifier: str,
+    topic_override: str | None = None,
 ) -> None:
-    """Deliver an ntfy notification when the integration is enabled."""
+    """Deliver an ntfy notification when the integration is enabled.
+
+    The ``topic_override`` parameter allows automation actions to specify a
+    custom destination topic. When provided, this value takes precedence over
+    the integration module configuration and application defaults.
+    """
 
     enabled, settings = await _load_ntfy_settings(session)
     app_settings = get_settings()
 
-    base_url = settings.get("base_url") or app_settings.ntfy_base_url
-    topic = settings.get("topic") or app_settings.ntfy_topic
-    token = settings.get("token") or app_settings.ntfy_token
+    def _clean(value: object | None) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        cleaned = str(value).strip()
+        return cleaned or None
+
+    base_url = _clean(settings.get("base_url")) or _clean(
+        app_settings.ntfy_base_url
+    )
+    configured_topic = _clean(settings.get("topic")) or _clean(
+        app_settings.ntfy_topic
+    )
+    token = _clean(settings.get("token")) or _clean(app_settings.ntfy_token)
+    topic = _clean(topic_override) or configured_topic
 
     if not enabled:
         logger.debug(
