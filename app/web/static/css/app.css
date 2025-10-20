@@ -404,7 +404,10 @@ body.sidebar-open .app-sidebar-overlay {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px 0 8px;
+}
+
+.sidebar-footer .sidebar-controls {
+  padding: 16px 0 12px;
   border-top: 1px solid rgba(148, 163, 184, 0.25);
 }
 
@@ -436,16 +439,27 @@ body.sidebar-open .app-sidebar-overlay {
 }
 
 .profile-chip--sidebar {
-  background: rgba(15, 23, 42, 0.4);
-  border-color: rgba(148, 163, 184, 0.35);
-  border-radius: 16px;
   align-items: center;
   padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: #f8fafc;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.25);
 }
 
 .profile-chip--sidebar .profile-initials {
-  background: rgba(148, 163, 184, 0.25);
-  color: #f8fafc;
+  background: rgba(226, 232, 240, 0.92);
+  color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+.profile-chip--sidebar .profile-name {
+  font-weight: 600;
+}
+
+.profile-chip--sidebar .profile-role {
+  color: rgba(226, 232, 240, 0.75);
 }
 
 .profile-details {
