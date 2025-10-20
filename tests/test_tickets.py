@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,9 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.automation_dispatcher import automation_dispatcher
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine
-from app.core.tickets import ticket_store
+from app.core.tickets import TicketStore, ticket_store
 from app.main import app
 from app.models import Automation
+from app.services.ticket_data import build_ticket_records
 
 
 @pytest.fixture(autouse=True)
@@ -196,6 +197,43 @@ def test_api_ticket_creation_validation_errors():
         body = response.json()
         assert "subject" in str(body)
         assert "customer_email" in str(body)
+
+
+def test_ticket_persists_across_store_reinitialization():
+    payload = {
+        "subject": "ERP connector timeout",
+        "customer": "Delta Manufacturing",
+        "customer_email": "support@delta-manufacturing.example",
+        "status": "Open",
+        "priority": "Medium",
+        "team": "Tier 1",
+        "assignment": "Unassigned",
+        "queue": "General support",
+        "category": "Integration",
+        "summary": "Scheduler reports repeated connector retries after timeout.",
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/api/tickets", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        ticket_id = data["ticket_id"]
+
+    now = datetime.now(timezone.utc)
+    seed_tickets = build_ticket_records(now)
+    fresh_store = TicketStore()
+    merged_records = asyncio.run(fresh_store.apply_overrides(seed_tickets))
+
+    persisted = [
+        ticket
+        for ticket in merged_records
+        if ticket.get("id") == ticket_id
+    ]
+    assert persisted, "Expected created ticket to persist after store reinitialization"
+
+    ticket = persisted[0]
+    assert ticket["subject"] == payload["subject"]
+    assert ticket["customer"] == payload["customer"]
 
 
 def test_ticket_create_form_validation_errors_rendered():
