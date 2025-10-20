@@ -1281,6 +1281,7 @@ async def knowledge_base_view(
         )
 
         if selected_doc_obj is not None:
+            published_at_value = getattr(selected_doc_obj, "published_at", None)
             selected_document_context = {
                 "id": selected_doc_obj.id,
                 "title": selected_doc_obj.title,
@@ -1295,7 +1296,7 @@ async def knowledge_base_view(
                 "created_by_id": selected_doc_obj.created_by_id,
                 "created_at_iso": _format_datetime_for_display(selected_doc_obj.created_at),
                 "updated_at_iso": _format_datetime_for_display(selected_doc_obj.updated_at),
-                "published_at_iso": _format_datetime_for_display(selected_doc_obj.published_at),
+                "published_at_iso": _format_datetime_for_display(published_at_value),
             }
 
             revisions = await list_document_revisions(session, selected_doc_obj.id)

@@ -1,3 +1,4 @@
+- 2025-10-20T05:40:00Z Fix: Added rollback handling to ticket reset and guarded knowledge base published timestamps to resolve startup failures.
 - 2025-10-20T05:10:44Z Feature: Added standalone AI ticket summary card with resolution detection, manual refresh, and Ollama-backed status classification.
 - 2025-10-15T22:45:53Z Feature: Initial FastAPI backend scaffold with automated migrations and authentication endpoints.
 

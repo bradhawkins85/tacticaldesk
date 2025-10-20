@@ -529,6 +529,9 @@ class TicketStore:
                     await session.execute(delete(TicketDeletion))
                     await session.execute(delete(TicketSummary))
                     await session.commit()
+                except Exception:
+                    await session.rollback()
+                    raise
             self._ticket_sequence = self._sequence_floor
             self._external_sources.clear()
             self._session_factory = None
