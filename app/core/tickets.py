@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from html import escape
 from typing import Dict, Iterable, List, Sequence, Set
 
@@ -17,6 +17,7 @@ from app.models import (
     TicketDeletion,
     TicketOverride,
     TicketReply,
+    TicketSummary,
     utcnow,
 )
 
@@ -100,6 +101,31 @@ class StoredTicketRecord:
             "history": [dict(entry) for entry in self.history],
             "metadata_created_at_dt": self.metadata_created_at_dt,
             "metadata_updated_at_dt": self.metadata_updated_at_dt,
+        }
+
+
+@dataclass
+class StoredTicketSummary:
+    ticket_id: str
+    provider: str
+    model: str | None
+    summary: str | None
+    error_message: str | None
+    updated_at_dt: datetime
+
+    def as_dict(self) -> dict[str, object]:
+        updated = self.updated_at_dt
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        updated_iso = updated.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return {
+            "ticket_id": self.ticket_id,
+            "provider": self.provider,
+            "model": self.model,
+            "summary": self.summary,
+            "error_message": self.error_message,
+            "updated_at_dt": updated,
+            "updated_at_iso": updated_iso,
         }
 
 
@@ -223,6 +249,16 @@ class TicketStore:
             "body": reply.body,
             "timestamp_dt": reply.timestamp_dt,
         }
+
+    def _summary_from_model(self, model: TicketSummary) -> StoredTicketSummary:
+        return StoredTicketSummary(
+            ticket_id=model.ticket_id,
+            provider=model.provider,
+            model=model.model,
+            summary=model.summary,
+            error_message=model.error_message,
+            updated_at_dt=model.updated_at_dt,
+        )
 
     async def apply_overrides(
         self, tickets: Iterable[dict[str, object]]
@@ -475,13 +511,15 @@ class TicketStore:
         """Clear stored tickets and overrides (useful for tests)."""
 
         async with self._lock:
-            session_factory = await self._ensure_session_factory()
-            async with session_factory() as session:
-                await session.execute(delete(TicketReply))
-                await session.execute(delete(TicketOverride))
-                await session.execute(delete(Ticket))
-                await session.execute(delete(TicketDeletion))
-                await session.commit()
+            if self._session_factory is not None:
+                session_factory = self._session_factory
+                async with session_factory() as session:
+                    await session.execute(delete(TicketReply))
+                    await session.execute(delete(TicketOverride))
+                    await session.execute(delete(Ticket))
+                    await session.execute(delete(TicketDeletion))
+                    await session.execute(delete(TicketSummary))
+                    await session.commit()
             self._ticket_sequence = self._sequence_floor
             self._external_sources.clear()
             self._session_factory = None
@@ -603,6 +641,55 @@ class TicketStore:
                     self._external_sources[source] = filtered
                 else:
                     self._external_sources.pop(source, None)
+
+    async def record_summary(
+        self,
+        ticket_id: str,
+        *,
+        provider: str,
+        model: str | None = None,
+        summary: str | None = None,
+        error_message: str | None = None,
+    ) -> dict[str, object]:
+        """Persist the latest generated summary for a ticket."""
+
+        normalized_provider = provider.strip() or "ollama"
+
+        async with self._lock:
+            session_factory = await self._ensure_session_factory()
+            async with session_factory() as session:
+                record = await session.get(TicketSummary, ticket_id)
+                if record is None:
+                    record = TicketSummary(ticket_id=ticket_id)
+                    session.add(record)
+                record.provider = normalized_provider
+                record.model = model.strip() if isinstance(model, str) and model.strip() else None
+                if summary is not None and summary.strip():
+                    record.summary = summary.strip()
+                elif record.summary is None:
+                    record.summary = None
+                record.error_message = error_message.strip() if isinstance(error_message, str) and error_message.strip() else None
+                record.updated_at_dt = utcnow()
+                await session.commit()
+                await session.refresh(record)
+                return self._summary_from_model(record).as_dict()
+
+    async def get_summary(self, ticket_id: str) -> dict[str, object] | None:
+        session_factory = await self._ensure_session_factory()
+        async with session_factory() as session:
+            record = await session.get(TicketSummary, ticket_id)
+            if record is None:
+                return None
+            return self._summary_from_model(record).as_dict()
+
+    async def clear_summary(self, ticket_id: str) -> None:
+        async with self._lock:
+            session_factory = await self._ensure_session_factory()
+            async with session_factory() as session:
+                await session.execute(
+                    delete(TicketSummary).where(TicketSummary.ticket_id == ticket_id)
+                )
+                await session.commit()
 
 
 ticket_store = TicketStore()

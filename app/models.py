@@ -312,3 +312,26 @@ class TicketDeletion(Base):
         default=utcnow,
         server_default=text("CURRENT_TIMESTAMP"),
     )
+
+
+class TicketSummary(Base):
+    __tablename__ = "ticket_summaries"
+
+    ticket_id: str = Column(String(32), primary_key=True)
+    provider: str = Column(String(64), nullable=False, default="ollama")
+    model: str | None = Column(String(255), nullable=True)
+    summary: str | None = Column(Text, nullable=True)
+    error_message: str | None = Column(Text, nullable=True)
+    created_at_dt: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    updated_at_dt: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )

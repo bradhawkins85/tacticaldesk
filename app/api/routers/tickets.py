@@ -11,6 +11,7 @@ from app.core.tickets import ticket_store
 from app.schemas import TicketCreate, TicketCreateResponse
 from app.services import dispatch_ticket_event
 from app.services.ticket_data import enrich_ticket_record, fetch_ticket_records
+from app.services.ticket_summary import refresh_ticket_summary
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
@@ -30,6 +31,8 @@ async def create_ticket(
         existing_ids=existing_ids,
     )
     enriched_ticket = enrich_ticket_record(created_ticket, now_utc)
+
+    await refresh_ticket_summary(session, enriched_ticket)
 
     await dispatch_ticket_event(
         session,

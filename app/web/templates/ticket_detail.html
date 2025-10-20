@@ -246,6 +246,42 @@
         <button type="submit" class="primary-button ticket-reply-form__submit">Send reply</button>
       </form>
     </aside>
+    <section class="ticket-detail__summary" aria-labelledby="ticket-summary-title">
+      <div class="ticket-summary__header">
+        <h2 id="ticket-summary-title">Ticket summary</h2>
+        {% if ticket_summary.updated_at_iso %}
+        <span class="ticket-summary__timestamp">
+          Updated
+          <time data-role="local-datetime" datetime="{{ ticket_summary.updated_at_iso }}">
+            {{ ticket_summary.updated_at_iso }}
+          </time>
+        </span>
+        {% endif %}
+      </div>
+      {% if ticket_summary.summary %}
+      <p class="ticket-summary__body">{{ ticket_summary.summary }}</p>
+      {% else %}
+      <p class="ticket-detail__empty">Summary not yet available.</p>
+      {% endif %}
+      <div class="ticket-summary__meta">
+        <span class="ticket-summary__provider">
+          {% if ticket_summary.provider == 'fallback' %}
+          Generated with fallback heuristics
+          {% else %}
+          Generated with {{ ticket_summary.model or 'Ollama' }}
+          {% endif %}
+        </span>
+        {% if ticket_summary.error_message %}
+        <span class="ticket-summary__status ticket-summary__status--warning">
+          Ollama: {{ ticket_summary.error_message }}
+        </span>
+        {% elif ticket_summary.used_fallback %}
+        <span class="ticket-summary__status ticket-summary__status--warning">
+          Ollama summary unavailable; displaying fallback view.
+        </span>
+        {% endif %}
+      </div>
+    </section>
   </section>
 </div>
 {% endblock %}
