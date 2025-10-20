@@ -40,6 +40,7 @@ async def _reset_ticket_store():
 
 def _mock_syncro_transport() -> MockTransport:
     def handler(request: Request) -> Response:
+        assert request.headers.get("Authorization") == "Bearer test-key"
         if request.url.path.endswith("/api/v1/customers"):
             return Response(
                 200,
