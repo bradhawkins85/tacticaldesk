@@ -643,12 +643,6 @@ SYNCRO_SETTINGS_FIELDS = [
         "type": "password",
         "placeholder": "Enter the secure API key",
     },
-    {
-        "key": "webhook_url",
-        "label": "Webhook URL",
-        "type": "url",
-        "placeholder": "https://your-company.syncromsp.com/webhooks",
-    },
 ]
 
 INTEGRATION_SETTINGS_FIELDS: dict[str, list[dict[str, str]]] = {

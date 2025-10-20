@@ -1246,6 +1246,11 @@ body.sidebar-open .app-sidebar-overlay {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+  grid-column: 1 / -1;
+}
+
+.syncro-import__credentials {
+  grid-column: 1 / -1;
 }
 
 .syncro-import__tools {
@@ -2422,6 +2427,30 @@ body.sidebar-open .app-sidebar-overlay {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.panel__tools-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.panel__tools-group--filter {
+    flex: 1 1 220px;
+}
+
+.panel__tools-group--filter input[type='search'] {
+    width: 100%;
+}
+
+.panel__tools-group--actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .panel__tools input[type='search'] {
