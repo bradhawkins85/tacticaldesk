@@ -124,3 +124,4 @@
 - 2025-10-20T03:19:02Z Feature: Replaced webhook retry monitor action labels with icon-based controls for consistent visual affordances.
 - 2025-10-20T03:27:00Z Fix: Deferred Syncro company loading until manual refresh and enforced five-row pagination in the Syncro module.
 - 2025-10-20T03:40:00Z Fix: Increased Syncro company pagination to 25 rows per page to improve list review efficiency.
+- 2025-10-20T03:45:53Z Fix: Restored Syncro company pagination to five rows per page to align with display requirements.
