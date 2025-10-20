@@ -279,6 +279,36 @@
                             required
                           ></textarea>
                           <div
+                            class="ticket-action__recipients-field is-hidden"
+                            data-role="ticket-action-recipient-fields"
+                          >
+                            <label class="ticket-action__recipient-label">
+                              To recipients (required)
+                              <input
+                                type="text"
+                                class="ticket-action__recipient-input"
+                                data-role="ticket-action-to"
+                                maxlength="1024"
+                                placeholder="oncall@example.com, team@example.com"
+                                aria-label="To recipients"
+                              />
+                            </label>
+                            <label class="ticket-action__recipient-label">
+                              CC recipients (optional)
+                              <input
+                                type="text"
+                                class="ticket-action__recipient-input"
+                                data-role="ticket-action-cc"
+                                maxlength="1024"
+                                placeholder="manager@example.com"
+                                aria-label="CC recipients"
+                              />
+                            </label>
+                            <p class="form-help ticket-action__recipients-help">
+                              Provide comma or semicolon separated email addresses. Leave CC blank to skip it.
+                            </p>
+                          </div>
+                          <div
                             class="ticket-action__topic-field is-hidden"
                             data-role="ticket-action-topic-field"
                           >

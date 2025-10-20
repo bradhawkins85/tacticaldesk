@@ -65,6 +65,52 @@ async def test_dispatch_invokes_ntfy_notification(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_dispatch_invokes_smtp_with_recipients(monkeypatch):
+    engine = await get_engine()
+    async with AsyncSession(engine) as session:
+        automation = Automation(
+            name="SMTP responder",
+            description="Send smtp notification",
+            playbook="Alerting",
+            kind="event",
+            trigger="Ticket Created",
+            ticket_actions=[
+                {
+                    "action": "send-smtp-email",
+                    "value": "Ticket {{ ticket.id }} escalated.",
+                    "topic": "Escalation {{ ticket.id }}",
+                    "to_recipients": "ops@example.com",
+                    "cc_recipients": "lead@example.com",
+                }
+            ],
+        )
+        session.add(automation)
+        await session.commit()
+
+        captured: dict[str, object] = {}
+
+        async def fake_smtp(session_arg, **kwargs):
+            captured["session"] = session_arg
+            captured.update(kwargs)
+
+        monkeypatch.setattr(
+            "app.services.automation_events.send_smtp_email",
+            fake_smtp,
+        )
+
+        await dispatch_ticket_event(
+            session,
+            event_type="Ticket Created",
+            ticket_after={"id": 777},
+        )
+
+        assert captured["to"] == "ops@example.com"
+        assert captured["cc"] == "lead@example.com"
+        assert captured["subject"] == "Escalation 777"
+        assert captured["automation_name"] == "SMTP responder"
+
+
+@pytest.mark.asyncio
 async def test_dispatch_applies_regex_operator():
     engine = await get_engine()
     async with AsyncSession(engine) as session:

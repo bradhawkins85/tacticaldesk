@@ -52,6 +52,14 @@ class IntegrationSettings(BaseModel):
     tenant_id: Optional[str] = Field(default=None, max_length=255)
     topic: Optional[str] = Field(default=None, max_length=255)
     token: Optional[str] = Field(default=None, max_length=512)
+    smtp_host: Optional[str] = Field(default=None, max_length=255)
+    smtp_port: Optional[int] = Field(default=None, ge=1, le=65535)
+    smtp_username: Optional[str] = Field(default=None, max_length=255)
+    smtp_password: Optional[str] = Field(default=None, max_length=512)
+    smtp_sender: Optional[EmailStr] = Field(default=None)
+    smtp_bcc: Optional[str] = Field(default=None, max_length=1024)
+    smtp_use_tls: Optional[bool] = Field(default=None)
+    smtp_use_ssl: Optional[bool] = Field(default=None)
 
     class Config:
         extra = "allow"
@@ -69,6 +77,14 @@ class IntegrationSettings(BaseModel):
             text = text[: -len(".syncromsp.com")]
         cleaned = re.sub(r"[^a-z0-9-]", "", text).strip("-")
         return cleaned or None
+
+    @root_validator
+    def _validate_smtp_security_flags(cls, values: dict[str, Any]) -> dict[str, Any]:
+        use_tls = values.get("smtp_use_tls")
+        use_ssl = values.get("smtp_use_ssl")
+        if use_tls and use_ssl:
+            raise ValueError("smtp_use_tls and smtp_use_ssl cannot both be true")
+        return values
 
 
 class IntegrationModuleBase(BaseModel):
@@ -390,6 +406,16 @@ class AutomationTicketAction(BaseModel):
             "Optional topic override used by notification-style ticket actions."
         ),
     )
+    to_recipients: Optional[str] = Field(
+        default=None,
+        max_length=1024,
+        description="Comma or semicolon separated To recipient list for email actions.",
+    )
+    cc_recipients: Optional[str] = Field(
+        default=None,
+        max_length=1024,
+        description="Comma or semicolon separated CC recipient list for email actions.",
+    )
 
     @root_validator(pre=True)
     def _coerce_aliases(cls, values: dict[str, object]) -> dict[str, object]:
@@ -412,6 +438,21 @@ class AutomationTicketAction(BaseModel):
                     continue
                 data["value"] = str(candidate)
                 break
+        for alias, target in (
+            ("to", "to_recipients"),
+            ("recipients", "to_recipients"),
+            ("toRecipients", "to_recipients"),
+            ("to_recipients", "to_recipients"),
+            ("cc", "cc_recipients"),
+            ("ccRecipients", "cc_recipients"),
+            ("cc_recipients", "cc_recipients"),
+        ):
+            if target in data and data.get(target) not in {None, ""}:
+                continue
+            candidate = data.get(alias)
+            if candidate in {None, ""}:
+                continue
+            data[target] = candidate
         return data
 
     @validator("action")
@@ -446,6 +487,25 @@ class AutomationTicketAction(BaseModel):
             return cleaned or None
         cleaned = str(raw_topic).strip()
         return cleaned or None
+
+    @validator("to_recipients", "cc_recipients", pre=True)
+    def _normalize_recipient_fields(cls, raw_value):
+        if raw_value is None:
+            return None
+        if isinstance(raw_value, str):
+            cleaned = raw_value.strip()
+            return cleaned or None
+        cleaned = str(raw_value).strip()
+        return cleaned or None
+
+    @root_validator
+    def _validate_email_recipients(cls, values: dict[str, Any]) -> dict[str, Any]:
+        action = values.get("action")
+        if action == "send-smtp-email" and not values.get("to_recipients"):
+            raise ValueError(
+                "to_recipients is required when configuring send-smtp-email ticket actions."
+            )
+        return values
 
     def dict(self, *args, **kwargs):  # type: ignore[override]
         kwargs.setdefault("exclude_none", True)

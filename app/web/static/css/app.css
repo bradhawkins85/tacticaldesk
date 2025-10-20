@@ -2913,6 +2913,28 @@ body.sidebar-open .app-sidebar-overlay {
     margin: 0;
 }
 
+.ticket-action__recipients-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ticket-action__recipient-label {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ticket-action__recipient-input {
+    width: 100%;
+}
+
+.ticket-action__recipients-help {
+    margin: 0;
+}
+
 .ticket-action__remove {
     width: 36px;
     height: 36px;

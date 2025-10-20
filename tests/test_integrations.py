@@ -54,12 +54,20 @@ def test_seeded_integrations_available():
         assert response.status_code == 200
         payload = response.json()
         slugs = {item["slug"] for item in payload}
-        assert {"syncro-rmm", "tactical-rmm", "xero", "ntfy", "https-post-receiver"}.issubset(slugs)
+        assert {
+            "syncro-rmm",
+            "tactical-rmm",
+            "xero",
+            "ntfy",
+            "smtp-email",
+            "https-post-receiver",
+        }.issubset(slugs)
         status_map = {item["slug"]: item["enabled"] for item in payload}
         assert status_map["syncro-rmm"] is True
         assert status_map["tactical-rmm"] is True
         assert status_map["xero"] is False
         assert status_map["ntfy"] is False
+        assert status_map["smtp-email"] is False
         assert status_map["https-post-receiver"] is False
 
 
@@ -131,6 +139,18 @@ def test_ntfy_integration_fields_rendered():
         assert "Base URL" in html
         assert "Topic" in html
         assert "Access token" in html
+
+
+def test_smtp_integration_fields_rendered():
+    with TestClient(app) as client:
+        detail_response = client.get("/integrations/smtp-email")
+        assert detail_response.status_code == 200
+        html = detail_response.text
+        assert "SMTP host" in html
+        assert "From address" in html
+        assert "BCC recipients" in html
+        assert "Use STARTTLS" in html
+        assert "Specify To and CC recipients" in html
 
 
 def test_https_post_webhook_receiver_displays_endpoint_instead_of_form():

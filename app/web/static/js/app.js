@@ -2539,6 +2539,32 @@
               normalized.topic = topicText;
             }
           }
+          const toSource =
+            raw.to_recipients !== undefined && raw.to_recipients !== null
+              ? raw.to_recipients
+              : raw.to !== undefined && raw.to !== null
+              ? raw.to
+              : raw.recipients !== undefined && raw.recipients !== null
+              ? raw.recipients
+              : null;
+          if (toSource !== null) {
+            const toText = String(toSource).trim();
+            if (toText) {
+              normalized.to_recipients = toText;
+            }
+          }
+          const ccSource =
+            raw.cc_recipients !== undefined && raw.cc_recipients !== null
+              ? raw.cc_recipients
+              : raw.cc !== undefined && raw.cc !== null
+              ? raw.cc
+              : null;
+          if (ccSource !== null) {
+            const ccText = String(ccSource).trim();
+            if (ccText) {
+              normalized.cc_recipients = ccText;
+            }
+          }
           return normalized;
         }
         return null;
@@ -2565,6 +2591,8 @@
           const topicInput = row.querySelector(
             "[data-role='ticket-action-topic']"
           );
+          const toInput = row.querySelector("[data-role='ticket-action-to']");
+          const ccInput = row.querySelector("[data-role='ticket-action-cc']");
           const slug =
             actionSelect instanceof HTMLSelectElement
               ? actionSelect.value
@@ -2579,7 +2607,11 @@
             valueInput instanceof HTMLTextAreaElement ? valueInput.value : "";
           const topicText =
             topicInput instanceof HTMLInputElement ? topicInput.value : "";
-          const combined = `${label} ${selectedText} ${valueText} ${topicText}`
+          const toText =
+            toInput instanceof HTMLInputElement ? toInput.value : "";
+          const ccText =
+            ccInput instanceof HTMLInputElement ? ccInput.value : "";
+          const combined = `${label} ${selectedText} ${valueText} ${topicText} ${toText} ${ccText}`
             .trim()
             .toLowerCase();
           const matches = query === "" || combined.includes(query);
@@ -2600,19 +2632,39 @@
         const topicInput = row.querySelector(
           "[data-role='ticket-action-topic']"
         );
+        const recipientField = row.querySelector(
+          "[data-role='ticket-action-recipient-fields']"
+        );
+        const toInput = row.querySelector("[data-role='ticket-action-to']");
+        const ccInput = row.querySelector("[data-role='ticket-action-cc']");
         if (!(actionSelect instanceof HTMLSelectElement)) {
           if (topicField) {
             topicField.classList.add("is-hidden");
+          }
+          if (recipientField) {
+            recipientField.classList.add("is-hidden");
           }
           return;
         }
         const slug = actionSelect.value.trim().toLowerCase();
         const shouldShowTopic = slug === "send-ntfy-notification";
+        const shouldShowRecipients = slug === "send-smtp-email";
         if (topicField) {
           topicField.classList.toggle("is-hidden", !shouldShowTopic);
         }
         if (!shouldShowTopic && topicInput instanceof HTMLInputElement) {
           topicInput.value = "";
+        }
+        if (recipientField) {
+          recipientField.classList.toggle("is-hidden", !shouldShowRecipients);
+        }
+        if (!shouldShowRecipients) {
+          if (toInput instanceof HTMLInputElement) {
+            toInput.value = "";
+          }
+          if (ccInput instanceof HTMLInputElement) {
+            ccInput.value = "";
+          }
         }
       }
 
@@ -2637,6 +2689,8 @@
         const topicInput = row.querySelector(
           "[data-role='ticket-action-topic']"
         );
+        const toInput = row.querySelector("[data-role='ticket-action-to']");
+        const ccInput = row.querySelector("[data-role='ticket-action-cc']");
         if (action && actionSelect instanceof HTMLSelectElement) {
           actionSelect.value = action.action || "";
         }
@@ -2645,6 +2699,12 @@
         }
         if (action && topicInput instanceof HTMLInputElement) {
           topicInput.value = action.topic || "";
+        }
+        if (action && toInput instanceof HTMLInputElement) {
+          toInput.value = action.to_recipients || "";
+        }
+        if (action && ccInput instanceof HTMLInputElement) {
+          ccInput.value = action.cc_recipients || "";
         }
         ticketActionList.appendChild(fragment);
         const createdRow = ticketActionList.lastElementChild;
@@ -2685,6 +2745,8 @@
           const topicInput = row.querySelector(
             "[data-role='ticket-action-topic']"
           );
+          const toInput = row.querySelector("[data-role='ticket-action-to']");
+          const ccInput = row.querySelector("[data-role='ticket-action-cc']");
           const slug =
             actionSelect instanceof HTMLSelectElement
               ? actionSelect.value.trim().toLowerCase()
@@ -2715,6 +2777,22 @@
             const topicText = topicInput.value.trim();
             if (topicText) {
               payload.topic = topicText;
+            }
+          }
+          if (slug === "send-smtp-email") {
+            const toText =
+              toInput instanceof HTMLInputElement ? toInput.value.trim() : "";
+            const ccText =
+              ccInput instanceof HTMLInputElement ? ccInput.value.trim() : "";
+            if (!toText) {
+              errors.push(
+                `To recipients are required for ticket action ${index + 1}.`
+              );
+              return;
+            }
+            payload.to_recipients = toText;
+            if (ccText) {
+              payload.cc_recipients = ccText;
             }
           }
           actions.push(payload);
