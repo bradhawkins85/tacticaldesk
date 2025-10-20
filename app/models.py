@@ -371,6 +371,20 @@ class KnowledgeDocument(Base):
         index=True,
     )
     created_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
+
 class TicketSummary(Base):
     __tablename__ = "ticket_summaries"
 

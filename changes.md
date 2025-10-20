@@ -135,3 +135,4 @@
 - 2025-10-20T04:13:22Z Feature: Added dedicated organisation contact creation controls with responsive layout buttons in the admin directory.
 - 2025-10-20T05:05:33Z Fix: Prevented test setup resets from auto-creating organization tables by skipping session bootstrap when clearing ticket data.
 - 2025-10-20T04:58:05Z Fix: Relocated ticket summary beneath the reply form with integrated styling for the updated ticket workspace layout.
+- 2025-10-20T05:20:00Z Fix: Restored knowledge document timestamps with completed column definitions to resolve startup syntax errors.
