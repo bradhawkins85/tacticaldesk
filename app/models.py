@@ -159,7 +159,24 @@ class WebhookDelivery(Base):
     id: int = Column(Integer, primary_key=True, index=True)
     event_id: str = Column(String(128), nullable=False, unique=True, index=True)
     endpoint: str = Column(String(2048), nullable=False)
+    module_id: int | None = Column(
+        Integer,
+        ForeignKey("integration_modules.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    module_slug: str | None = Column(String(255), nullable=True, index=True)
+    request_method: str = Column(String(16), nullable=False, default="GET")
+    request_url: str = Column(String(2048), nullable=False, default="")
+    request_payload: dict | list | str | int | float | bool | None = Column(
+        JSON, nullable=True
+    )
     status: str = Column(String(32), nullable=False, default="retrying")
+    response_status_code: int | None = Column(Integer, nullable=True)
+    response_payload: dict | list | str | int | float | bool | None = Column(
+        JSON, nullable=True
+    )
+    error_message: str | None = Column(Text, nullable=True)
     last_attempt_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
     next_retry_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
     created_at: datetime = Column(

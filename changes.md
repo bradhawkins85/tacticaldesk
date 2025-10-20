@@ -109,3 +109,4 @@
 - 2025-10-20T02:10:00Z Fix: Restored the /tickets/new route so the new ticket workspace loads with the creation modal for no-JS navigation.
 - 2025-10-20T01:32:13Z Fix: Restored ticket creation modal visibility by aligning client controls with modal visibility classes.
 - 2025-10-20T11:55:00Z Fix: Updated ticket create action to open the dedicated workspace in a new tab for reliable ticket authoring.
+- 2025-10-20T12:30:00Z Feature: Logged integration API requests to the webhook monitor, surfaced request/response details in the admin UI, and auto-paused deliveries when modules are disabled.

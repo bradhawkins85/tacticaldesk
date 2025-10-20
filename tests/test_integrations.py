@@ -1,8 +1,15 @@
+import asyncio
+from datetime import timedelta
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.db import get_engine
 from app.main import app
+from app.models import WebhookDelivery, utcnow
 
 
 @pytest.fixture(autouse=True)
@@ -13,6 +20,32 @@ def integration_db(tmp_path, monkeypatch):
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+async def _create_module_webhook(event_id: str, status: str = "retrying") -> None:
+    engine = await get_engine()
+    async with AsyncSession(engine) as session:
+        delivery = WebhookDelivery(
+            event_id=event_id,
+            endpoint="https://hooks.example/log",
+            module_slug="syncro-rmm",
+            request_method="GET",
+            request_url="https://hooks.example/log",
+            status=status,
+            last_attempt_at=utcnow() - timedelta(minutes=5),
+            next_retry_at=utcnow() + timedelta(minutes=10),
+        )
+        session.add(delivery)
+        await session.commit()
+
+
+async def _get_module_webhook(event_id: str) -> WebhookDelivery | None:
+    engine = await get_engine()
+    async with AsyncSession(engine) as session:
+        result = await session.execute(
+            select(WebhookDelivery).where(WebhookDelivery.event_id == event_id)
+        )
+        return result.scalar_one_or_none()
 
 
 def test_seeded_integrations_available():
@@ -42,6 +75,31 @@ def test_toggle_integration_updates_navigation():
         assert "SyncroRMM" in html
         assert 'data-integration-link="syncro-rmm"' not in html
 
+
+def test_disabling_module_pauses_webhooks():
+    asyncio.run(_create_module_webhook("whk-sync-1", status="retrying"))
+    asyncio.run(_create_module_webhook("whk-sync-2", status="failed"))
+
+    with TestClient(app) as client:
+        response = client.patch("/api/integrations/syncro-rmm", json={"enabled": False})
+        assert response.status_code == 200
+        assert response.json()["enabled"] is False
+
+        delivery_one = asyncio.run(_get_module_webhook("whk-sync-1"))
+        delivery_two = asyncio.run(_get_module_webhook("whk-sync-2"))
+        assert delivery_one.status == "paused"
+        assert delivery_two.status == "paused"
+        assert delivery_one.next_retry_at is None
+
+        reenable = client.patch("/api/integrations/syncro-rmm", json={"enabled": True})
+        assert reenable.status_code == 200
+        assert reenable.json()["enabled"] is True
+
+        resumed_one = asyncio.run(_get_module_webhook("whk-sync-1"))
+        resumed_two = asyncio.run(_get_module_webhook("whk-sync-2"))
+        assert resumed_one.status == "retrying"
+        assert resumed_two.status == "retrying"
+        assert resumed_one.next_retry_at is not None
 
 def test_update_integration_settings_reflected_in_detail():
     with TestClient(app) as client:

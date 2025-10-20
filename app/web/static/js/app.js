@@ -589,10 +589,24 @@
       const row = document.createElement("tr");
       row.dataset.role = "webhook-empty";
       const cell = document.createElement("td");
-      cell.colSpan = 6;
+      cell.colSpan = 9;
       cell.textContent = "All outbound webhooks are healthy.";
       row.appendChild(cell);
       tbody.appendChild(row);
+    }
+  }
+
+  function formatResultPayload(payload) {
+    if (payload == null) {
+      return "";
+    }
+    if (typeof payload === "string") {
+      return payload;
+    }
+    try {
+      return JSON.stringify(payload, null, 2);
+    } catch (error) {
+      return String(payload);
     }
   }
 
@@ -600,10 +614,34 @@
     if (!row || !payload) {
       return;
     }
+    const moduleCell = row.querySelector("[data-cell='module']");
+    if (moduleCell) {
+      const slug = payload.module_slug || "";
+      moduleCell.dataset.sortValue = slug;
+      moduleCell.textContent = slug || "—";
+    }
+    const requestCell = row.querySelector("[data-cell='request']");
+    if (requestCell) {
+      requestCell.dataset.sortValue = payload.request_url || "";
+      const methodEl = requestCell.querySelector(".request-method");
+      const urlEl = requestCell.querySelector(".request-url");
+      if (methodEl) {
+        methodEl.textContent = (payload.request_method || "").toUpperCase();
+      }
+      if (urlEl) {
+        urlEl.textContent = payload.request_url || "";
+      }
+    }
     const statusCell = row.querySelector("[data-cell='status']");
     if (statusCell && payload.status) {
       statusCell.dataset.sortValue = payload.status;
       statusCell.textContent = formatWebhookStatusLabel(payload.status);
+    }
+    const responseCell = row.querySelector("[data-cell='response_status']");
+    if (responseCell) {
+      const code = payload.response_status_code;
+      responseCell.dataset.sortValue = Number.isFinite(code) ? code : 0;
+      responseCell.textContent = Number.isFinite(code) ? String(code) : "—";
     }
     const lastAttemptCell = row.querySelector("[data-cell='last_attempt']");
     if (lastAttemptCell) {
@@ -627,6 +665,49 @@
         nextRetryCell.dataset.sortValue = "";
         delete nextRetryCell.dataset.format;
         nextRetryCell.textContent = "Paused";
+      }
+    }
+    const resultCell = row.querySelector("[data-cell='result']");
+    if (resultCell) {
+      const errorMessage = payload.error_message || "";
+      const responsePreview = formatResultPayload(payload.response_payload);
+      resultCell.dataset.sortValue = errorMessage || responsePreview || "";
+      const errorSpan = resultCell.querySelector(".result-error");
+      const payloadPre = resultCell.querySelector(".result-payload");
+      const placeholder = resultCell.querySelector("span:not(.result-error)");
+      if (errorMessage) {
+        if (errorSpan) {
+          errorSpan.textContent = errorMessage;
+          errorSpan.hidden = false;
+        }
+        if (payloadPre) {
+          payloadPre.hidden = true;
+        }
+        if (placeholder) {
+          placeholder.hidden = true;
+        }
+      } else if (responsePreview) {
+        if (payloadPre) {
+          payloadPre.textContent = responsePreview;
+          payloadPre.hidden = false;
+        }
+        if (errorSpan) {
+          errorSpan.hidden = true;
+        }
+        if (placeholder) {
+          placeholder.hidden = true;
+        }
+      } else {
+        if (placeholder) {
+          placeholder.hidden = false;
+          placeholder.textContent = "—";
+        }
+        if (errorSpan) {
+          errorSpan.hidden = true;
+        }
+        if (payloadPre) {
+          payloadPre.hidden = true;
+        }
       }
     }
     const pauseButton = row.querySelector("[data-action='webhook-pause']");
