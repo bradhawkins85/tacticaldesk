@@ -31,6 +31,9 @@ async def _create_delivery(event_id: str = "whk-test") -> None:
         delivery = WebhookDelivery(
             event_id=event_id,
             endpoint="https://hooks.example/webhook",
+            module_slug="test-module",
+            request_method="POST",
+            request_url="https://hooks.example/webhook",
             status="retrying",
             last_attempt_at=now - timedelta(minutes=2),
             next_retry_at=now + timedelta(minutes=3),

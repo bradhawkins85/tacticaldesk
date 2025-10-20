@@ -1627,6 +1627,35 @@ body.sidebar-open .app-sidebar-overlay {
   opacity: 1;
 }
 
+.data-table .request-method {
+  font-weight: 600;
+  margin-right: 0.5rem;
+  text-transform: uppercase;
+}
+
+.data-table .request-url {
+  display: block;
+  word-break: break-all;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.data-table .result-payload {
+  max-height: 160px;
+  overflow: auto;
+  background: rgba(148, 163, 184, 0.08);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.data-table .result-error {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

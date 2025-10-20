@@ -13,18 +13,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models import IntegrationModule
+from app.services.webhook_logging import log_module_api_call
 
 logger = logging.getLogger(__name__)
 
 
-async def _load_ntfy_settings(session: AsyncSession) -> tuple[bool, dict[str, Any]]:
+async def _load_ntfy_settings(
+    session: AsyncSession,
+) -> tuple[IntegrationModule | None, bool, dict[str, Any]]:
     result = await session.execute(
         select(IntegrationModule).where(IntegrationModule.slug == "ntfy")
     )
     module = result.scalar_one_or_none()
     if module is None:
-        return False, {}
-    return bool(module.enabled), dict(module.settings or {})
+        return None, False, {}
+    return module, bool(module.enabled), dict(module.settings or {})
 
 
 def _sanitize_header_value(value: str | None) -> str | None:
@@ -61,7 +64,7 @@ async def send_ntfy_notification(
     the integration module configuration and application defaults.
     """
 
-    enabled, settings = await _load_ntfy_settings(session)
+    module, enabled, settings = await _load_ntfy_settings(session)
     app_settings = get_settings()
 
     def _clean(value: object | None) -> str | None:
@@ -116,19 +119,56 @@ async def send_ntfy_notification(
 
     timeout = httpx.Timeout(10.0, connect=5.0)
 
+    masked_headers = {
+        key: value
+        for key, value in headers.items()
+        if key.lower() not in {"authorization", "x-ntfy-token"}
+    }
+
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(endpoint, content=message.encode("utf-8"), headers=headers)
+            response = await client.post(
+                endpoint, content=message.encode("utf-8"), headers=headers
+            )
         response.raise_for_status()
         logger.info(
             "Sent ntfy notification for automation '%s' to topic '%s'.",
             automation_name,
             topic,
         )
+        if module is not None:
+            status_code = getattr(response, "status_code", None)
+            body_text = getattr(response, "text", None)
+            await log_module_api_call(
+                session,
+                module=module,
+                request_method="POST",
+                request_url=endpoint,
+                request_payload={
+                    "headers": masked_headers,
+                    "topic": normalized_topic,
+                    "message_preview": message[:200],
+                },
+                response_status_code=status_code,
+                response_payload=body_text,
+            )
     except httpx.HTTPError as exc:
         logger.warning(
             "Failed to send ntfy notification for automation '%s': %s",
             automation_name,
             exc,
         )
+        if module is not None:
+            await log_module_api_call(
+                session,
+                module=module,
+                request_method="POST",
+                request_url=endpoint,
+                request_payload={
+                    "headers": masked_headers,
+                    "topic": normalized_topic,
+                    "message_preview": message[:200],
+                },
+                error_message=str(exc),
+            )
 

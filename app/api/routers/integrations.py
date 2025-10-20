@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.models import IntegrationModule, utcnow
+from app.models import IntegrationModule, WebhookDelivery, utcnow
 from app.schemas import (
     IntegrationModuleCreate,
     IntegrationModuleRead,
@@ -14,6 +14,7 @@ from app.schemas import (
     SyncroCompanySummary,
     SyncroImportRequest,
     SyncroImportResponse,
+    WebhookStatus,
 )
 from app.services.syncro import (
     SyncroAPIError,
@@ -226,8 +227,31 @@ async def update_integration_module(
         module.icon = data["icon"]
         updated = True
     if "enabled" in data and data["enabled"] is not None and data["enabled"] != module.enabled:
-        module.enabled = bool(data["enabled"])
+        new_state = bool(data["enabled"])
+        module.enabled = new_state
         updated = True
+        if not new_state:
+            await session.execute(
+                update(WebhookDelivery)
+                .where(WebhookDelivery.module_slug == module.slug)
+                .where(WebhookDelivery.status != WebhookStatus.PAUSED.value)
+                .values(
+                    status=WebhookStatus.PAUSED.value,
+                    next_retry_at=None,
+                    updated_at=utcnow(),
+                )
+            )
+        else:
+            await session.execute(
+                update(WebhookDelivery)
+                .where(WebhookDelivery.module_slug == module.slug)
+                .where(WebhookDelivery.status == WebhookStatus.PAUSED.value)
+                .values(
+                    status=WebhookStatus.RETRYING.value,
+                    next_retry_at=utcnow(),
+                    updated_at=utcnow(),
+                )
+            )
     if "settings" in data and data["settings"] is not None:
         raw_settings = data["settings"]
         if isinstance(raw_settings, dict):

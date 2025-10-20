@@ -25,10 +25,13 @@
           <thead>
             <tr>
               <th scope="col" data-sort-key="id">Webhook ID</th>
-              <th scope="col" data-sort-key="endpoint">Endpoint</th>
+              <th scope="col" data-sort-key="module_slug">Module</th>
+              <th scope="col" data-sort-key="request_url">Request</th>
               <th scope="col" data-sort-key="status">Status</th>
+              <th scope="col" data-sort-key="response_status_code">HTTP status</th>
               <th scope="col" data-sort-key="last_attempt">Last attempt</th>
               <th scope="col" data-sort-key="next_retry">Next retry</th>
+              <th scope="col" data-sort-key="result">Result</th>
               <th scope="col">Actions</th>
             </tr>
           </thead>
@@ -36,8 +39,17 @@
             {% for event in webhook_failures %}
             <tr data-webhook-row="{{ event.id }}">
               <td data-sort-value="{{ event.id }}">{{ event.id }}</td>
-              <td>{{ event.endpoint }}</td>
+              <td data-cell="module" data-sort-value="{{ event.module_slug or '' }}">
+                {{ event.module_slug or "—" }}
+              </td>
+              <td data-cell="request" data-sort-value="{{ event.request_url }}">
+                <span class="request-method">{{ event.request_method }}</span>
+                <span class="request-url">{{ event.request_url }}</span>
+              </td>
               <td data-cell="status" data-sort-value="{{ event.status }}">{{ event.status_label }}</td>
+              <td data-cell="response_status" data-sort-value="{{ event.response_status_code or 0 }}">
+                {{ event.response_status_code or "—" }}
+              </td>
               <td data-cell="last_attempt"
                 data-sort-value="{{ event.last_attempt }}"
                 {% if event.last_attempt %}data-format="datetime"{% endif %}
@@ -49,6 +61,15 @@
                 {% if event.next_retry %}data-format="datetime"{% endif %}
               >
                 {{ event.next_retry or "Paused" }}
+              </td>
+              <td data-cell="result" data-sort-value="{{ event.error_message or event.response_payload or '' }}">
+                {% if event.error_message %}
+                  <span class="result-error">{{ event.error_message }}</span>
+                {% elif event.response_payload %}
+                  <pre class="result-payload">{{ event.response_payload | tojson(indent=2) }}</pre>
+                {% else %}
+                  <span>—</span>
+                {% endif %}
               </td>
               <td class="table-actions__cell">
                 <div class="table-actions__group">
@@ -83,7 +104,7 @@
             </tr>
             {% else %}
             <tr data-role="webhook-empty">
-              <td colspan="6">All outbound webhooks are healthy.</td>
+              <td colspan="9">All outbound webhooks are healthy.</td>
             </tr>
             {% endfor %}
           </tbody>

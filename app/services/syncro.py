@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.tickets import StoredTicketRecord, ticket_store
 from app.models import IntegrationModule, Organization, utcnow
+from app.services.webhook_logging import log_module_api_call
 
 
 class SyncroConfigurationError(Exception):
@@ -127,23 +128,59 @@ def _extract_collection(payload: Any, key: str) -> list[dict[str, Any]]:
     return []
 
 
+def _summarize_response(response: httpx.Response) -> Any:
+    try:
+        payload = response.json()
+    except ValueError:
+        text = response.text.strip()
+        if not text:
+            return None
+        return {"text": text[:3997] + "..." if len(text) > 4000 else text}
+    else:
+        return payload
+
+
 async def _throttled_get(
+    session: AsyncSession,
+    module: IntegrationModule,
     client: httpx.AsyncClient,
     endpoint: str,
     *,
     params: dict[str, Any] | None = None,
     throttle: float = 0.0,
 ) -> httpx.Response:
+    request = client.build_request("GET", endpoint, params=params)
     try:
-        response = await client.get(endpoint, params=params)
+        response = await client.send(request)
     except httpx.HTTPError as exc:  # pragma: no cover - defensive network guard
+        await log_module_api_call(
+            session,
+            module=module,
+            request_method="GET",
+            request_url=str(request.url),
+            request_payload=params,
+            error_message=str(exc),
+        )
         raise SyncroAPIError(f"Syncro request failed: {exc}") from exc
+
+    await log_module_api_call(
+        session,
+        module=module,
+        request_method="GET",
+        request_url=str(request.url),
+        request_payload=params,
+        response_status_code=response.status_code,
+        response_payload=_summarize_response(response),
+    )
+
     if throttle > 0:
         await asyncio.sleep(throttle)
     return response
 
 
 async def _fetch_paginated(
+    session: AsyncSession,
+    module: IntegrationModule,
     client: httpx.AsyncClient,
     endpoint: str,
     *,
@@ -154,6 +191,8 @@ async def _fetch_paginated(
     page = 1
     while page <= _MAX_PAGES:
         response = await _throttled_get(
+            session,
+            module,
             client,
             endpoint,
             params={"page": page, "per_page": _DEFAULT_PAGE_SIZE},
@@ -441,7 +480,9 @@ async def _sync_companies(
     return created, updated
 
 
-async def _load_syncro_client_config(session: AsyncSession) -> tuple[str, dict[str, str], httpx.Timeout]:
+async def _load_syncro_client_config(
+    session: AsyncSession,
+) -> tuple[IntegrationModule, str, dict[str, str], httpx.Timeout]:
     result = await session.execute(
         select(IntegrationModule).where(IntegrationModule.slug == "syncro-rmm")
     )
@@ -492,7 +533,7 @@ async def _load_syncro_client_config(session: AsyncSession) -> tuple[str, dict[s
 
     timeout = httpx.Timeout(30.0, connect=10.0)
 
-    return base_url, headers, timeout
+    return module, base_url, headers, timeout
 
 
 def _sanitize_throttle(throttle_seconds: float | None) -> float:
@@ -533,6 +574,8 @@ def _determine_ticket_numbers(options: SyncroTicketImportOptions) -> Sequence[st
 
 
 async def _collect_tickets(
+    session: AsyncSession,
+    module: IntegrationModule,
     client: httpx.AsyncClient,
     options: SyncroTicketImportOptions,
     *,
@@ -541,6 +584,8 @@ async def _collect_tickets(
     mode = _normalize_ticket_mode(options.mode)
     if mode == "all":
         return await _fetch_paginated(
+            session,
+            module,
             client,
             "/tickets",
             collection_key="tickets",
@@ -551,7 +596,13 @@ async def _collect_tickets(
     seen_identifiers: set[str] = set()
     for ticket_number in _determine_ticket_numbers(options):
         endpoint = f"/tickets/{ticket_number}"
-        response = await _throttled_get(client, endpoint, throttle=throttle)
+        response = await _throttled_get(
+            session,
+            module,
+            client,
+            endpoint,
+            throttle=throttle,
+        )
         if response.status_code == 404:
             continue
         if response.status_code >= 400:
@@ -590,7 +641,7 @@ async def fetch_syncro_companies(
     transport: httpx.BaseTransport | None = None,
     throttle_seconds: float | None = None,
 ) -> list[SyncroCompanyRecord]:
-    base_url, headers, timeout = await _load_syncro_client_config(session)
+    module, base_url, headers, timeout = await _load_syncro_client_config(session)
     throttle = _sanitize_throttle(throttle_seconds)
 
     async with httpx.AsyncClient(
@@ -600,6 +651,8 @@ async def fetch_syncro_companies(
         transport=transport,
     ) as client:
         payload = await _fetch_paginated(
+            session,
+            module,
             client,
             "/customers",
             collection_key="customers",
@@ -621,7 +674,7 @@ async def import_syncro_companies(
     transport: httpx.BaseTransport | None = None,
     throttle_seconds: float | None = None,
 ) -> SyncroImportSummary:
-    base_url, headers, timeout = await _load_syncro_client_config(session)
+    module, base_url, headers, timeout = await _load_syncro_client_config(session)
     throttle = _sanitize_throttle(throttle_seconds)
 
     selected_company_ids = None
@@ -635,6 +688,8 @@ async def import_syncro_companies(
         transport=transport,
     ) as client:
         companies_payload = await _fetch_paginated(
+            session,
+            module,
             client,
             "/customers",
             collection_key="customers",
@@ -676,7 +731,7 @@ async def import_syncro_data(
     transport: httpx.BaseTransport | None = None,
     throttle_seconds: float | None = None,
 ) -> SyncroImportSummary:
-    base_url, headers, timeout = await _load_syncro_client_config(session)
+    module, base_url, headers, timeout = await _load_syncro_client_config(session)
     throttle = _sanitize_throttle(throttle_seconds)
 
     selected_company_ids = None
@@ -692,12 +747,16 @@ async def import_syncro_data(
         transport=transport,
     ) as client:
         companies_payload = await _fetch_paginated(
+            session,
+            module,
             client,
             "/customers",
             collection_key="customers",
             throttle=throttle,
         )
         tickets_payload = await _collect_tickets(
+            session,
+            module,
             client,
             ticket_selection,
             throttle=throttle,

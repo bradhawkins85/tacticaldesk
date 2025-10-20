@@ -618,7 +618,14 @@ class WebhookDeliveryRead(BaseModel):
     id: int
     event_id: str
     endpoint: str
+    module_slug: Optional[str]
+    request_method: str
+    request_url: str
+    request_payload: Optional[Any]
     status: WebhookStatus
+    response_status_code: Optional[int]
+    response_payload: Optional[Any]
+    error_message: Optional[str]
     last_attempt_at: Optional[datetime]
     next_retry_at: Optional[datetime]
     created_at: datetime
