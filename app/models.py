@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.ext.mutable import MutableDict, MutableList
@@ -190,5 +191,124 @@ class WebhookDelivery(Base):
         nullable=False,
         default=utcnow,
         onupdate=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+
+    id: str = Column(String(32), primary_key=True)
+    subject: str = Column(String(255), nullable=False)
+    customer: str = Column(String(255), nullable=False)
+    customer_email: str = Column(String(255), nullable=False)
+    status: str = Column(String(64), nullable=False)
+    priority: str = Column(String(64), nullable=False)
+    team: str = Column(String(255), nullable=False)
+    assignment: str = Column(String(255), nullable=False)
+    queue: str = Column(String(255), nullable=False)
+    category: str = Column(String(255), nullable=False)
+    summary: str = Column(Text, nullable=False)
+    channel: str = Column(String(64), nullable=False, default="Portal")
+    created_at_dt: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    last_reply_dt: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    due_at_dt: datetime | None = Column(DateTime(timezone=True), nullable=True)
+    labels: list[str] = Column(
+        MutableList.as_mutable(JSON),
+        nullable=False,
+        default=list,
+        server_default=text("'[]'"),
+    )
+    watchers: list[str] = Column(
+        MutableList.as_mutable(JSON),
+        nullable=False,
+        default=list,
+        server_default=text("'[]'"),
+    )
+    is_starred: bool = Column(Boolean, nullable=False, default=False)
+    assets_visible: bool = Column(Boolean, nullable=False, default=False)
+    history: list[dict[str, object]] = Column(
+        MutableList.as_mutable(JSON),
+        nullable=False,
+        default=list,
+        server_default=text("'[]'"),
+    )
+    metadata_created_at_dt: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    metadata_updated_at_dt: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
+
+class TicketOverride(Base):
+    __tablename__ = "ticket_overrides"
+
+    ticket_id: str = Column(String(32), primary_key=True)
+    subject: str = Column(String(255), nullable=False)
+    customer: str = Column(String(255), nullable=False)
+    customer_email: str = Column(String(255), nullable=False)
+    status: str = Column(String(64), nullable=False)
+    priority: str = Column(String(64), nullable=False)
+    team: str = Column(String(255), nullable=False)
+    assignment: str = Column(String(255), nullable=False)
+    queue: str = Column(String(255), nullable=False)
+    category: str = Column(String(255), nullable=False)
+    summary: str = Column(Text, nullable=False)
+    metadata_updated_at_dt: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
+
+class TicketReply(Base):
+    __tablename__ = "ticket_replies"
+
+    id: int = Column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: str = Column(String(32), index=True, nullable=False)
+    actor: str = Column(String(255), nullable=False)
+    direction: str = Column(String(32), nullable=False, default="outbound")
+    channel: str = Column(String(64), nullable=False)
+    summary: str = Column(String(255), nullable=False)
+    body: str = Column(Text, nullable=False)
+    timestamp_dt: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
+
+class TicketDeletion(Base):
+    __tablename__ = "ticket_deletions"
+    __table_args__ = (UniqueConstraint("kind", "value", name="uq_ticket_deletions_kind_value"),)
+
+    id: int = Column(Integer, primary_key=True, autoincrement=True)
+    kind: str = Column(String(32), nullable=False, index=True)
+    value: str = Column(String(255), nullable=False)
+    created_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
         server_default=text("CURRENT_TIMESTAMP"),
     )

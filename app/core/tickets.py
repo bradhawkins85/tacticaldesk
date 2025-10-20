@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import asyncio
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from html import escape
-from typing import Dict, Iterable, List, Set
-import re
-import asyncio
+from typing import Dict, Iterable, List, Sequence, Set
 
-from app.models import utcnow
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+from app.core.db import get_session_factory
+from app.models import (
+    Ticket,
+    TicketDeletion,
+    TicketOverride,
+    TicketReply,
+    utcnow,
+)
 
 
 @dataclass
@@ -93,30 +104,38 @@ class StoredTicketRecord:
 
 
 class TicketStore:
-    """In-memory override store for seed ticket data."""
+    """Persistent ticket store that augments seed ticket data."""
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        self._overrides: Dict[str, StoredTicketOverride] = {}
-        self._replies: Dict[str, List[dict[str, object]]] = {}
-        self._created: Dict[str, StoredTicketRecord] = {}
+        self._session_factory: sessionmaker[AsyncSession] | None = None
         self._external_sources: Dict[str, Dict[str, StoredTicketRecord]] = {}
         self._sequence_floor = 5000
         self._ticket_sequence = self._sequence_floor
-        self._deleted_customers: Set[str] = set()
-        self._deleted_emails: Set[str] = set()
+
+    async def _ensure_session_factory(self) -> sessionmaker[AsyncSession]:
+        if self._session_factory is None:
+            self._session_factory = await get_session_factory()
+        return self._session_factory
 
     def _normalized(self, value: str | None) -> str:
         if not value:
             return ""
         return value.strip().lower()
 
-    def _is_deleted(self, customer: str | None, customer_email: str | None) -> bool:
+    def _is_deleted(
+        self,
+        customer: str | None,
+        customer_email: str | None,
+        *,
+        deleted_customers: Set[str],
+        deleted_emails: Set[str],
+    ) -> bool:
         customer_key = self._normalized(customer)
         email_key = self._normalized(customer_email)
-        if customer_key and customer_key in self._deleted_customers:
+        if customer_key and customer_key in deleted_customers:
             return True
-        if email_key and email_key in self._deleted_emails:
+        if email_key and email_key in deleted_emails:
             return True
         return False
 
@@ -129,37 +148,133 @@ class TicketStore:
         except ValueError:
             return self._sequence_floor
 
-    def _next_ticket_id(self, existing_ids: Iterable[str] | None = None) -> str:
+    async def _next_ticket_id(
+        self,
+        session: AsyncSession,
+        existing_ids: Iterable[str] | None = None,
+    ) -> str:
         highest = self._ticket_sequence
         if existing_ids:
             for value in existing_ids:
                 highest = max(highest, self._extract_ticket_number(value))
-        for value in self._created:
+
+        created_ids = await session.execute(select(Ticket.id))
+        for value, in created_ids:
             highest = max(highest, self._extract_ticket_number(value))
+
+        override_ids = await session.execute(select(TicketOverride.ticket_id))
+        for value, in override_ids:
+            highest = max(highest, self._extract_ticket_number(value))
+
         for records in self._external_sources.values():
             for value in records:
                 highest = max(highest, self._extract_ticket_number(value))
-        for value in self._overrides:
-            highest = max(highest, self._extract_ticket_number(value))
+
         self._ticket_sequence = max(highest, self._sequence_floor) + 1
         return f"TD-{self._ticket_sequence:04d}"
+
+    def _record_from_model(self, model: Ticket) -> StoredTicketRecord:
+        return StoredTicketRecord(
+            id=model.id,
+            subject=model.subject,
+            customer=model.customer,
+            customer_email=model.customer_email,
+            status=model.status,
+            priority=model.priority,
+            team=model.team,
+            assignment=model.assignment,
+            queue=model.queue,
+            category=model.category,
+            summary=model.summary,
+            channel=model.channel,
+            created_at_dt=model.created_at_dt,
+            last_reply_dt=model.last_reply_dt,
+            due_at_dt=model.due_at_dt,
+            labels=list(model.labels or []),
+            watchers=list(model.watchers or []),
+            is_starred=bool(model.is_starred),
+            assets_visible=bool(model.assets_visible),
+            history=[dict(entry) for entry in model.history or []],
+            metadata_created_at_dt=model.metadata_created_at_dt,
+            metadata_updated_at_dt=model.metadata_updated_at_dt,
+        )
+
+    def _override_from_model(self, model: TicketOverride) -> StoredTicketOverride:
+        return StoredTicketOverride(
+            subject=model.subject,
+            customer=model.customer,
+            customer_email=model.customer_email,
+            status=model.status,
+            priority=model.priority,
+            team=model.team,
+            assignment=model.assignment,
+            queue=model.queue,
+            category=model.category,
+            summary=model.summary,
+            metadata_updated_at_dt=model.metadata_updated_at_dt,
+        )
+
+    def _reply_to_dict(self, reply: TicketReply) -> dict[str, object]:
+        return {
+            "actor": reply.actor,
+            "direction": reply.direction,
+            "channel": reply.channel,
+            "summary": reply.summary,
+            "body": reply.body,
+            "timestamp_dt": reply.timestamp_dt,
+        }
 
     async def apply_overrides(
         self, tickets: Iterable[dict[str, object]]
     ) -> list[dict[str, object]]:
         """Merge any stored overrides into the provided ticket records."""
+
         async with self._lock:
+            session_factory = await self._ensure_session_factory()
+            async with session_factory() as session:
+                created_models = (
+                    await session.execute(select(Ticket))
+                ).scalars().all()
+                created_records = [
+                    self._record_from_model(model) for model in created_models
+                ]
+                override_models = (
+                    await session.execute(select(TicketOverride))
+                ).scalars().all()
+                overrides = {
+                    override.ticket_id: self._override_from_model(override)
+                    for override in override_models
+                }
+                deletion_rows = await session.execute(
+                    select(TicketDeletion.kind, TicketDeletion.value)
+                )
+                deleted_customers: Set[str] = set()
+                deleted_emails: Set[str] = set()
+                for kind, value in deletion_rows:
+                    if kind == "customer":
+                        deleted_customers.add(value)
+                    elif kind == "email":
+                        deleted_emails.add(value)
+
             merged: list[dict[str, object]] = [
-                record.as_ticket() for record in self._created.values()
+                record.as_ticket() for record in created_records
             ]
+
             for records in self._external_sources.values():
                 merged.extend(record.as_ticket() for record in records.values())
+
             for ticket in tickets:
-                override = self._overrides.get(ticket["id"])  # type: ignore[index]
+                ticket_id = ticket.get("id")
+                override = (
+                    overrides.get(str(ticket_id))
+                    if ticket_id is not None
+                    else None
+                )
                 if override is None:
                     merged.append(dict(ticket))
                     continue
                 merged.append({**ticket, **override.as_dict()})
+
             filtered: list[dict[str, object]] = []
             for ticket in merged:
                 customer = ticket.get("customer")
@@ -167,18 +282,23 @@ class TicketStore:
                 if self._is_deleted(
                     customer if isinstance(customer, str) else None,
                     customer_email if isinstance(customer_email, str) else None,
+                    deleted_customers=deleted_customers,
+                    deleted_emails=deleted_emails,
                 ):
                     continue
                 filtered.append(ticket)
             return filtered
 
     async def get_override(self, ticket_id: str) -> dict[str, object] | None:
-        async with self._lock:
-            created = self._created.get(ticket_id)
+        session_factory = await self._ensure_session_factory()
+        async with session_factory() as session:
+            created = await session.get(Ticket, ticket_id)
             if created is not None:
-                return created.as_ticket()
-            override = self._overrides.get(ticket_id)
-            return override.as_dict() if override else None
+                return self._record_from_model(created).as_ticket()
+            override = await session.get(TicketOverride, ticket_id)
+            if override is None:
+                return None
+            return self._override_from_model(override).as_dict()
 
     async def update_ticket(
         self,
@@ -196,40 +316,61 @@ class TicketStore:
         summary: str,
     ) -> dict[str, object]:
         """Persist sanitized ticket updates for subsequent requests."""
-        async with self._lock:
-            now = utcnow()
-            if ticket_id in self._created:
-                record = self._created[ticket_id]
-                record.subject = subject
-                record.customer = customer
-                record.customer_email = customer_email
-                record.status = status
-                record.priority = priority
-                record.team = team
-                record.assignment = assignment
-                record.queue = queue
-                record.category = category
-                record.summary = summary
-                record.metadata_updated_at_dt = now
-                record.last_reply_dt = now
-                self._created[ticket_id] = record
-                return record.as_ticket()
 
-            override = StoredTicketOverride(
-                subject=subject,
-                customer=customer,
-                customer_email=customer_email,
-                status=status,
-                priority=priority,
-                team=team,
-                assignment=assignment,
-                queue=queue,
-                category=category,
-                summary=summary,
-                metadata_updated_at_dt=now,
-            )
-            self._overrides[ticket_id] = override
-            return override.as_dict()
+        async with self._lock:
+            session_factory = await self._ensure_session_factory()
+            async with session_factory() as session:
+                now = utcnow()
+                created = await session.get(Ticket, ticket_id)
+                if created is not None:
+                    created.subject = subject.strip()
+                    created.customer = customer.strip()
+                    created.customer_email = customer_email.strip()
+                    created.status = status.strip()
+                    created.priority = priority.strip()
+                    created.team = team.strip()
+                    created.assignment = assignment.strip()
+                    created.queue = queue.strip()
+                    created.category = category.strip()
+                    created.summary = summary.strip()
+                    created.metadata_updated_at_dt = now
+                    created.last_reply_dt = now
+                    await session.commit()
+                    await session.refresh(created)
+                    return self._record_from_model(created).as_ticket()
+
+                override = await session.get(TicketOverride, ticket_id)
+                if override is None:
+                    override = TicketOverride(
+                        ticket_id=ticket_id,
+                        subject=subject.strip(),
+                        customer=customer.strip(),
+                        customer_email=customer_email.strip(),
+                        status=status.strip(),
+                        priority=priority.strip(),
+                        team=team.strip(),
+                        assignment=assignment.strip(),
+                        queue=queue.strip(),
+                        category=category.strip(),
+                        summary=summary.strip(),
+                        metadata_updated_at_dt=now,
+                    )
+                    session.add(override)
+                else:
+                    override.subject = subject.strip()
+                    override.customer = customer.strip()
+                    override.customer_email = customer_email.strip()
+                    override.status = status.strip()
+                    override.priority = priority.strip()
+                    override.team = team.strip()
+                    override.assignment = assignment.strip()
+                    override.queue = queue.strip()
+                    override.category = category.strip()
+                    override.summary = summary.strip()
+                    override.metadata_updated_at_dt = now
+                await session.commit()
+                await session.refresh(override)
+                return self._override_from_model(override).as_dict()
 
     async def create_ticket(
         self,
@@ -249,35 +390,39 @@ class TicketStore:
         """Create a new ticket entry and persist it for future lookups."""
 
         async with self._lock:
-            ticket_id = self._next_ticket_id(existing_ids)
-            now = utcnow()
-            due_at = now + timedelta(days=2)
-            record = StoredTicketRecord(
-                id=ticket_id,
-                subject=subject.strip(),
-                customer=customer.strip(),
-                customer_email=customer_email.strip(),
-                status=status.strip(),
-                priority=priority.strip(),
-                team=team.strip(),
-                assignment=assignment.strip(),
-                queue=queue.strip(),
-                category=category.strip(),
-                summary=summary.strip(),
-                channel="Portal",
-                created_at_dt=now,
-                last_reply_dt=now,
-                due_at_dt=due_at,
-                labels=[],
-                watchers=[],
-                is_starred=False,
-                assets_visible=False,
-                history=[],
-                metadata_created_at_dt=now,
-                metadata_updated_at_dt=now,
-            )
-            self._created[ticket_id] = record
-            return record.as_ticket()
+            session_factory = await self._ensure_session_factory()
+            async with session_factory() as session:
+                ticket_id = await self._next_ticket_id(session, existing_ids)
+                now = utcnow()
+                due_at = now + timedelta(days=2)
+                record = Ticket(
+                    id=ticket_id,
+                    subject=subject.strip(),
+                    customer=customer.strip(),
+                    customer_email=customer_email.strip(),
+                    status=status.strip(),
+                    priority=priority.strip(),
+                    team=team.strip(),
+                    assignment=assignment.strip(),
+                    queue=queue.strip(),
+                    category=category.strip(),
+                    summary=summary.strip(),
+                    channel="Portal",
+                    created_at_dt=now,
+                    last_reply_dt=now,
+                    due_at_dt=due_at,
+                    labels=[],
+                    watchers=[],
+                    is_starred=False,
+                    assets_visible=False,
+                    history=[],
+                    metadata_created_at_dt=now,
+                    metadata_updated_at_dt=now,
+                )
+                session.add(record)
+                await session.commit()
+                await session.refresh(record)
+                return self._record_from_model(record).as_ticket()
 
     async def append_reply(
         self,
@@ -291,33 +436,55 @@ class TicketStore:
         """Store a reply entry for the ticket conversation history."""
 
         async with self._lock:
-            reply_entry = {
-                "actor": actor,
-                "direction": "outbound",
-                "channel": channel,
-                "summary": summary,
-                "body": escape(message),
-                "timestamp_dt": utcnow(),
-            }
-            existing = self._replies.setdefault(ticket_id, [])
-            existing.append(reply_entry)
-            return dict(reply_entry)
+            session_factory = await self._ensure_session_factory()
+            async with session_factory() as session:
+                reply = TicketReply(
+                    ticket_id=ticket_id,
+                    actor=actor.strip(),
+                    direction="outbound",
+                    channel=channel.strip(),
+                    summary=summary.strip(),
+                    body=escape(message),
+                )
+                session.add(reply)
+                await session.flush()
+                await session.execute(
+                    update(Ticket)
+                    .where(Ticket.id == ticket_id)
+                    .values(
+                        last_reply_dt=reply.timestamp_dt,
+                        metadata_updated_at_dt=reply.timestamp_dt,
+                    )
+                )
+                await session.commit()
+                await session.refresh(reply)
+                return self._reply_to_dict(reply)
 
     async def list_replies(self, ticket_id: str) -> list[dict[str, object]]:
-        async with self._lock:
-            replies = self._replies.get(ticket_id, [])
-            return [dict(entry) for entry in replies]
+        session_factory = await self._ensure_session_factory()
+        async with session_factory() as session:
+            result = await session.execute(
+                select(TicketReply)
+                .where(TicketReply.ticket_id == ticket_id)
+                .order_by(TicketReply.timestamp_dt)
+            )
+            replies = result.scalars().all()
+            return [self._reply_to_dict(reply) for reply in replies]
 
     async def reset(self) -> None:
-        """Clear overrides (useful for tests)."""
+        """Clear stored tickets and overrides (useful for tests)."""
+
         async with self._lock:
-            self._overrides.clear()
-            self._replies.clear()
-            self._created.clear()
+            session_factory = await self._ensure_session_factory()
+            async with session_factory() as session:
+                await session.execute(delete(TicketReply))
+                await session.execute(delete(TicketOverride))
+                await session.execute(delete(Ticket))
+                await session.execute(delete(TicketDeletion))
+                await session.commit()
             self._ticket_sequence = self._sequence_floor
-            self._deleted_customers.clear()
-            self._deleted_emails.clear()
             self._external_sources.clear()
+            self._session_factory = None
 
     async def sync_external_records(
         self, source: str, records: Iterable[StoredTicketRecord]
@@ -331,6 +498,23 @@ class TicketStore:
                 bucket[record.id] = record
             self._external_sources[normalized_source] = bucket
 
+    async def _record_deletions(
+        self, session: AsyncSession, values: Sequence[tuple[str, str]]
+    ) -> None:
+        for kind, value in values:
+            if not value:
+                continue
+            normalized = self._normalized(value)
+            if not normalized:
+                continue
+            existing = await session.execute(
+                select(TicketDeletion).where(
+                    TicketDeletion.kind == kind, TicketDeletion.value == normalized
+                )
+            )
+            if existing.scalar_one_or_none() is None:
+                session.add(TicketDeletion(kind=kind, value=normalized))
+
     async def delete_tickets_for_organization(
         self,
         *,
@@ -338,32 +522,81 @@ class TicketStore:
         contact_emails: Iterable[str] | None = None,
     ) -> None:
         """Remove tickets tied to the provided organization metadata."""
+
+        normalized_name = self._normalized(organization_name)
+        normalized_emails: Set[str] = set()
+        for email in contact_emails or []:
+            normalized = self._normalized(email)
+            if normalized:
+                normalized_emails.add(normalized)
+
         async with self._lock:
-            normalized_name = self._normalized(organization_name)
-            if normalized_name:
-                self._deleted_customers.add(normalized_name)
+            session_factory = await self._ensure_session_factory()
+            async with session_factory() as session:
+                deletion_values: list[tuple[str, str]] = []
+                if normalized_name:
+                    deletion_values.append(("customer", normalized_name))
+                for email in normalized_emails:
+                    deletion_values.append(("email", email))
 
-            normalized_emails: Set[str] = set()
-            for email in contact_emails or []:
-                normalized = self._normalized(email)
-                if normalized:
-                    normalized_emails.add(normalized)
-            self._deleted_emails.update(normalized_emails)
+                await self._record_deletions(session, deletion_values)
 
-            for ticket_id, record in list(self._created.items()):
-                if self._is_deleted(record.customer, record.customer_email):
-                    self._created.pop(ticket_id, None)
-                    self._replies.pop(ticket_id, None)
+                ids_to_delete: Set[str] = set()
+                if normalized_name:
+                    results = await session.execute(
+                        select(Ticket.id).where(
+                            func.lower(Ticket.customer) == normalized_name
+                        )
+                    )
+                    ids_to_delete.update(row[0] for row in results.all())
 
-            for ticket_id, override in list(self._overrides.items()):
-                if self._is_deleted(override.customer, override.customer_email):
-                    self._overrides.pop(ticket_id, None)
-                    self._replies.pop(ticket_id, None)
+                if normalized_emails:
+                    results = await session.execute(
+                        select(Ticket.id).where(
+                            func.lower(Ticket.customer_email).in_(
+                                list(normalized_emails)
+                            )
+                        )
+                    )
+                    ids_to_delete.update(row[0] for row in results.all())
+
+                if ids_to_delete:
+                    await session.execute(
+                        delete(TicketReply).where(TicketReply.ticket_id.in_(ids_to_delete))
+                    )
+                    await session.execute(
+                        delete(Ticket).where(Ticket.id.in_(ids_to_delete))
+                    )
+
+                if normalized_name:
+                    await session.execute(
+                        delete(TicketOverride).where(
+                            func.lower(TicketOverride.customer) == normalized_name
+                        )
+                    )
+                if normalized_emails:
+                    await session.execute(
+                        delete(TicketOverride).where(
+                            func.lower(TicketOverride.customer_email).in_(
+                                list(normalized_emails)
+                            )
+                        )
+                    )
+
+                await session.commit()
+
+            deleted_customers = {normalized_name} if normalized_name else set()
+            deleted_emails = set(normalized_emails)
 
             for source, records in list(self._external_sources.items()):
                 filtered: Dict[str, StoredTicketRecord] = {}
                 for ticket_id, record in records.items():
-                    if self._is_deleted(record.customer, record.customer_email):
+                    if self._is_deleted(
+                        record.customer,
+                        record.customer_email,
+                        deleted_customers=deleted_customers,
+                        deleted_emails=deleted_emails,
+                    ):
                         continue
                     filtered[ticket_id] = record
                 if filtered:
