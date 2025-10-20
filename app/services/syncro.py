@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 import re
 from typing import Any, Iterable, Sequence
 
@@ -488,8 +489,22 @@ def _sanitize_throttle(throttle_seconds: float | None) -> float:
     return max(0.0, throttle_seconds)
 
 
+def _normalize_ticket_mode(value: Any) -> str:
+    """Return a normalized ticket import mode with a safe default."""
+
+    if isinstance(value, Enum):
+        candidate = value.value
+    else:
+        candidate = value
+
+    mode = _clean_text(candidate).lower()
+    if mode in {"all", "single", "range"}:
+        return mode
+    return "all"
+
+
 def _determine_ticket_numbers(options: SyncroTicketImportOptions) -> Sequence[str]:
-    mode = (options.mode or "all").strip().lower()
+    mode = _normalize_ticket_mode(options.mode)
     if mode == "single":
         if options.ticket_number is None:
             return []
@@ -511,7 +526,7 @@ async def _collect_tickets(
     *,
     throttle: float,
 ) -> list[dict[str, Any]]:
-    mode = (options.mode or "all").strip().lower()
+    mode = _normalize_ticket_mode(options.mode)
     if mode == "all":
         return await _fetch_paginated(
             client,
