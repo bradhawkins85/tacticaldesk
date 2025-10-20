@@ -1,0 +1,84 @@
+name: Resolve changes.md & auto-approve
+
+on:
+  # Runs for forked PRs too (secrets available via repo context).
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'changes.md'
+
+jobs:
+  resolve-approve:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # push the merge result back to the PR head
+      pull-requests: write   # approve the PR
+
+    steps:
+      - name: Checkout PR head (no untrusted scripts executed)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+
+      - name: Configure bot identity
+        run: |
+          git config user.name  "auto-merge-bot"
+          git config user.email "auto-merge-bot@users.noreply.github.com"
+
+      - name: Add base (upstream) remote and fetch base branch
+        env:
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF:  ${{ github.event.pull_request.base.ref }}
+        run: |
+          git remote add upstream https://github.com/${BASE_REPO}.git
+          git fetch --no-tags upstream ${BASE_REF}
+
+      - name: Verify .gitattributes on the BASE branch enables union for changes.md
+        shell: bash
+        run: |
+          set -e
+          if git show upstream/${{ github.event.pull_request.base.ref }}:.gitattributes 2>/dev/null | grep -Eiq '(^|[[:space:]])/?changes\.md[[:space:]]+merge=union'; then
+            echo "OK: Base branch has 'changes.md merge=union' in .gitattributes"
+          else
+            echo "::error::Base branch .gitattributes is missing 'changes.md merge=union'. Add this on the base branch to auto-resolve."
+            exit 1
+          fi
+
+      - name: Merge base into PR head (lets Git apply the union driver)
+        id: do_merge
+        shell: bash
+        run: |
+          set +e
+          git merge --no-edit upstream/${{ github.event.pull_request.base.ref }}
+          status=$?
+          set -e
+          if [ $status -eq 0 ]; then
+            echo "merge_status=merged_or_up_to_date" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Merge had unresolved conflicts. With 'merge=union' on the base, this should be rare. Resolve manually or ensure the rule targets the correct path."
+            git merge --abort || true
+            exit 1
+          fi
+
+      - name: Push merge result (only if there were changes)
+        if: steps.do_merge.outputs.merge_status == 'merged_or_up_to_date' && always()
+        env:
+          GH_TOKEN: ${{ secrets.AUTO_APPROVE_TOKEN }}
+        shell: bash
+        run: |
+          # Push only when there is a merge commit to publish
+          if ! git diff --quiet HEAD^ HEAD 2>/dev/null; then
+            echo "Pushing merge commit to PR branch..."
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.event.pull_request.head.repo.full_name }}" \
+              HEAD:${{ github.event.pull_request.head.ref }}
+          else
+            echo "No merge commit to push (already up to date)."
+          fi
+
+      - name: Auto-approve
+        uses: hmarr/auto-approve-action@v4
+        with:
+          github-token: ${{ secrets.AUTO_APPROVE_TOKEN }}
