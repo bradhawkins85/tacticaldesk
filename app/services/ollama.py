@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import re
 from typing import Any, Iterable
 from urllib.parse import urljoin, urlparse
@@ -78,7 +79,10 @@ def build_ticket_prompt(
         "You are an operations assistant that summarises service desk tickets for analysts.",
         "Summaries must be concise (<= 80 words) and highlight the problem, current status, and next step.",
         "Avoid personally identifiable information or credentials.",
-        "Respond with a single paragraph.",
+        "Respond with a strict JSON object: {\"summary\": string, \"resolution_status\": string}.",
+        "The summary value must be a single paragraph <= 80 words.",
+        "The resolution_status value must be either 'resolved' or 'in_progress' and indicate whether the customer's requests are fully addressed.",
+        "Do not include any additional keys, prefixes, or commentary.",
         "",  # blank line
         "Ticket metadata:",
         f"- Subject: {subject or 'N/A'}",
@@ -118,7 +122,10 @@ def build_ticket_prompt(
         if instructions_text:
             lines.extend(["", "Additional operator instructions:", instructions_text])
 
-    lines.extend(["", "Return only the final summary paragraph without prefixes or commentary."])
+    lines.extend([
+        "",
+        "Return only the JSON object with double-quoted keys and values, no explanations.",
+    ])
     return "\n".join(lines)
 
 
@@ -137,6 +144,7 @@ async def request_ticket_summary(
             "model": None,
             "error": "Ollama module is not provisioned.",
             "enabled": False,
+            "resolution_state": None,
         }
 
     if not module.enabled:
@@ -146,6 +154,7 @@ async def request_ticket_summary(
             "model": None,
             "error": "Ollama module is disabled.",
             "enabled": False,
+            "resolution_state": None,
         }
 
     base_url = _sanitize_base_url(settings.get("base_url") if isinstance(settings, dict) else None)
@@ -174,19 +183,39 @@ async def request_ticket_summary(
             "model": target_model,
             "error": str(exc),
             "enabled": True,
+            "resolution_state": None,
         }
 
-    summary_text = ""
+    raw_response = ""
     if isinstance(payload, dict):
         if isinstance(payload.get("response"), str):
-            summary_text = payload["response"].strip()
+            raw_response = payload["response"].strip()
         elif isinstance(payload.get("message"), dict):
             message = payload["message"]
             content = message.get("content")
             if isinstance(content, str):
-                summary_text = content.strip()
-    if not summary_text:
-        summary_text = _normalise_text(payload.get("data")) if isinstance(payload, dict) else ""
+                raw_response = content.strip()
+    if not raw_response:
+        raw_response = _normalise_text(payload.get("data")) if isinstance(payload, dict) else ""
+
+    summary_text = ""
+    resolution_state = None
+    parsed_payload: dict[str, Any] | None = None
+    if raw_response:
+        try:
+            parsed_payload = json.loads(raw_response)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", raw_response, re.DOTALL)
+            if match:
+                try:
+                    parsed_payload = json.loads(match.group(0))
+                except json.JSONDecodeError:
+                    parsed_payload = None
+    if isinstance(parsed_payload, dict):
+        summary_text = _normalise_text(parsed_payload.get("summary"))
+        resolution_state = _normalise_text(parsed_payload.get("resolution_status")) or None
+    else:
+        summary_text = raw_response
 
     if not summary_text:
         return {
@@ -195,6 +224,7 @@ async def request_ticket_summary(
             "model": target_model,
             "error": "Ollama returned an empty response.",
             "enabled": True,
+            "resolution_state": None,
         }
 
     return {
@@ -203,4 +233,5 @@ async def request_ticket_summary(
         "model": target_model,
         "error": None,
         "enabled": True,
+        "resolution_state": resolution_state,
     }

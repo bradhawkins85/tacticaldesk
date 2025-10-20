@@ -111,6 +111,7 @@ class StoredTicketSummary:
     model: str | None
     summary: str | None
     error_message: str | None
+    resolution_state: str | None
     updated_at_dt: datetime
 
     def as_dict(self) -> dict[str, object]:
@@ -124,6 +125,7 @@ class StoredTicketSummary:
             "model": self.model,
             "summary": self.summary,
             "error_message": self.error_message,
+            "resolution_state": self.resolution_state,
             "updated_at_dt": updated,
             "updated_at_iso": updated_iso,
         }
@@ -257,6 +259,7 @@ class TicketStore:
             model=model.model,
             summary=model.summary,
             error_message=model.error_message,
+            resolution_state=model.resolution_state,
             updated_at_dt=model.updated_at_dt,
         )
 
@@ -650,6 +653,7 @@ class TicketStore:
         model: str | None = None,
         summary: str | None = None,
         error_message: str | None = None,
+        resolution_state: str | None = None,
     ) -> dict[str, object]:
         """Persist the latest generated summary for a ticket."""
 
@@ -669,6 +673,10 @@ class TicketStore:
                 elif record.summary is None:
                     record.summary = None
                 record.error_message = error_message.strip() if isinstance(error_message, str) and error_message.strip() else None
+                if resolution_state is not None and resolution_state.strip():
+                    record.resolution_state = resolution_state.strip()
+                elif resolution_state is None and record.resolution_state is None:
+                    record.resolution_state = None
                 record.updated_at_dt = utcnow()
                 await session.commit()
                 await session.refresh(record)
