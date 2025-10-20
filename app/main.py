@@ -23,6 +23,7 @@ from starlette import status
 from app.api.routers import auth as auth_router
 from app.api.routers import automations as automations_router
 from app.api.routers import integrations as integrations_router
+from app.api.routers import knowledge as knowledge_router
 from app.api.routers import maintenance as maintenance_router
 from app.api.routers import mcp as mcp_router
 from app.api.routers import organizations as organizations_router
@@ -61,6 +62,12 @@ from app.schemas import (
     WebhookStatus,
 )
 from app.services import dispatch_ticket_event
+from app.services.knowledge_base import (
+    build_document_tree as build_knowledge_tree,
+    list_documents as list_space_documents,
+    list_revisions as list_document_revisions,
+    list_spaces_with_counts as list_space_summaries,
+)
 from app.services.ticket_data import (
     build_ticket_records,
     enrich_ticket_record,
@@ -94,6 +101,7 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 app.include_router(auth_router.router)
 app.include_router(automations_router.router)
 app.include_router(integrations_router.router)
+app.include_router(knowledge_router.router)
 app.include_router(maintenance_router.router)
 app.include_router(organizations_router.router)
 app.include_router(webhooks_router.router)
@@ -1046,6 +1054,52 @@ async def _list_runbook_labels(session: AsyncSession) -> list[dict[str, object]]
     ]
 
 
+def _format_datetime_for_display(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _default_space_icon(icon: str | None) -> str:
+    return icon or "📘"
+
+
+def _serialize_knowledge_tree(
+    nodes: list[dict[str, object]],
+    *,
+    request: Request,
+    space_slug: str,
+    selected_slug: str | None,
+) -> list[dict[str, object]]:
+    serialized: list[dict[str, object]] = []
+    for node in nodes:
+        children_serialized = _serialize_knowledge_tree(
+            node["children"],
+            request=request,
+            space_slug=space_slug,
+            selected_slug=selected_slug,
+        )
+        is_active = selected_slug == node["slug"] if selected_slug else False
+        is_expanded = is_active or any(child.get("is_expanded") or child.get("is_active") for child in children_serialized)
+        serialized.append(
+            {
+                "id": node["id"],
+                "title": node["title"],
+                "slug": node["slug"],
+                "is_published": node["is_published"],
+                "position": node["position"],
+                "status_label": "Published" if node["is_published"] else "Draft",
+                "url": f"{request.url_for('knowledge_base')}?space={space_slug}&document={node['slug']}",
+                "is_active": is_active,
+                "is_expanded": is_expanded,
+                "children": children_serialized,
+            }
+        )
+    return serialized
+
+
 async def _template_context(
     *,
     request: Request,
@@ -1139,6 +1193,149 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
         active_nav="dashboard",
     )
     return templates.TemplateResponse("dashboard.html", context)
+
+
+@app.get("/knowledge", response_class=HTMLResponse, name="knowledge_base")
+async def knowledge_base_view(
+    request: Request,
+    space: str | None = None,
+    document: str | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    spaces_raw = await list_space_summaries(session)
+    selected_space_summary: dict[str, object] | None = None
+    if space:
+        for item in spaces_raw:
+            if item["slug"] == space:
+                selected_space_summary = item
+                break
+    if selected_space_summary is None and spaces_raw:
+        selected_space_summary = spaces_raw[0]
+
+    knowledge_spaces: list[dict[str, object]] = []
+    for item in spaces_raw:
+        knowledge_spaces.append(
+            {
+                "id": item["id"],
+                "name": item["name"],
+                "slug": item["slug"],
+                "icon": _default_space_icon(item.get("icon")),
+                "is_private": bool(item.get("is_private")),
+                "document_count": int(item.get("document_count", 0)),
+                "description": item.get("description"),
+                "is_active": bool(
+                    selected_space_summary and item["id"] == selected_space_summary["id"]
+                ),
+                "url": f"{request.url_for('knowledge_base')}?space={item['slug']}",
+            }
+        )
+
+    selected_space_context: dict[str, object] | None = None
+    document_tree: list[dict[str, object]] = []
+    selected_document_context: dict[str, object] | None = None
+    document_versions: list[dict[str, object]] = []
+    document_breadcrumbs: list[dict[str, object]] = []
+
+    selected_document_slug = document
+
+    if selected_space_summary:
+        created_iso = _format_datetime_for_display(selected_space_summary.get("created_at"))
+        updated_iso = _format_datetime_for_display(selected_space_summary.get("updated_at"))
+        selected_space_context = {
+            "id": selected_space_summary["id"],
+            "name": selected_space_summary["name"],
+            "slug": selected_space_summary["slug"],
+            "description": selected_space_summary.get("description"),
+            "icon": _default_space_icon(selected_space_summary.get("icon")),
+            "is_private": bool(selected_space_summary.get("is_private")),
+            "document_count": int(selected_space_summary.get("document_count", 0)),
+            "created_at_iso": created_iso,
+            "updated_at_iso": updated_iso,
+        }
+
+        documents = await list_space_documents(
+            session,
+            space_id=selected_space_summary["id"],
+            include_unpublished=True,
+        )
+        document_lookup = {doc.id: doc for doc in documents}
+
+        if selected_document_slug:
+            selected_doc_obj = next(
+                (doc for doc in documents if doc.slug == selected_document_slug),
+                None,
+            )
+        else:
+            selected_doc_obj = documents[0] if documents else None
+            if selected_doc_obj is not None:
+                selected_document_slug = selected_doc_obj.slug
+
+        tree_raw = build_knowledge_tree(documents)
+        document_tree = _serialize_knowledge_tree(
+            tree_raw,
+            request=request,
+            space_slug=selected_space_summary["slug"],
+            selected_slug=selected_document_slug,
+        )
+
+        if selected_doc_obj is not None:
+            selected_document_context = {
+                "id": selected_doc_obj.id,
+                "title": selected_doc_obj.title,
+                "slug": selected_doc_obj.slug,
+                "summary": selected_doc_obj.summary,
+                "content": selected_doc_obj.content,
+                "is_published": bool(selected_doc_obj.is_published),
+                "status_label": "Published"
+                if selected_doc_obj.is_published
+                else "Draft",
+                "version": selected_doc_obj.version,
+                "created_by_id": selected_doc_obj.created_by_id,
+                "created_at_iso": _format_datetime_for_display(selected_doc_obj.created_at),
+                "updated_at_iso": _format_datetime_for_display(selected_doc_obj.updated_at),
+                "published_at_iso": _format_datetime_for_display(selected_doc_obj.published_at),
+            }
+
+            revisions = await list_document_revisions(session, selected_doc_obj.id)
+            document_versions = [
+                {
+                    "id": revision.id,
+                    "version": revision.version,
+                    "title": revision.title,
+                    "summary": revision.summary,
+                    "created_by_id": revision.created_by_id,
+                    "created_at_iso": _format_datetime_for_display(revision.created_at),
+                }
+                for revision in revisions
+            ]
+
+            current = selected_doc_obj
+            while current is not None:
+                document_breadcrumbs.append(
+                    {
+                        "title": current.title,
+                        "slug": current.slug,
+                        "url": f"{request.url_for('knowledge_base')}?space={selected_space_summary['slug']}&document={current.slug}",
+                    }
+                )
+                current = document_lookup.get(current.parent_id)
+            document_breadcrumbs.reverse()
+
+    context = await _template_context(
+        request=request,
+        session=session,
+        page_title="Knowledge Base",
+        page_subtitle="Organize operational playbooks, SOPs, and automation docs in one collaborative workspace.",
+        active_nav="knowledge",
+        knowledge_spaces=knowledge_spaces,
+        selected_space=selected_space_context,
+        document_tree=document_tree,
+        selected_document=selected_document_context,
+        document_versions=document_versions,
+        document_breadcrumbs=document_breadcrumbs,
+        has_spaces=bool(spaces_raw),
+    )
+    return templates.TemplateResponse("knowledge_base.html", context)
 
 
 @app.get("/tickets", response_class=HTMLResponse, name="tickets")

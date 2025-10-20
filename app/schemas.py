@@ -18,6 +18,12 @@ TicketShortText = constr(strip_whitespace=True, min_length=1, max_length=255)
 TicketSummaryText = constr(strip_whitespace=True, min_length=1, max_length=2048)
 TicketMessageText = constr(strip_whitespace=True, min_length=1, max_length=4096)
 TicketTemplateKey = constr(strip_whitespace=True, min_length=1, max_length=64)
+KnowledgeSlug = constr(
+    strip_whitespace=True,
+    min_length=1,
+    max_length=255,
+    regex=r"^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$",
+)
 
 
 class UserBase(BaseModel):
@@ -667,6 +673,108 @@ class ContactRead(BaseModel):
         orm_mode = True
 
 
+class KnowledgeSpaceBase(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255)
+    slug: Optional[KnowledgeSlug] = None
+    description: Optional[str] = Field(default=None, max_length=4096)
+    icon: Optional[str] = Field(default=None, max_length=16)
+    is_private: Optional[bool] = None
+
+
+class KnowledgeSpaceCreate(KnowledgeSpaceBase):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class KnowledgeSpaceUpdate(KnowledgeSpaceBase):
+    pass
+
+
+class KnowledgeSpaceRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    description: Optional[str]
+    icon: Optional[str]
+    is_private: bool
+    document_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class KnowledgeSpaceDetail(KnowledgeSpaceRead):
+    documents: List["KnowledgeDocumentTreeNode"] = Field(default_factory=list)
+
+
+class KnowledgeDocumentBase(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=255)
+    slug: Optional[KnowledgeSlug] = None
+    summary: Optional[str] = Field(default=None, max_length=4096)
+    content: Optional[str] = Field(default=None, min_length=1)
+    is_published: Optional[bool] = None
+    parent_id: Optional[int] = Field(default=None, ge=1)
+    position: Optional[int] = Field(default=None, ge=0)
+    created_by_id: Optional[int] = Field(default=None, ge=1)
+
+
+class KnowledgeDocumentCreate(KnowledgeDocumentBase):
+    title: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1)
+
+
+class KnowledgeDocumentUpdate(KnowledgeDocumentBase):
+    pass
+
+
+class KnowledgeDocumentRead(BaseModel):
+    id: int
+    space_id: int
+    parent_id: Optional[int]
+    title: str
+    slug: str
+    summary: Optional[str]
+    content: str
+    is_published: bool
+    position: int
+    version: int
+    created_by_id: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+    published_at: Optional[datetime]
+
+    class Config:
+        orm_mode = True
+
+
+class KnowledgeDocumentTreeNode(BaseModel):
+    id: int
+    title: str
+    slug: str
+    is_published: bool
+    position: int
+    children: List["KnowledgeDocumentTreeNode"] = Field(default_factory=list)
+
+
+class KnowledgeDocumentRevisionRead(BaseModel):
+    id: int
+    document_id: int
+    version: int
+    title: str
+    summary: Optional[str]
+    content: str
+    created_by_id: Optional[int]
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class KnowledgeDocumentPublishRequest(BaseModel):
+    is_published: bool = True
+
+
 class WebhookStatus(str, Enum):
     RETRYING = "retrying"
     PAUSED = "paused"
@@ -732,3 +840,7 @@ class HttpPostWebhookReceipt(BaseModel):
     status: Literal["accepted"] = "accepted"
     variables: Dict[str, str]
     mapped_keys: List[str] = Field(default_factory=list)
+
+
+KnowledgeDocumentTreeNode.update_forward_refs()
+KnowledgeSpaceDetail.update_forward_refs()

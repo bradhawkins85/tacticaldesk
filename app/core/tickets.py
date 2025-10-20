@@ -8,6 +8,7 @@ from html import escape
 from typing import Dict, Iterable, List, Sequence, Set
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -511,9 +512,14 @@ class TicketStore:
         """Clear stored tickets and overrides (useful for tests)."""
 
         async with self._lock:
-            if self._session_factory is not None:
-                session_factory = self._session_factory
-                async with session_factory() as session:
+            session_factory = self._session_factory
+            if session_factory is None:
+                self._ticket_sequence = self._sequence_floor
+                self._external_sources.clear()
+                return
+
+            async with session_factory() as session:
+                try:
                     await session.execute(delete(TicketReply))
                     await session.execute(delete(TicketOverride))
                     await session.execute(delete(Ticket))

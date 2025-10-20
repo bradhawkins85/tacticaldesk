@@ -118,6 +118,7 @@
 - 2025-10-20T15:50:00Z Fix: Removed runbook launch, log viewing, refresh, and maintenance sidebar controls to declutter navigation.
 - 2025-10-20T02:52:33Z Fix: Configured .gitattributes to merge changes.md entries using the union strategy.
 - 2025-10-20T03:14:03Z Fix: Synced Syncro ticket imports to prefer contact emails for customers and subscribe destination email watchers while filtering restricted recipients.
+- 2025-10-20T13:45:00Z Feature: Added integrated knowledge base with API access, revision history, and a responsive UI workspace for future AI copilots.
 - 2025-10-20T16:20:00Z Fix: Removed redundant "Back to workspace" and "Back to tickets" links from the ticket sidebar actions to streamline navigation.
 - 2025-10-20T16:10:00Z Fix: Ensured Syncro ticket history summaries pair subjects with actors so technician replies no longer duplicate in summaries and bodies.
 - 2025-10-20T17:00:00Z Feature: Added SMTP email integration module with configurable settings, automation delivery helper, migrations, and regression coverage.
@@ -132,4 +133,5 @@
 - 2025-10-20T03:56:41Z Fix: Realigned Automation Control Tower action buttons within table cells to keep row dividers consistent.
 - 2025-10-20T04:37:33Z Feature: Added Ollama-powered ticket summaries with persistence, refreshed UI section, and regression tests.
 - 2025-10-20T04:13:22Z Feature: Added dedicated organisation contact creation controls with responsive layout buttons in the admin directory.
+- 2025-10-20T05:05:33Z Fix: Prevented test setup resets from auto-creating organization tables by skipping session bootstrap when clearing ticket data.
 - 2025-10-20T04:58:05Z Fix: Relocated ticket summary beneath the reply form with integrated styling for the updated ticket workspace layout.

@@ -421,6 +421,115 @@
     }
   }
 
+  const knowledgeTree = document.querySelector("[data-role='knowledge-tree']");
+  if (knowledgeTree) {
+    const rootList = knowledgeTree.querySelector(".knowledge-tree__list");
+    const filterInput = knowledgeTree.querySelector("[data-role='knowledge-tree-filter']");
+
+    function syncChildVisibility(node, expanded) {
+      const childList = node.querySelector(":scope > .knowledge-tree__list");
+      if (!childList) {
+        return;
+      }
+      childList.hidden = !expanded;
+    }
+
+    function evaluateNode(node, query) {
+      const childList = node.querySelector(":scope > .knowledge-tree__list");
+      const childNodes = childList
+        ? Array.from(childList.children).filter((item) => item.matches("[data-role='knowledge-node']"))
+        : [];
+      let descendantMatch = false;
+      childNodes.forEach((child) => {
+        const childVisible = evaluateNode(child, query);
+        if (childVisible) {
+          descendantMatch = true;
+        }
+      });
+      const title = (node.dataset.title || "").toLowerCase();
+      const selfMatch = !query || title.includes(query);
+      const visible = selfMatch || descendantMatch;
+      node.style.display = visible ? "" : "none";
+      const toggle = node.querySelector(
+        ":scope > .knowledge-tree__item [data-action='toggle-knowledge-node']"
+      );
+      if (childList) {
+        if (query) {
+          const shouldExpand = visible;
+          node.classList.toggle("is-expanded", shouldExpand);
+          if (toggle) {
+            toggle.setAttribute("aria-expanded", shouldExpand ? "true" : "false");
+          }
+          childList.hidden = !shouldExpand;
+        } else if (toggle) {
+          const expanded = node.classList.contains("is-expanded");
+          toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+          childList.hidden = !expanded;
+        } else {
+          const expanded = node.classList.contains("is-expanded");
+          childList.hidden = !expanded;
+        }
+      }
+      return visible;
+    }
+
+    function applyTreeFilter(query) {
+      const normalized = query.trim().toLowerCase();
+      if (!rootList) {
+        return;
+      }
+      const nodes = Array.from(rootList.children).filter((item) =>
+        item.matches("[data-role='knowledge-node']")
+      );
+      nodes.forEach((node) => {
+        evaluateNode(node, normalized);
+      });
+      if (!normalized) {
+        nodes.forEach((node) => {
+          const toggle = node.querySelector(
+            ":scope > .knowledge-tree__item [data-action='toggle-knowledge-node']"
+          );
+          if (toggle) {
+            const expanded = node.classList.contains("is-expanded");
+            toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+            syncChildVisibility(node, expanded);
+          }
+        });
+      }
+    }
+
+    knowledgeTree.addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-action='toggle-knowledge-node']");
+      if (!toggle) {
+        return;
+      }
+      const node = toggle.closest("[data-role='knowledge-node']");
+      if (!node) {
+        return;
+      }
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      const nextState = !expanded;
+      toggle.setAttribute("aria-expanded", nextState ? "true" : "false");
+      node.classList.toggle("is-expanded", nextState);
+      syncChildVisibility(node, nextState);
+    });
+
+    if (filterInput) {
+      filterInput.addEventListener("input", () => {
+        applyTreeFilter(filterInput.value);
+      });
+      filterInput.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          filterInput.value = "";
+          applyTreeFilter("");
+          filterInput.blur();
+        }
+      });
+    }
+
+    applyTreeFilter("");
+  }
+
   function setStatusMessage(target, message, type) {
     if (!target) {
       return;
