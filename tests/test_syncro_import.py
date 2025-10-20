@@ -49,12 +49,20 @@ def _mock_syncro_transport() -> MockTransport:
                 "body": "Customer reports the printer is still offline.",
                 "created_at": "2024-05-02T10:30:00Z",
                 "user_name": "Acme Contact",
+                "destination_emails": [
+                    "support@hawkinsitsolutions.com.au",
+                    "alerts@acme.test",
+                    "service@acme-contact.test",
+                ],
+                "email_sender": "support@acme.test",
             },
             {
                 "subject": "Update",
                 "body": "Technician rebooted the print server and is monitoring.",
                 "created_at": "2024-05-02T11:15:00Z",
                 "user_name": "Jordan Smith",
+                "destination_emails": "tier2@acme.test, jordan.smith@acme.test, support@hawkinsitsolutions.com.au",
+                "email_sender": "jordan.smith@acme.test",
             },
             {
                 "subject": "Status",
@@ -101,7 +109,8 @@ def _mock_syncro_transport() -> MockTransport:
                                 "status": "Open",
                                 "priority": "High",
                                 "customer": {"business_name": "Acme Corp"},
-                                "customer_email": "ops@acme.test",
+                                "customer_email": None,
+                                "contact": {"email": "service@acme-contact.test"},
                                 "updated_at": "2024-05-02T12:00:00Z",
                                 "created_at": "2024-05-01T09:00:00Z",
                                 "due_date": "2024-05-03T12:00:00Z",
@@ -146,7 +155,8 @@ def _mock_syncro_transport() -> MockTransport:
                         "status": "Open",
                         "priority": "High",
                         "customer": {"business_name": "Acme Corp"},
-                        "customer_email": "ops@acme.test",
+                        "customer_email": None,
+                        "contact": {"email": "service@acme-contact.test"},
                         "updated_at": "2024-05-02T12:00:00Z",
                         "created_at": "2024-05-01T09:00:00Z",
                         "due_date": "2024-05-03T12:00:00Z",
@@ -236,9 +246,14 @@ async def test_syncro_import_creates_companies_and_tickets():
     assert "SYNCRO-1001" in ids
     ticket = next(ticket for ticket in records if ticket["id"] == "SYNCRO-1001")
     assert ticket["customer"] == "Acme Corp"
+    assert ticket["customer_email"] == "service@acme-contact.test"
     assert ticket["queue"] == "Support"
     assert ticket["labels"] == ["Hardware", "Printer"]
-    assert ticket["watchers"] == ["lead@acme.test"]
+    assert ticket["watchers"] == [
+        "lead@acme.test",
+        "alerts@acme.test",
+        "tier2@acme.test",
+    ]
     history = ticket["history"]
     assert len(history) == 5
     assert history[0]["summary"] == "Printer offline — Jordan Smith"
