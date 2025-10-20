@@ -112,3 +112,4 @@
 - 2025-10-20T12:30:00Z Feature: Logged integration API requests to the webhook monitor, surfaced request/response details in the admin UI, and auto-paused deliveries when modules are disabled.
 - 2025-10-20T01:53:00Z Fix: Normalized Syncro ticket payloads to accept nested ticket objects so imports register fetched records.
 - 2025-10-20T02:07:35Z Feature: Replaced the ticket creation modal with a dedicated page, updated navigation links, and added validation coverage for the new workflow.
+- 2025-10-20T02:43:18Z Fix: Classified Syncro ticket comments as customer replies, technician updates, or private notes based on subject and hidden flag.
