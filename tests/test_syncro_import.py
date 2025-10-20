@@ -224,6 +224,52 @@ async def test_syncro_import_requires_configuration():
 
 
 @pytest.mark.asyncio
+async def test_syncro_import_uses_ticket_endpoint_for_unknown_mode():
+    calls: list[str] = []
+
+    def handler(request: Request) -> Response:
+        calls.append(request.url.path)
+        if request.url.path.endswith("/api/v1/customers"):
+            return Response(
+                200,
+                json={"customers": [], "meta": {"total_pages": 1}},
+            )
+        if request.url.path.endswith("/api/v1/tickets"):
+            return Response(
+                200,
+                json={"tickets": [], "meta": {"total_pages": 1}},
+            )
+        return Response(404, json={"detail": "unexpected endpoint"})
+
+    session_factory = await get_session_factory()
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(IntegrationModule).where(IntegrationModule.slug == "syncro-rmm")
+        )
+        module = result.scalar_one()
+        module.enabled = True
+        module.settings.update(
+            {
+                "subdomain": "syncro",
+                "api_key": "test-key",
+            }
+        )
+        await session.commit()
+
+        summary = await import_syncro_data(
+            session,
+            ticket_options=SyncroTicketImportOptions(mode="invalid"),
+            transport=MockTransport(handler),
+            throttle_seconds=0,
+        )
+
+    assert any(path.endswith("/api/v1/tickets") for path in calls)
+    assert summary.tickets_imported == 0
+    assert summary.tickets_skipped == 0
+
+
+@pytest.mark.asyncio
 async def test_syncro_import_supports_ticket_range_and_company_selection():
     transport = _mock_syncro_transport()
     session_factory = await get_session_factory()

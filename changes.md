@@ -98,3 +98,4 @@
 - 2025-10-20T00:16:55Z Feature: Added Syncro import UI controls with sortable company table, ticket scope form, and live import feedback.
 - 2025-10-20T01:30:00Z Fix: Removed sort, asset visibility, and refresh controls from the ticket sidebar actions to streamline navigation.
 - 2025-10-20T00:48:04Z Fix: Normalized Syncro subdomain handling so API calls target https://<subdomain>.syncromsp.com/api/v1 for company imports and ticket sync.
+- 2025-10-20T00:58:15Z Fix: Defaulted Syncro ticket imports to the /tickets endpoint when mode values are malformed, ensuring ticket sync no longer stops at customer lookups.
