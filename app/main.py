@@ -74,6 +74,7 @@ from app.services.ticket_data import (
     fetch_ticket_records,
     slugify_label,
 )
+from app.services.ticket_summary import refresh_ticket_summary
 from pydantic import ValidationError
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -666,6 +667,45 @@ async def _prepare_ticket_detail_context(
     organizations = await _list_organizations(session)
     customer_options = _derive_customer_options(organizations)
 
+    summary_record = await ticket_store.get_summary(ticket_id)
+    if summary_record is None:
+        summary_record = await refresh_ticket_summary(session, display_ticket)
+
+    formatted_summary = {
+        "summary": "",
+        "provider": "",
+        "model": None,
+        "updated_at_iso": "",
+        "error_message": "",
+        "used_fallback": False,
+    }
+    if summary_record:
+        formatted_summary.update(
+            {
+                key: summary_record.get(key)
+                for key in (
+                    "summary",
+                    "provider",
+                    "model",
+                    "updated_at_iso",
+                    "error_message",
+                    "used_fallback",
+                )
+                if key in summary_record
+            }
+        )
+        updated_at_dt = summary_record.get("updated_at_dt")
+        if not formatted_summary.get("updated_at_iso") and isinstance(updated_at_dt, datetime):
+            if updated_at_dt.tzinfo is None:
+                updated_at_dt = updated_at_dt.replace(tzinfo=timezone.utc)
+            formatted_summary["updated_at_iso"] = (
+                updated_at_dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            )
+        if not formatted_summary.get("used_fallback"):
+            formatted_summary["used_fallback"] = (
+                formatted_summary.get("provider") == "fallback"
+            )
+
     return {
         "request": request,
         "page_title": f"{display_ticket['id']} · {display_ticket['subject']}",
@@ -686,6 +726,7 @@ async def _prepare_ticket_detail_context(
         "reply_form_errors": reply_form_errors or [],
         "reply_form_saved": reply_saved,
         "ticket_created": created,
+        "ticket_summary": formatted_summary,
     }
 
 
@@ -829,6 +870,26 @@ INTEGRATION_SETTINGS_FIELDS: dict[str, list[dict[str, str]]] = {
         },
     ],
     "https-post-receiver": [],
+    "ollama": [
+        {
+            "key": "base_url",
+            "label": "Base URL",
+            "type": "url",
+            "placeholder": "http://127.0.0.1:11434",
+        },
+        {
+            "key": "model",
+            "label": "Model",
+            "type": "text",
+            "placeholder": "llama3",
+        },
+        {
+            "key": "prompt",
+            "label": "Additional prompt guidance",
+            "type": "text",
+            "placeholder": "Optional instructions appended to the summary prompt",
+        },
+    ],
 }
 
 
@@ -1372,6 +1433,8 @@ async def ticket_create_view(
     )
     enriched_ticket = enrich_ticket_record(created_ticket, now_utc)
 
+    await refresh_ticket_summary(session, enriched_ticket)
+
     await dispatch_ticket_event(
         session,
         event_type="Ticket Created",
@@ -1493,6 +1556,9 @@ async def ticket_update_view(
     ticket_after = dict(ticket_before)
     ticket_after.update(override)
     ticket_after["id"] = ticket_id
+    enriched_after = enrich_ticket_record(ticket_after, now_utc)
+
+    await refresh_ticket_summary(session, enriched_after)
 
     event_type = _derive_ticket_update_event_type(ticket_before, ticket_after)
     await dispatch_ticket_event(
@@ -1573,6 +1639,8 @@ async def ticket_reply_view(
         summary=summary,
         message=payload.message,
     )
+
+    await refresh_ticket_summary(session, ticket_lookup[ticket_id])
 
     redirect_url = request.url_for("ticket_detail", ticket_id=ticket_id)
     redirect_url = f"{redirect_url}?reply=1"
