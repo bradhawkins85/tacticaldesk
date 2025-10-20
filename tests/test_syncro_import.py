@@ -42,6 +42,33 @@ async def _reset_ticket_store():
 def _mock_syncro_transport() -> MockTransport:
     def handler(request: Request) -> Response:
         assert request.headers.get("Authorization") == "Bearer test-key"
+
+        ticket_comments = [
+            {
+                "subject": "Contact",
+                "body": "Customer reports the printer is still offline.",
+                "created_at": "2024-05-02T10:30:00Z",
+                "user_name": "Acme Contact",
+            },
+            {
+                "subject": "Update",
+                "body": "Technician rebooted the print server and is monitoring.",
+                "created_at": "2024-05-02T11:15:00Z",
+                "user_name": "Jordan Smith",
+            },
+            {
+                "subject": "Status",
+                "body": "Left voicemail for customer.",
+                "created_at": "2024-05-02T11:45:00Z",
+            },
+            {
+                "subject": "Update",
+                "body": "Reset printer queue cache.",
+                "hidden": True,
+                "created_at": "2024-05-02T12:05:00Z",
+                "user_name": "Jordan Smith",
+            },
+        ]
         if request.url.path.endswith("/api/v1/customers"):
             return Response(
                 200,
@@ -84,6 +111,7 @@ def _mock_syncro_transport() -> MockTransport:
                                 "queue_name": "Support",
                                 "type": "Incident",
                                 "description": "Office printer offline",
+                                "comments": list(ticket_comments),
                             }
                         },
                         {
@@ -128,6 +156,7 @@ def _mock_syncro_transport() -> MockTransport:
                         "queue_name": "Support",
                         "type": "Incident",
                         "description": "Office printer offline",
+                        "comments": list(ticket_comments),
                     }
                 },
             )
@@ -210,6 +239,35 @@ async def test_syncro_import_creates_companies_and_tickets():
     assert ticket["queue"] == "Support"
     assert ticket["labels"] == ["Hardware", "Printer"]
     assert ticket["watchers"] == ["lead@acme.test"]
+    history = ticket["history"]
+    assert len(history) == 5
+    assert history[0]["summary"] == "Office printer offline"
+
+    customer_reply = next(
+        entry
+        for entry in history
+        if entry["body"] == "Customer reports the printer is still offline."
+    )
+    assert customer_reply["direction"] == "inbound"
+    assert customer_reply["actor"] == "Acme Contact"
+
+    technician_reply = next(
+        entry
+        for entry in history
+        if entry["body"] == "Technician rebooted the print server and is monitoring."
+    )
+    assert technician_reply["direction"] == "outbound"
+    assert technician_reply["actor"] == "Jordan Smith"
+
+    status_note = next(
+        entry for entry in history if entry["body"] == "Left voicemail for customer."
+    )
+    assert status_note["direction"] == "internal"
+
+    hidden_note = next(
+        entry for entry in history if entry["body"] == "Reset printer queue cache."
+    )
+    assert hidden_note["direction"] == "internal"
     assert "SYNCRO-1002" not in ids
 
 

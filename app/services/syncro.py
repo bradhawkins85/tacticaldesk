@@ -289,6 +289,113 @@ def _normalize_company(record: dict[str, Any]) -> SyncroCompanyRecord | None:
     )
 
 
+def _extract_comment_collections(record: dict[str, Any]) -> list[dict[str, Any]]:
+    collections: list[dict[str, Any]] = []
+    for key in ("comments", "ticket_comments"):
+        raw = record.get(key)
+        if isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, dict):
+                    collections.append(item)
+    return collections
+
+
+def _determine_comment_actor(
+    comment: dict[str, Any],
+    *,
+    fallback_customer: str,
+    fallback_technician: str,
+    direction: str,
+) -> str:
+    for key in (
+        "user_name",
+        "user",
+        "author",
+        "author_name",
+        "creator",
+        "creator_name",
+        "tech",
+        "tech_name",
+        "created_by",
+    ):
+        actor = _clean_text(comment.get(key))
+        if actor:
+            return actor
+    if direction == "inbound":
+        return fallback_customer or "Syncro Customer"
+    if direction == "outbound":
+        return fallback_technician or "Syncro Technician"
+    return fallback_technician or "Syncro Technician"
+
+
+def _extract_comment_body(comment: dict[str, Any]) -> str:
+    for key in ("body", "body_text", "text", "comment", "message", "description"):
+        value = comment.get(key)
+        if value is None:
+            continue
+        body = str(value).strip()
+        if body:
+            return body
+    subject = _clean_text(comment.get("subject"))
+    if subject:
+        return subject
+    return "Syncro comment"
+
+
+def _normalize_ticket_comments(
+    record: dict[str, Any],
+    *,
+    customer_name: str,
+    technician_name: str,
+    default_timestamp: datetime,
+) -> tuple[list[dict[str, object]], datetime]:
+    comments = _extract_comment_collections(record)
+    if not comments:
+        return [], default_timestamp
+
+    entries: list[dict[str, object]] = []
+    latest_public = default_timestamp
+
+    for comment in comments:
+        subject = _clean_text(comment.get("subject"))
+        hidden = bool(comment.get("hidden") or comment.get("is_hidden") or comment.get("private"))
+
+        direction = "internal"
+        if not hidden:
+            if subject.lower() == "contact":
+                direction = "inbound"
+            elif subject.lower() == "update":
+                direction = "outbound"
+        actor = _determine_comment_actor(
+            comment,
+            fallback_customer=customer_name,
+            fallback_technician=technician_name,
+            direction=direction,
+        )
+
+        timestamp_raw = comment.get("created_at") or comment.get("updated_at")
+        timestamp = _parse_datetime(timestamp_raw, default=default_timestamp)
+
+        body = _extract_comment_body(comment)
+        summary_source = body or subject or "Syncro comment"
+        summary = summary_source.splitlines()[0][:240]
+
+        entry = {
+            "actor": actor,
+            "direction": direction,
+            "channel": "Syncro",
+            "summary": summary,
+            "body": body,
+            "timestamp_dt": timestamp,
+        }
+        entries.append(entry)
+
+        if direction != "internal" and timestamp > latest_public:
+            latest_public = timestamp
+
+    return entries, latest_public
+
+
 def _normalize_ticket(record: dict[str, Any], *, now: datetime) -> StoredTicketRecord | None:
     if not isinstance(record, dict):
         return None
@@ -386,16 +493,29 @@ def _normalize_ticket(record: dict[str, Any], *, now: datetime) -> StoredTicketR
 
     note_body = summary
     public = bool(record.get("is_public", True))
-    history = [
+    base_entry_timestamp = created_at
+    history_entries = [
         {
             "actor": assignment if assignment else "Syncro Technician",
             "direction": "inbound" if public else "internal",
             "channel": "Syncro",
-            "summary": subject,
-            "body": note_body or subject,
-            "timestamp_dt": last_reply,
+            "summary": summary,
+            "body": note_body or summary,
+            "timestamp_dt": base_entry_timestamp,
         }
     ]
+
+    comment_entries, latest_public_timestamp = _normalize_ticket_comments(
+        record,
+        customer_name=customer_name,
+        technician_name=assignment,
+        default_timestamp=last_reply,
+    )
+    history_entries.extend(comment_entries)
+    history_entries.sort(key=lambda entry: entry.get("timestamp_dt", now))
+
+    if latest_public_timestamp > last_reply:
+        last_reply = latest_public_timestamp
 
     ticket_id_raw = normalized_identifier or ticket_identifier
     ticket_id_clean = re.sub(r"[^0-9A-Za-z_-]", "", ticket_id_raw)
@@ -422,7 +542,7 @@ def _normalize_ticket(record: dict[str, Any], *, now: datetime) -> StoredTicketR
         watchers=watchers,
         is_starred=bool(record.get("starred") or record.get("is_flagged")),
         assets_visible=bool(record.get("has_asset") or record.get("assets_visible")),
-        history=history,
+        history=history_entries,
         metadata_created_at_dt=now,
         metadata_updated_at_dt=now,
     )
