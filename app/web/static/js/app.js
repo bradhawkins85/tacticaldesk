@@ -311,30 +311,42 @@
     }
   }
 
+  function isTicketCreateModalOpen() {
+    return ticketCreateModal?.classList.contains("is-visible") ?? false;
+  }
+
   function openTicketCreateModal() {
     if (!ticketCreateModal) {
       window.location.href = "/tickets?new=1";
       return;
     }
-    ticketCreateLastFocus = document.activeElement;
-    ticketCreateModal.classList.add("is-open");
+    if (isTicketCreateModalOpen()) {
+      return;
+    }
+    const activeElement = document.activeElement;
+    ticketCreateLastFocus =
+      activeElement instanceof HTMLElement ? activeElement : null;
+    ticketCreateModal.classList.add("is-visible");
     ticketCreateModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("has-open-modal");
     const subjectInput = ticketCreateForm?.querySelector("input[name='subject']");
     if (subjectInput) {
       subjectInput.focus();
     }
   }
 
-  function closeTicketCreateModal() {
-    if (!ticketCreateModal) {
+  function closeTicketCreateModal({ restoreFocus = true } = {}) {
+    if (!ticketCreateModal || !isTicketCreateModalOpen()) {
       return;
     }
-    ticketCreateModal.classList.remove("is-open");
+    ticketCreateModal.classList.remove("is-visible");
     ticketCreateModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("has-open-modal");
     resetTicketCreateForm();
-    if (ticketCreateLastFocus && typeof ticketCreateLastFocus.focus === "function") {
+    if (restoreFocus && ticketCreateLastFocus && typeof ticketCreateLastFocus.focus === "function") {
       ticketCreateLastFocus.focus();
     }
+    ticketCreateLastFocus = null;
   }
 
   if (ticketCreateModal && ticketCreateModal.dataset.open === "true") {

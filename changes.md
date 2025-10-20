@@ -106,3 +106,4 @@
 - 2025-10-20T02:15:00Z Feature: Enabled event automations to specify custom ntfy topics, including UI controls, API support, and
   regression coverage for topic overrides.
 - 2025-10-20T02:10:00Z Fix: Restored the /tickets/new route so the new ticket workspace loads with the creation modal for no-JS navigation.
+- 2025-10-20T01:32:13Z Fix: Restored ticket creation modal visibility by aligning client controls with modal visibility classes.
