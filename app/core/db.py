@@ -27,6 +27,7 @@ MIGRATIONS_DIR = _resolve_migrations_dir()
 
 _ENGINE_LOCK = asyncio.Lock()
 _ENGINE: AsyncEngine | None = None
+_ENGINE_URL: str | None = None
 _SESSION_FACTORY: sessionmaker[AsyncSession] | None = None
 
 
@@ -127,7 +128,18 @@ async def init_db(engine: AsyncEngine) -> None:
 
 
 async def get_engine() -> AsyncEngine:
-    global _ENGINE, _SESSION_FACTORY
+    global _ENGINE, _SESSION_FACTORY, _ENGINE_URL
+
+    settings = get_settings()
+    target_url = settings.resolved_database_url
+
+    if _ENGINE is not None and _ENGINE_URL != target_url:
+        async with _ENGINE_LOCK:
+            if _ENGINE is not None and _ENGINE_URL != target_url:
+                await _ENGINE.dispose()
+                _ENGINE = None
+                _SESSION_FACTORY = None
+                _ENGINE_URL = None
 
     if _ENGINE is None:
         async with _ENGINE_LOCK:
@@ -136,16 +148,18 @@ async def get_engine() -> AsyncEngine:
                 await init_db(engine)
                 _ENGINE = engine
                 _SESSION_FACTORY = create_session_factory(engine)
+                _ENGINE_URL = target_url
     assert _ENGINE is not None
     return _ENGINE
 
 
 async def dispose_engine() -> None:
-    global _ENGINE, _SESSION_FACTORY
+    global _ENGINE, _SESSION_FACTORY, _ENGINE_URL
     if _ENGINE is not None:
         await _ENGINE.dispose()
         _ENGINE = None
         _SESSION_FACTORY = None
+        _ENGINE_URL = None
 
 
 async def get_session() -> AsyncSession:

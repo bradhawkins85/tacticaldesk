@@ -312,3 +312,106 @@ class TicketDeletion(Base):
         default=utcnow,
         server_default=text("CURRENT_TIMESTAMP"),
     )
+
+
+class KnowledgeSpace(Base):
+    __tablename__ = "knowledge_spaces"
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    name: str = Column(String(255), nullable=False)
+    slug: str = Column(String(255), nullable=False, unique=True, index=True)
+    description: str | None = Column(Text, nullable=True)
+    icon: str | None = Column(String(16), nullable=True)
+    is_private: bool = Column(Boolean, default=False, nullable=False)
+    created_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
+
+class KnowledgeDocument(Base):
+    __tablename__ = "knowledge_documents"
+    __table_args__ = (
+        UniqueConstraint("space_id", "slug", name="uq_knowledge_documents_space_slug"),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    space_id: int = Column(
+        Integer,
+        ForeignKey("knowledge_spaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    parent_id: int | None = Column(
+        Integer,
+        ForeignKey("knowledge_documents.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    title: str = Column(String(255), nullable=False)
+    slug: str = Column(String(255), nullable=False)
+    summary: str | None = Column(Text, nullable=True)
+    content: str = Column(Text, nullable=False)
+    is_published: bool = Column(Boolean, default=False, nullable=False)
+    position: int = Column(Integer, default=0, nullable=False)
+    version: int = Column(Integer, default=1, nullable=False)
+    created_by_id: int | None = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    published_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
+
+
+class KnowledgeDocumentRevision(Base):
+    __tablename__ = "knowledge_document_revisions"
+    __table_args__ = (
+        UniqueConstraint("document_id", "version", name="uq_knowledge_revision_document_version"),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    document_id: int = Column(
+        Integer,
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: int = Column(Integer, nullable=False)
+    title: str = Column(String(255), nullable=False)
+    summary: str | None = Column(Text, nullable=True)
+    content: str = Column(Text, nullable=False)
+    created_by_id: int | None = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: datetime = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )

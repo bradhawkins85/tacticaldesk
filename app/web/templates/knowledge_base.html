@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% set active_nav = 'knowledge' %}
+{% macro render_tree(nodes) -%}
+  {%- for node in nodes %}
+  <li
+    class="knowledge-tree__node{% if node.is_active %} is-active{% endif %}{% if node.is_expanded %} is-expanded{% endif %}"
+    data-role="knowledge-node"
+    data-title="{{ node.title | lower }}"
+  >
+    <div class="knowledge-tree__item">
+      {% if node.children %}
+      <button
+        class="knowledge-tree__toggle"
+        type="button"
+        data-action="toggle-knowledge-node"
+        aria-expanded="{{ 'true' if node.is_expanded else 'false' }}"
+      >
+        <span class="icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Toggle {{ node.title }}</span>
+      </button>
+      {% else %}
+      <span class="knowledge-tree__toggle knowledge-tree__toggle--placeholder" aria-hidden="true"></span>
+      {% endif %}
+      <a
+        href="{{ node.url }}"
+        class="knowledge-tree__link{% if node.is_active %} is-active{% endif %}"
+        data-status="{{ node.status_label | lower }}"
+      >
+        <span class="knowledge-tree__state" aria-hidden="true">{% if node.is_published %}●{% else %}○{% endif %}</span>
+        <span class="knowledge-tree__title">{{ node.title }}</span>
+      </a>
+    </div>
+    {% if node.children %}
+    <ul class="knowledge-tree__list" role="group" {% if not node.is_expanded %}hidden{% endif %}>
+      {{ render_tree(node.children) }}
+    </ul>
+    {% endif %}
+  </li>
+  {%- endfor %}
+{%- endmacro %}
+{% block content %}
+<div class="knowledge-layout">
+  <aside class="knowledge-sidebar">
+    <header class="knowledge-sidebar__header">
+      <h2>Knowledge spaces</h2>
+      <p class="subtitle">Group documentation by client, runbook, or internal operations.</p>
+    </header>
+    {% if knowledge_spaces %}
+    <nav class="knowledge-space-nav" aria-label="Knowledge spaces">
+      {% for space in knowledge_spaces %}
+      <a
+        href="{{ space.url }}"
+        class="knowledge-space-nav__link{% if space.is_active %} is-active{% endif %}"
+      >
+        <span class="knowledge-space-nav__icon" aria-hidden="true">{{ space.icon }}</span>
+        <span class="knowledge-space-nav__name">{{ space.name }}</span>
+        <span class="knowledge-space-nav__meta">
+          <span class="visually-hidden">{{ space.document_count }} documents</span>
+          <span class="knowledge-space-nav__count" aria-hidden="true">{{ space.document_count }}</span>
+        </span>
+        {% if space.is_private %}
+        <span class="badge badge--muted">Private</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </nav>
+    {% else %}
+    <div class="knowledge-empty">
+      <p>No knowledge spaces have been created yet.</p>
+      <p class="help-text">Use the <code>/api/knowledge/spaces</code> endpoint to seed your first space.</p>
+    </div>
+    {% endif %}
+    <div class="knowledge-tree" data-role="knowledge-tree">
+      <div class="knowledge-tree__toolbar">
+        <label class="filter">
+          <span>Filter documents</span>
+          <input
+            type="search"
+            placeholder="Search documents"
+            data-role="knowledge-tree-filter"
+            aria-label="Filter documents"
+          />
+        </label>
+      </div>
+      {% if document_tree %}
+      <ul class="knowledge-tree__list" role="tree">
+        {{ render_tree(document_tree) }}
+      </ul>
+      {% else %}
+      <p class="knowledge-tree__empty">No documents available in this space yet.</p>
+      {% endif %}
+    </div>
+  </aside>
+  <section class="knowledge-content">
+    <header class="knowledge-header">
+      <div class="knowledge-header__primary">
+        <h1>
+          {% if selected_document %}
+          {{ selected_document.title }}
+          {% elif selected_space %}
+          {{ selected_space.name }}
+          {% else %}
+          Knowledge Base
+          {% endif %}
+        </h1>
+        <p class="subtitle">
+          {% if selected_document and selected_document.summary %}
+          {{ selected_document.summary }}
+          {% elif selected_space and selected_space.description %}
+          {{ selected_space.description }}
+          {% else %}
+          Centralize playbooks and SOPs for future AI copilots.
+          {% endif %}
+        </p>
+      </div>
+      <div class="knowledge-header__meta">
+        {% if selected_document %}
+        <span class="badge{% if not selected_document.is_published %} badge--warning{% endif %}">
+          {{ selected_document.status_label }}
+        </span>
+        <span class="badge badge--muted">v{{ selected_document.version }}</span>
+        {% elif selected_space %}
+        <span class="badge badge--muted">{{ selected_space.document_count }} documents</span>
+        {% endif %}
+      </div>
+    </header>
+    <div class="knowledge-body">
+      {% if selected_document %}
+      <nav class="breadcrumbs" aria-label="Document breadcrumbs">
+        {% for crumb in document_breadcrumbs %}
+        <a
+          href="{{ crumb.url }}"
+          class="breadcrumb{% if loop.last %} is-current{% endif %}"
+          {% if loop.last %}aria-current="page"{% endif %}
+        >
+          {{ crumb.title }}
+        </a>
+        {% endfor %}
+      </nav>
+      <article class="knowledge-article">
+        <div class="knowledge-article__meta">
+          <dl>
+            <div>
+              <dt>Last updated</dt>
+              <dd>
+                {% if selected_document.updated_at_iso %}
+                <time datetime="{{ selected_document.updated_at_iso }}" data-role="local-datetime">
+                  {{ selected_document.updated_at_iso }}
+                </time>
+                {% else %}
+                <span>Not available</span>
+                {% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt>Published</dt>
+              <dd>
+                {% if selected_document.published_at_iso %}
+                <time datetime="{{ selected_document.published_at_iso }}" data-role="local-datetime">
+                  {{ selected_document.published_at_iso }}
+                </time>
+                {% else %}
+                <span>Draft only</span>
+                {% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt>Author ID</dt>
+              <dd>{{ selected_document.created_by_id if selected_document.created_by_id else "Unassigned" }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="knowledge-article__content" data-role="knowledge-content">
+          {% if selected_document.content %}
+          <div class="document-content">
+            <p>{{ selected_document.content | replace('\r\n', '\n') | replace('\n\n', '</p><p>') | replace('\n', '<br />') | safe }}</p>
+          </div>
+          {% else %}
+          <p class="empty-copy">This document does not yet contain any content.</p>
+          {% endif %}
+        </div>
+      </article>
+      <section class="knowledge-versions">
+        <header class="section-header">
+          <h2>Revision history</h2>
+          <p class="subtitle">Audit every edit before sharing content with AI copilots.</p>
+        </header>
+        {% if document_versions %}
+        <div class="table-toolbar">
+          <label class="filter">
+            <span>Filter revisions</span>
+            <input
+              type="search"
+              placeholder="Search revisions"
+              data-role="table-filter"
+              aria-label="Filter revisions"
+            />
+          </label>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" data-role="sortable-table">
+            <thead>
+              <tr>
+                <th scope="col" data-sort-key="version">Version</th>
+                <th scope="col" data-sort-key="title">Title</th>
+                <th scope="col" data-sort-key="created_at">Created</th>
+                <th scope="col" data-sort-key="author">Author ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for revision in document_versions %}
+              <tr>
+                <td data-label="Version" data-sort-value="{{ revision.version }}">v{{ revision.version }}</td>
+                <td data-label="Title">{{ revision.title }}</td>
+                <td data-label="Created" data-sort-value="{{ revision.created_at_iso if revision.created_at_iso else '' }}">
+                  {% if revision.created_at_iso %}
+                  <time datetime="{{ revision.created_at_iso }}" data-role="local-datetime">
+                    {{ revision.created_at_iso }}
+                  </time>
+                  {% else %}
+                  &mdash;
+                  {% endif %}
+                </td>
+                <td data-label="Author">{{ revision.created_by_id if revision.created_by_id else "Unassigned" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-copy">No revisions have been captured for this document yet.</p>
+        {% endif %}
+      </section>
+      {% elif selected_space %}
+      <div class="knowledge-space-empty">
+        <p>Select a document on the left or create a new entry via <code>/api/knowledge/spaces/{{ selected_space.slug }}/documents</code>.</p>
+      </div>
+      {% else %}
+      <div class="knowledge-empty">
+        <h2>Initialize your knowledge base</h2>
+        <p>Create a space and documents via the API to power future Ollama and ChatGPT assistants.</p>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}
