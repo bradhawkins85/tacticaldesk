@@ -384,7 +384,8 @@
     }
     const matchesFilter = row.dataset.filterVisible !== "false";
     const matchesSearch = row.dataset.searchVisible !== "false";
-    row.style.display = matchesFilter && matchesSearch ? "" : "none";
+    const matchesPage = row.dataset.pageVisible !== "false";
+    row.style.display = matchesFilter && matchesSearch && matchesPage ? "" : "none";
   }
 
   function ensureVisibilityFlags(row) {
@@ -396,6 +397,9 @@
     }
     if (!Object.prototype.hasOwnProperty.call(row.dataset, "searchVisible")) {
       row.dataset.searchVisible = "true";
+    }
+    if (!Object.prototype.hasOwnProperty.call(row.dataset, "pageVisible")) {
+      row.dataset.pageVisible = "true";
     }
     updateTableRowVisibility(row);
   }
@@ -423,6 +427,7 @@
         const fragment = document.createDocumentFragment();
         rows.forEach((row) => fragment.appendChild(row));
         table.tBodies[0].appendChild(fragment);
+        table.dispatchEvent(new CustomEvent("table:sorted", { bubbles: true }));
       });
     });
   });
@@ -900,9 +905,6 @@
     const refreshButton = syncroImportContainer.querySelector(
       "[data-action='syncro-refresh-companies']"
     );
-    const runButton = syncroImportContainer.querySelector(
-      "[data-action='syncro-run-import']"
-    );
     const tableBody = syncroImportContainer.querySelector(
       "[data-role='syncro-company-tbody']"
     );
@@ -936,10 +938,55 @@
     const form = syncroImportContainer.querySelector(
       "[data-role='syncro-import-form']"
     );
+    const companiesMessageTarget = syncroImportContainer.querySelector(
+      "[data-role='syncro-companies-message']"
+    );
+    const paginationContainer = syncroImportContainer.querySelector(
+      "[data-role='syncro-pagination']"
+    );
+    const paginationStatus = paginationContainer?.querySelector(
+      "[data-role='syncro-page-status']"
+    );
+    const paginationPrev = paginationContainer?.querySelector(
+      "[data-role='syncro-page-prev']"
+    );
+    const paginationNext = paginationContainer?.querySelector(
+      "[data-role='syncro-page-next']"
+    );
+    const pageSizeSelect = paginationContainer?.querySelector(
+      "[data-role='syncro-page-size']"
+    );
+    const companyFilterInput = syncroImportContainer.querySelector(
+      "#syncro-company-filter"
+    );
+    const companyTable = syncroImportContainer.querySelector(
+      "[data-syncro-company-table='true']"
+    );
+    const importCompaniesButton = syncroImportContainer.querySelector(
+      "[data-action='syncro-import-companies']"
+    );
+    const importTicketsButton = syncroImportContainer.querySelector(
+      "[data-action='syncro-import-tickets']"
+    );
     let integrationEnabled =
       syncroImportContainer.dataset.integrationEnabled === "true";
     const integrationSlug =
       syncroImportContainer.dataset.integrationSlug || "syncro-rmm";
+    let pageSize = Number.parseInt(pageSizeSelect?.value || "5", 10);
+    if (!Number.isFinite(pageSize) || pageSize < 1) {
+      pageSize = 5;
+    }
+    let currentPage = 1;
+
+    function getSelectedCompanyIds() {
+      return Array.from(
+        syncroImportContainer.querySelectorAll(
+          "[data-role='syncro-company-checkbox']:checked"
+        )
+      )
+        .map((input) => Number.parseInt(input.value, 10))
+        .filter((value) => Number.isFinite(value));
+    }
 
     function setSyncroControlsEnabled(enabled) {
       integrationEnabled = Boolean(enabled);
@@ -962,8 +1009,12 @@
         if (formMessageTarget) {
           setStatusMessage(formMessageTarget, "");
         }
+        if (companiesMessageTarget) {
+          setStatusMessage(companiesMessageTarget, "");
+        }
       }
       updateSelectionCount();
+      updatePaginationControls();
     }
 
     function updateSelectionCount() {
@@ -991,6 +1042,82 @@
             checked > 0 && checked < checkboxes.length;
         }
       }
+    }
+
+    function updatePaginationControls({ resetPage = false } = {}) {
+      if (!tableBody) {
+        return;
+      }
+
+      const rows = Array.from(tableBody.rows);
+      const dataRows = rows.filter(
+        (row) => row.dataset.role !== "syncro-empty-row"
+      );
+
+      if (resetPage) {
+        currentPage = 1;
+      }
+
+      if (!Number.isInteger(pageSize) || pageSize < 1) {
+        pageSize = 5;
+      }
+
+      const eligibleRows = dataRows.filter(
+        (row) =>
+          row.dataset.filterVisible !== "false" &&
+          row.dataset.searchVisible !== "false"
+      );
+
+      const totalEligible = eligibleRows.length;
+      const totalPages = Math.max(1, Math.ceil(Math.max(totalEligible, 1) / pageSize));
+      currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+
+      rows.forEach((row) => {
+        if (row.dataset.role === "syncro-empty-row") {
+          row.dataset.pageVisible = dataRows.length === 0 ? "true" : "false";
+        } else {
+          row.dataset.pageVisible = "false";
+        }
+        updateTableRowVisibility(row);
+      });
+
+      eligibleRows.forEach((row, index) => {
+        const visible = index >= startIndex && index < endIndex;
+        row.dataset.pageVisible = visible ? "true" : "false";
+        updateTableRowVisibility(row);
+      });
+
+      if (paginationStatus) {
+        if (!totalEligible) {
+          paginationStatus.textContent = dataRows.length
+            ? "No companies match the current filters."
+            : "No companies to display.";
+        } else {
+          const startLabel = startIndex + 1;
+          const endLabel = Math.min(endIndex, totalEligible);
+          paginationStatus.textContent = `Showing ${startLabel}-${endLabel} of ${totalEligible}`;
+        }
+      }
+
+      if (paginationPrev) {
+        paginationPrev.disabled = currentPage <= 1 || !integrationEnabled;
+      }
+      if (paginationNext) {
+        paginationNext.disabled =
+          currentPage >= totalPages || !integrationEnabled || !totalEligible;
+      }
+
+      if (paginationContainer) {
+        paginationContainer.hidden = dataRows.length === 0;
+      }
+    }
+
+    function goToPage(page) {
+      currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
+      updatePaginationControls();
     }
 
     function createCompanyRow(record) {
@@ -1088,7 +1215,9 @@
           : "Enable the integration to load Syncro companies.";
         row.appendChild(cell);
         tableBody.appendChild(row);
+        ensureVisibilityFlags(row);
         updateSelectionCount();
+        updatePaginationControls({ resetPage: true });
         return;
       }
       const sorted = records
@@ -1101,6 +1230,7 @@
       });
       tableBody.appendChild(fragment);
       updateSelectionCount();
+      updatePaginationControls({ resetPage: true });
     }
 
     async function loadCompanies({ showStatus = true } = {}) {
@@ -1247,12 +1377,134 @@
           checkbox.checked = Boolean(selectAllCheckbox.checked);
         });
         updateSelectionCount();
+        updatePaginationControls();
+      });
+    }
+
+    if (paginationPrev) {
+      paginationPrev.addEventListener("click", () => {
+        if (currentPage > 1) {
+          goToPage(currentPage - 1);
+        }
+      });
+    }
+
+    if (paginationNext) {
+      paginationNext.addEventListener("click", () => {
+        goToPage(currentPage + 1);
+      });
+    }
+
+    if (pageSizeSelect) {
+      pageSizeSelect.addEventListener("change", () => {
+        const candidate = Number.parseInt(pageSizeSelect.value, 10);
+        pageSize = Number.isFinite(candidate) && candidate > 0 ? candidate : 5;
+        goToPage(1);
+      });
+    }
+
+    if (companyFilterInput) {
+      companyFilterInput.addEventListener("input", () => {
+        goToPage(1);
+      });
+    }
+
+    if (companyTable) {
+      companyTable.addEventListener("table:sorted", () => {
+        goToPage(1);
       });
     }
 
     if (modeSelect) {
       modeSelect.addEventListener("change", () => {
         syncTicketModeFields();
+      });
+    }
+
+    if (importCompaniesButton) {
+      importCompaniesButton.addEventListener("click", async () => {
+        if (!integrationEnabled) {
+          setStatusMessage(
+            companiesMessageTarget,
+            "Enable the Syncro integration before importing companies.",
+            "error"
+          );
+          return;
+        }
+
+        const selectedIds = getSelectedCompanyIds();
+        const payload = {};
+        if (selectedIds.length) {
+          payload.company_ids = selectedIds;
+        }
+
+        setStatusMessage(
+          companiesMessageTarget,
+          "Importing Syncro companies…"
+        );
+        importCompaniesButton.disabled = true;
+        if (refreshButton) {
+          refreshButton.disabled = true;
+        }
+        if (importTicketsButton) {
+          importTicketsButton.disabled = true;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        try {
+          const response = await fetch(
+            `/api/integrations/${encodeURIComponent(
+              integrationSlug
+            )}/import/companies`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              credentials: "same-origin",
+              body: JSON.stringify(payload),
+              signal: controller.signal,
+            }
+          );
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data?.detail || "Syncro company import failed");
+          }
+          setStatusMessage(
+            companiesMessageTarget,
+            data?.detail || "Syncro companies imported successfully.",
+            "success"
+          );
+          updateSummary(data);
+          if (messageTarget && data?.last_synced_at) {
+            setStatusMessage(
+              messageTarget,
+              `Sync completed at ${toLocalDatetime(data.last_synced_at)}.`,
+              "success"
+            );
+          }
+          await loadCompanies({ showStatus: false });
+        } catch (error) {
+          const detail =
+            error?.name === "AbortError"
+              ? "Request timed out while importing Syncro companies."
+              : error?.message || "Unable to import Syncro companies.";
+          setStatusMessage(companiesMessageTarget, detail, "error");
+        } finally {
+          clearTimeout(timeout);
+          if (importCompaniesButton) {
+            importCompaniesButton.disabled = !integrationEnabled;
+          }
+          if (refreshButton) {
+            refreshButton.disabled = !integrationEnabled;
+          }
+          if (importTicketsButton) {
+            importTicketsButton.disabled = !integrationEnabled;
+          }
+        }
       });
     }
 
@@ -1269,13 +1521,7 @@
         }
 
         const ticketMode = modeSelect?.value || "all";
-        const selectedIds = Array.from(
-          syncroImportContainer.querySelectorAll(
-            "[data-role='syncro-company-checkbox']:checked"
-          )
-        )
-          .map((input) => Number.parseInt(input.value, 10))
-          .filter((value) => Number.isFinite(value));
+        const selectedIds = getSelectedCompanyIds();
 
         const ticketOptions = { mode: ticketMode };
 
@@ -1334,8 +1580,11 @@
         }
 
         setStatusMessage(formMessageTarget, "Running Syncro import…");
-        if (runButton) {
-          runButton.disabled = true;
+        if (importTicketsButton) {
+          importTicketsButton.disabled = true;
+        }
+        if (importCompaniesButton) {
+          importCompaniesButton.disabled = true;
         }
         if (refreshButton) {
           refreshButton.disabled = true;
@@ -1385,11 +1634,14 @@
           setStatusMessage(formMessageTarget, detail, "error");
         } finally {
           clearTimeout(timeout);
-          if (runButton) {
-            runButton.disabled = !integrationEnabled;
+          if (importTicketsButton) {
+            importTicketsButton.disabled = !integrationEnabled;
           }
           if (refreshButton) {
             refreshButton.disabled = !integrationEnabled;
+          }
+          if (importCompaniesButton) {
+            importCompaniesButton.disabled = !integrationEnabled;
           }
         }
       });

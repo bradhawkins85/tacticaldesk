@@ -10,6 +10,7 @@ from app.schemas import (
     IntegrationModuleCreate,
     IntegrationModuleRead,
     IntegrationModuleUpdate,
+    SyncroCompanyImportRequest,
     SyncroCompanySummary,
     SyncroImportRequest,
     SyncroImportResponse,
@@ -19,6 +20,7 @@ from app.services.syncro import (
     SyncroConfigurationError,
     SyncroTicketImportOptions,
     fetch_syncro_companies,
+    import_syncro_companies,
     import_syncro_data,
 )
 
@@ -160,6 +162,41 @@ async def run_syncro_import(
 
     return SyncroImportResponse(
         detail="Syncro data imported successfully.",
+        companies_created=summary.companies_created,
+        companies_updated=summary.companies_updated,
+        tickets_imported=summary.tickets_imported,
+        tickets_skipped=summary.tickets_skipped,
+        last_synced_at=summary.last_synced_at,
+    )
+
+
+@router.post(
+    "/syncro-rmm/import/companies",
+    response_model=SyncroImportResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def run_syncro_company_import(
+    payload: SyncroCompanyImportRequest,
+    session: AsyncSession = Depends(get_session),
+) -> SyncroImportResponse:
+    try:
+        summary = await import_syncro_companies(
+            session,
+            company_ids=payload.company_ids,
+        )
+    except SyncroConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except SyncroAPIError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    return SyncroImportResponse(
+        detail="Syncro companies imported successfully.",
         companies_created=summary.companies_created,
         companies_updated=summary.companies_updated,
         tickets_imported=summary.tickets_imported,

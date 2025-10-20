@@ -602,6 +602,60 @@ async def fetch_syncro_companies(
     return companies
 
 
+async def import_syncro_companies(
+    session: AsyncSession,
+    *,
+    company_ids: Iterable[int] | None = None,
+    transport: httpx.BaseTransport | None = None,
+    throttle_seconds: float | None = None,
+) -> SyncroImportSummary:
+    base_url, headers, timeout = await _load_syncro_client_config(session)
+    throttle = _sanitize_throttle(throttle_seconds)
+
+    selected_company_ids = None
+    if company_ids is not None:
+        selected_company_ids = {int(value) for value in company_ids}
+
+    async with httpx.AsyncClient(
+        base_url=base_url,
+        headers=headers,
+        timeout=timeout,
+        transport=transport,
+    ) as client:
+        companies_payload = await _fetch_paginated(
+            client,
+            "/customers",
+            collection_key="customers",
+            throttle=throttle,
+        )
+
+    normalized_companies: list[SyncroCompanyRecord] = []
+    for record in companies_payload:
+        normalized = _normalize_company(record)
+        if not normalized:
+            continue
+        if (
+            selected_company_ids is not None
+            and normalized.external_id not in selected_company_ids
+        ):
+            continue
+        normalized_companies.append(normalized)
+
+    companies_created, companies_updated = await _sync_companies(
+        session, normalized_companies
+    )
+
+    now = utcnow()
+
+    return SyncroImportSummary(
+        companies_created=companies_created,
+        companies_updated=companies_updated,
+        tickets_imported=0,
+        tickets_skipped=0,
+        last_synced_at=now,
+    )
+
+
 async def import_syncro_data(
     session: AsyncSession,
     *,

@@ -140,9 +140,8 @@ class SyncroTicketImport(BaseModel):
         return values
 
 
-class SyncroImportRequest(BaseModel):
+class _CompanySelectionMixin(BaseModel):
     company_ids: Optional[List[int]] = None
-    tickets: SyncroTicketImport = Field(default_factory=SyncroTicketImport)
 
     @validator("company_ids", pre=True)
     def _normalize_company_ids(cls, value):
@@ -161,6 +160,14 @@ class SyncroImportRequest(BaseModel):
                 cleaned.append(number)
             return cleaned
         raise TypeError("company_ids must be a list of integers")
+
+
+class SyncroCompanyImportRequest(_CompanySelectionMixin):
+    pass
+
+
+class SyncroImportRequest(_CompanySelectionMixin):
+    tickets: SyncroTicketImport = Field(default_factory=SyncroTicketImport)
 
 
 class SyncroCompanySummary(BaseModel):

@@ -14,6 +14,7 @@ from app.services.syncro import (
     SyncroConfigurationError,
     SyncroTicketImportOptions,
     fetch_syncro_companies,
+    import_syncro_companies,
     import_syncro_data,
 )
 from app.services.ticket_data import fetch_ticket_records
@@ -206,6 +207,50 @@ async def test_syncro_import_creates_companies_and_tickets():
     assert ticket["labels"] == ["Hardware", "Printer"]
     assert ticket["watchers"] == ["lead@acme.test"]
     assert "SYNCRO-1002" not in ids
+
+
+@pytest.mark.asyncio
+async def test_syncro_company_import_only_creates_companies():
+    transport = _mock_syncro_transport()
+    session_factory = await get_session_factory()
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(IntegrationModule).where(IntegrationModule.slug == "syncro-rmm")
+        )
+        module = result.scalar_one()
+        module.enabled = True
+        module.settings.update(
+            {
+                "subdomain": "syncro",
+                "api_key": "test-key",
+            }
+        )
+        await session.commit()
+
+        summary = await import_syncro_companies(
+            session,
+            company_ids=[42, 77],
+            transport=transport,
+            throttle_seconds=0,
+        )
+
+        assert summary.companies_created == 2
+        assert summary.companies_updated == 0
+        assert summary.tickets_imported == 0
+        assert summary.tickets_skipped == 0
+
+        for slug in ("acme-corp", "globex"):
+            result = await session.execute(
+                select(Organization).where(Organization.slug == slug)
+            )
+            organization = result.scalar_one_or_none()
+            assert organization is not None
+            assert organization.is_archived is False
+
+    now = datetime.now(timezone.utc)
+    records = await fetch_ticket_records(now)
+    assert not any(record["id"].startswith("SYNCRO-") for record in records)
 
 
 @pytest.mark.asyncio
