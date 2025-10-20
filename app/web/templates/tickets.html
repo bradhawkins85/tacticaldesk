@@ -2,24 +2,7 @@
 {% set sidebar_actions_parent = 'tickets' %}
 {% set sidebar_actions %}
 <div class="nav-actions">
-  <label class="nav-field" for="ticket-sort-select">
-    <span class="nav-field__label">Sort</span>
-    <select id="ticket-sort-select" name="ticket-sort" class="nav-field__control">
-      {% for option in ticket_sort_options %}
-      <option value="{{ option.value }}"{% if loop.first %} selected{% endif %}>{{ option.label }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label class="nav-field" for="asset-visibility-select">
-    <span class="nav-field__label">Assets visibility</span>
-    <select id="asset-visibility-select" name="asset-visibility" class="nav-field__control">
-      {% for option in asset_view_options %}
-      <option value="{{ option.value }}"{% if loop.first %} selected{% endif %}>{{ option.label }}</option>
-      {% endfor %}
-    </select>
-  </label>
   <button class="primary-button" type="button" data-action="ticket-create-open">New ticket</button>
-  <button class="secondary-button" type="button" data-action="ticket-refresh">Refresh</button>
 </div>
 {% endset %}
 {% block content %}
