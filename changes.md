@@ -131,3 +131,4 @@
 - 2025-10-20T19:30:00Z Feature: Linked ticket customer inputs to the organisation directory with typeahead suggestions on create and update forms.
 - 2025-10-20T03:56:41Z Fix: Realigned Automation Control Tower action buttons within table cells to keep row dividers consistent.
 - 2025-10-20T04:37:33Z Feature: Added Ollama-powered ticket summaries with persistence, refreshed UI section, and regression tests.
+- 2025-10-20T04:13:22Z Feature: Added dedicated organisation contact creation controls with responsive layout buttons in the admin directory.
