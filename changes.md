@@ -111,3 +111,4 @@
 - 2025-10-20T11:55:00Z Fix: Updated ticket create action to open the dedicated workspace in a new tab for reliable ticket authoring.
 - 2025-10-20T12:30:00Z Feature: Logged integration API requests to the webhook monitor, surfaced request/response details in the admin UI, and auto-paused deliveries when modules are disabled.
 - 2025-10-20T01:53:00Z Fix: Normalized Syncro ticket payloads to accept nested ticket objects so imports register fetched records.
+- 2025-10-20T02:07:35Z Feature: Replaced the ticket creation modal with a dedicated page, updated navigation links, and added validation coverage for the new workflow.
