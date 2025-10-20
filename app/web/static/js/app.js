@@ -963,9 +963,9 @@
       syncroImportContainer.dataset.integrationEnabled === "true";
     const integrationSlug =
       syncroImportContainer.dataset.integrationSlug || "syncro-rmm";
-    let pageSize = Number.parseInt(pageSizeSelect?.value || "5", 10);
+    let pageSize = Number.parseInt(pageSizeSelect?.value || "25", 10);
     if (!Number.isFinite(pageSize) || pageSize < 1) {
-      pageSize = 5;
+      pageSize = 25;
     }
     let currentPage = 1;
     let hasLoadedCompanies = false;
@@ -1051,7 +1051,7 @@
       }
 
       if (!Number.isInteger(pageSize) || pageSize < 1) {
-        pageSize = 5;
+        pageSize = 25;
       }
 
       const eligibleRows = dataRows.filter(
@@ -1401,7 +1401,7 @@
     if (pageSizeSelect) {
       pageSizeSelect.addEventListener("change", () => {
         const candidate = Number.parseInt(pageSizeSelect.value, 10);
-        pageSize = Number.isFinite(candidate) && candidate > 0 ? candidate : 5;
+        pageSize = Number.isFinite(candidate) && candidate > 0 ? candidate : 25;
         goToPage(1);
       });
     }

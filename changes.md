@@ -122,3 +122,4 @@
 - 2025-10-20T16:10:00Z Fix: Ensured Syncro ticket history summaries pair subjects with actors so technician replies no longer duplicate in summaries and bodies.
 - 2025-10-20T03:19:02Z Feature: Replaced webhook retry monitor action labels with icon-based controls for consistent visual affordances.
 - 2025-10-20T03:27:00Z Fix: Deferred Syncro company loading until manual refresh and enforced five-row pagination in the Syncro module.
+- 2025-10-20T03:40:00Z Fix: Increased Syncro company pagination to 25 rows per page to improve list review efficiency.
