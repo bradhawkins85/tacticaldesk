@@ -678,6 +678,7 @@ async def _prepare_ticket_detail_context(
         "updated_at_iso": "",
         "error_message": "",
         "used_fallback": False,
+        "resolution_state": None,
     }
     if summary_record:
         formatted_summary.update(
@@ -690,6 +691,7 @@ async def _prepare_ticket_detail_context(
                     "updated_at_iso",
                     "error_message",
                     "used_fallback",
+                    "resolution_state",
                 )
                 if key in summary_record
             }
@@ -1644,6 +1646,31 @@ async def ticket_reply_view(
 
     redirect_url = request.url_for("ticket_detail", ticket_id=ticket_id)
     redirect_url = f"{redirect_url}?reply=1"
+    return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post(
+    "/tickets/{ticket_id}/summary/refresh",
+    response_class=HTMLResponse,
+    name="ticket_summary_refresh",
+)
+async def ticket_summary_refresh_view(
+    request: Request,
+    ticket_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    now_utc = datetime.now(timezone.utc)
+    seed_tickets = build_ticket_records(now_utc)
+    seed_tickets = await ticket_store.apply_overrides(seed_tickets)
+    ticket_lookup = {ticket["id"]: ticket for ticket in seed_tickets}
+    if ticket_id not in ticket_lookup:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    display_ticket = enrich_ticket_record(ticket_lookup[ticket_id], now_utc)
+    await refresh_ticket_summary(session, display_ticket)
+
+    redirect_url = request.url_for("ticket_detail", ticket_id=ticket_id)
+    redirect_url = f"{redirect_url}?summary=1"
     return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 

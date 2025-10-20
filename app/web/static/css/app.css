@@ -2339,8 +2339,15 @@ body.sidebar-open .app-sidebar-overlay {
   align-items: start;
 }
 
+.ticket-detail__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .ticket-detail__history,
-.ticket-detail__reply {
+.ticket-detail__reply,
+.ticket-summary-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 24px;
@@ -2351,18 +2358,47 @@ body.sidebar-open .app-sidebar-overlay {
 .ticket-summary__header {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.ticket-reply-summary {
-  margin-top: 28px;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-border);
+.ticket-summary__title-group {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.ticket-summary__title-group h2 {
+  margin: 0;
+}
+
+.ticket-summary__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ticket-summary__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.ticket-summary__state--resolved {
+  background: rgba(16, 185, 129, 0.18);
+  color: var(--color-accent);
+}
+
+.ticket-summary__state--in-progress {
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--color-primary);
 }
 
 .ticket-summary__timestamp {

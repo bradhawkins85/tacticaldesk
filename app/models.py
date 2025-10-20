@@ -379,6 +379,7 @@ class TicketSummary(Base):
     model: str | None = Column(String(255), nullable=True)
     summary: str | None = Column(Text, nullable=True)
     error_message: str | None = Column(Text, nullable=True)
+    resolution_state: str | None = Column(String(32), nullable=True)
     created_at_dt: datetime = Column(
         DateTime(timezone=True),
         nullable=False,

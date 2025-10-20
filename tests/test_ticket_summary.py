@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 import pytest
 
 import httpx
+import json
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,7 +40,14 @@ class _DummyResponse:
         return None
 
     def json(self) -> dict[str, str]:
-        return {"response": "AI generated summary emphasising resolution status."}
+        return {
+            "response": json.dumps(
+                {
+                    "summary": "AI generated summary emphasising resolution status.",
+                    "resolution_status": "resolved",
+                }
+            )
+        }
 
 
 class _DummyAsyncClient:
@@ -91,10 +100,12 @@ async def test_refresh_ticket_summary_uses_fallback_when_module_disabled():
     assert record["provider"] == "fallback"
     assert "Latest update" in record["summary"]
     assert record["error_message"] == "Ollama module is disabled."
+    assert record["resolution_state"] == "in_progress"
 
     stored = await ticket_store.get_summary("TD-9001")
     assert stored is not None
     assert stored["provider"] == "fallback"
+    assert stored["resolution_state"] == "in_progress"
 
 
 @pytest.mark.asyncio
@@ -145,6 +156,7 @@ async def test_refresh_ticket_summary_invokes_ollama_when_enabled(monkeypatch):
     assert record["provider"] == "ollama"
     assert record["summary"] == "AI generated summary emphasising resolution status."
     assert record["model"] == "llama3.1"
+    assert record["resolution_state"] == "resolved"
 
     captured = _DummyAsyncClient.last_request
     assert captured is not None
