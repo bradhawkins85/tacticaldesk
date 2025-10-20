@@ -95,4 +95,5 @@
 - 2025-10-19T12:45:00Z Feature: Moved header action controls into collapsible sidebar menus with nested admin/doc sections defaulting to a collapsed state.
 - 2025-10-19T13:05:00Z Fix: Restyled sidebar action controls to adopt the primary navigation styling after relocating menu items.
 - 2025-10-20T00:05:07Z Fix: Repositioned sidebar controls above the footer and refreshed the sidebar profile chip theme for readability.
+- 2025-10-20T00:16:55Z Feature: Added Syncro import UI controls with sortable company table, ticket scope form, and live import feedback.
 - 2025-10-20T01:30:00Z Fix: Removed sort, asset visibility, and refresh controls from the ticket sidebar actions to streamline navigation.
