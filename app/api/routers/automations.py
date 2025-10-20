@@ -165,9 +165,16 @@ def _normalize_ticket_actions(
                 else AutomationTicketAction.parse_obj(item)
             )
         except ValidationError as exc:
+            detail = "Invalid ticket action payload"
+            try:
+                errors = exc.errors()
+                if errors:
+                    detail = errors[0].get("msg", detail)
+            except Exception:  # pragma: no cover - defensive
+                detail = "Invalid ticket action payload"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid ticket action payload",
+                detail=detail,
             ) from exc
         if action.action not in EVENT_AUTOMATION_ACTION_SLUGS:
             raise HTTPException(
@@ -177,9 +184,15 @@ def _normalize_ticket_actions(
         items.append(action)
 
     deduped: list[AutomationTicketAction] = []
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[tuple[str, str, str, str, str]] = set()
     for action in items:
-        key = (action.action, action.value, action.topic or "")
+        key = (
+            action.action,
+            action.value,
+            action.topic or "",
+            action.to_recipients or "",
+            action.cc_recipients or "",
+        )
         if key in seen:
             continue
         seen.add(key)

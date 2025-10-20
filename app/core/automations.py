@@ -60,6 +60,7 @@ EVENT_AUTOMATION_ACTIONS: tuple[str, ...] = (
     "Change Priority",
     "Change Status",
     "Send ntfy notification",
+    "Send SMTP email",
     "Email assignee",
     "Email custom email address",
     "Email customer/contact",

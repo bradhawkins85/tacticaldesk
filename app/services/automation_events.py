@@ -22,7 +22,7 @@ from app.schemas import (
     AutomationTriggerCondition,
     AutomationTriggerFilter,
 )
-from app.services.notifications import send_ntfy_notification
+from app.services.notifications import send_ntfy_notification, send_smtp_email
 
 EventContext = dict[str, Any]
 
@@ -212,6 +212,17 @@ async def dispatch_ticket_event(
                         event_type=event_type,
                         ticket_identifier=ticket_identifier,
                         topic_override=rendered_topic,
+                    )
+                elif model.action == "send-smtp-email":
+                    await send_smtp_email(
+                        session,
+                        subject=rendered_topic or automation.name,
+                        body=rendered_value,
+                        automation_name=automation.name,
+                        event_type=event_type,
+                        ticket_identifier=ticket_identifier,
+                        to=model.to_recipients,
+                        cc=model.cc_recipients,
                     )
                 action_entry = {
                     "action": model.action,

@@ -388,6 +388,25 @@ def test_event_automation_rejects_invalid_ticket_actions():
         assert "action" in detail.lower()
 
 
+def test_event_automation_requires_smtp_recipients():
+    with TestClient(app) as client:
+        events = client.get("/api/automations", params={"kind": "event"})
+        assert events.status_code == 200
+        automation_id = events.json()[0]["id"]
+
+        response = client.patch(
+            f"/api/automations/{automation_id}",
+            json={
+                "ticket_actions": [
+                    {"action": "send-smtp-email", "value": "Escalated."},
+                ]
+            },
+        )
+        assert response.status_code == 400
+        detail = response.json().get("detail", "")
+        assert "recipient" in detail.lower()
+
+
 def test_event_automation_template_variables_rendered_in_ui():
     with TestClient(app) as client:
         events = client.get("/api/automations", params={"kind": "event"})

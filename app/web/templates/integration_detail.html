@@ -382,11 +382,17 @@
           name="{{ field.key }}"
           value="{{ module.settings.get(field.key, '') }}"
           placeholder="{{ field.placeholder }}"
-          autocomplete="off"
-        />
+        autocomplete="off"
+      />
       </label>
       {% endfor %}
     </div>
+    {% if module.slug == "smtp-email" %}
+    <p class="form-help">
+      Specify To and CC recipients within each automation ticket action. The connector only stores the shared
+      transport credentials and optional BCC list.
+    </p>
+    {% endif %}
     <div class="form-actions">
       <button class="primary-button" type="submit">Save changes</button>
       <div class="form-message" data-role="form-message" aria-live="polite"></div>

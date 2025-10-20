@@ -56,6 +56,41 @@ class Settings(BaseSettings):
         description="Default ntfy access token",
         env="TACTICAL_DESK_NTFY_TOKEN",
     )
+    smtp_host: str | None = Field(
+        default=None,
+        description="Default SMTP host when not configured per module",
+        env="TACTICAL_DESK_SMTP_HOST",
+    )
+    smtp_port: int = Field(
+        default=587,
+        description="Default SMTP port",
+        env="TACTICAL_DESK_SMTP_PORT",
+    )
+    smtp_username: str | None = Field(
+        default=None,
+        description="Default SMTP username",
+        env="TACTICAL_DESK_SMTP_USERNAME",
+    )
+    smtp_password: str | None = Field(
+        default=None,
+        description="Default SMTP password",
+        env="TACTICAL_DESK_SMTP_PASSWORD",
+    )
+    smtp_sender: str | None = Field(
+        default=None,
+        description="Default SMTP sender email address",
+        env="TACTICAL_DESK_SMTP_SENDER",
+    )
+    smtp_use_tls: bool = Field(
+        default=True,
+        description="Enable STARTTLS when connecting to SMTP",
+        env="TACTICAL_DESK_SMTP_USE_TLS",
+    )
+    smtp_use_ssl: bool = Field(
+        default=False,
+        description="Use implicit TLS when connecting to SMTP",
+        env="TACTICAL_DESK_SMTP_USE_SSL",
+    )
     mcp_api_key: str | None = Field(
         default=None,
         description="API key required for ChatGPT MCP connector",

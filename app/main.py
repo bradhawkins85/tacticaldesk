@@ -744,6 +744,56 @@ INTEGRATION_SETTINGS_FIELDS: dict[str, list[dict[str, str]]] = {
             "placeholder": "Optional bearer token",
         },
     ],
+    "smtp-email": [
+        {
+            "key": "smtp_host",
+            "label": "SMTP host",
+            "type": "text",
+            "placeholder": "smtp.example.com",
+        },
+        {
+            "key": "smtp_port",
+            "label": "SMTP port",
+            "type": "number",
+            "placeholder": "587",
+        },
+        {
+            "key": "smtp_username",
+            "label": "SMTP username",
+            "type": "text",
+            "placeholder": "service-account",
+        },
+        {
+            "key": "smtp_password",
+            "label": "SMTP password",
+            "type": "password",
+            "placeholder": "Secure credential",
+        },
+        {
+            "key": "smtp_sender",
+            "label": "From address",
+            "type": "email",
+            "placeholder": "alerts@example.com",
+        },
+        {
+            "key": "smtp_bcc",
+            "label": "BCC recipients",
+            "type": "text",
+            "placeholder": "hidden@example.com",
+        },
+        {
+            "key": "smtp_use_tls",
+            "label": "Use STARTTLS (true/false)",
+            "type": "text",
+            "placeholder": "true",
+        },
+        {
+            "key": "smtp_use_ssl",
+            "label": "Use implicit TLS (true/false)",
+            "type": "text",
+            "placeholder": "false",
+        },
+    ],
     "xero": [
         {
             "key": "base_url",
