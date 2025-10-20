@@ -107,111 +107,41 @@
   >
     <div class="syncro-import__status">
       <div class="form-message" data-role="syncro-import-message" aria-live="polite"></div>
-      <div class="syncro-import__tools">
-        <span class="syncro-import__selection">
-          <strong data-role="syncro-selection-count">0</strong>
-          selected
-        </span>
-        <button
-          class="secondary-button"
-          type="button"
-          data-action="syncro-refresh-companies"
-          data-syncro-lock="true"
-          {% if not module.enabled %}disabled{% endif %}
-        >
-          Refresh companies
-        </button>
-      </div>
     </div>
-    <div class="syncro-import-grid__column">
-      <div class="panel">
-        <header class="panel__header">
-          <div class="panel__intro">
-            <h3 class="panel__title">Companies</h3>
-            <p class="panel__subtitle">
-              Select the Syncro customers you want to synchronize. Leave all unchecked to import every accessible
-              company.
-            </p>
-          </div>
-          <div class="panel__tools">
-            <label class="visually-hidden" for="syncro-company-filter">Search companies</label>
-            <input
-              id="syncro-company-filter"
-              type="search"
-              placeholder="Filter companies"
-              data-role="table-filter"
-              data-syncro-lock="true"
-              {% if not module.enabled %}disabled{% endif %}
-            />
-          </div>
-        </header>
-        <div class="panel__body">
-          <div class="table-wrapper">
-            <table class="data-table" data-role="sortable-table" data-syncro-company-table="true">
-              <thead>
-                <tr>
-                  <th scope="col">
-                    <label class="visually-hidden" for="syncro-company-select-all">Select all companies</label>
-                    <input
-                      id="syncro-company-select-all"
-                      type="checkbox"
-                      data-role="syncro-select-all"
-                      data-syncro-lock="true"
-                      {% if not module.enabled %}disabled{% endif %}
-                    />
-                  </th>
-                  <th scope="col" data-sort-key="name">Company</th>
-                  <th scope="col" data-sort-key="external_id">Syncro ID</th>
-                  <th scope="col" data-sort-key="contact">Primary contact</th>
-                </tr>
-              </thead>
-              <tbody data-role="syncro-company-tbody">
-                <tr data-role="syncro-empty-row">
-                  <td colspan="4">Enable the integration to load Syncro companies.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+    <form
+      id="integration-settings-form"
+      class="panel integration-form syncro-import__credentials"
+      data-slug="{{ module.slug }}"
+    >
+      <header class="panel__header">
+        <div class="panel__intro">
+          <h3 class="panel__title">Credentials &amp; endpoints</h3>
+          <p class="panel__subtitle">
+            Securely store your Syncro base URL and API key. Values are encrypted and only used when issuing import
+            requests.
+          </p>
         </div>
-        <footer class="panel__footer">
-          Tactical Desk monitors outbound webhook deliveries and retries failed Syncro calls automatically.
-        </footer>
+      </header>
+      <div class="integration-form__grid">
+        {% for field in settings_fields %}
+        <label class="form-field">
+          <span>{{ field.label }}</span>
+          <input
+            type="{{ field.type }}"
+            name="{{ field.key }}"
+            value="{{ module.settings.get(field.key, '') }}"
+            placeholder="{{ field.placeholder }}"
+            autocomplete="off"
+          />
+        </label>
+        {% endfor %}
       </div>
-    </div>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">Save changes</button>
+        <div class="form-message" data-role="form-message" aria-live="polite"></div>
+      </div>
+    </form>
     <div class="syncro-import-grid__column">
-      <form
-        id="integration-settings-form"
-        class="panel integration-form"
-        data-slug="{{ module.slug }}"
-      >
-        <header class="panel__header">
-          <div class="panel__intro">
-            <h3 class="panel__title">Credentials &amp; endpoints</h3>
-            <p class="panel__subtitle">
-              Securely store your Syncro base URL and API key. Values are encrypted and only used when issuing import
-              requests.
-            </p>
-          </div>
-        </header>
-        <div class="integration-form__grid">
-          {% for field in settings_fields %}
-          <label class="form-field">
-            <span>{{ field.label }}</span>
-            <input
-              type="{{ field.type }}"
-              name="{{ field.key }}"
-              value="{{ module.settings.get(field.key, '') }}"
-              placeholder="{{ field.placeholder }}"
-              autocomplete="off"
-            />
-          </label>
-          {% endfor %}
-        </div>
-        <div class="form-actions">
-          <button class="primary-button" type="submit">Save changes</button>
-          <div class="form-message" data-role="form-message" aria-live="polite"></div>
-        </div>
-      </form>
       <form class="panel syncro-import__form" data-role="syncro-import-form">
         <header class="panel__header">
           <div class="panel__intro">
@@ -319,6 +249,78 @@
           </dl>
         </div>
       </form>
+    </div>
+    <div class="syncro-import-grid__column">
+      <div class="panel">
+        <header class="panel__header">
+          <div class="panel__intro">
+            <h3 class="panel__title">Companies</h3>
+            <p class="panel__subtitle">
+              Select the Syncro customers you want to synchronize. Leave all unchecked to import every accessible
+              company.
+            </p>
+          </div>
+          <div class="panel__tools">
+            <div class="panel__tools-group panel__tools-group--filter">
+              <label class="visually-hidden" for="syncro-company-filter">Search companies</label>
+              <input
+                id="syncro-company-filter"
+                type="search"
+                placeholder="Filter companies"
+                data-role="table-filter"
+                data-syncro-lock="true"
+                {% if not module.enabled %}disabled{% endif %}
+              />
+            </div>
+            <div class="panel__tools-group panel__tools-group--actions">
+              <span class="syncro-import__selection">
+                <strong data-role="syncro-selection-count">0</strong>
+                selected
+              </span>
+              <button
+                class="secondary-button"
+                type="button"
+                data-action="syncro-refresh-companies"
+                data-syncro-lock="true"
+                {% if not module.enabled %}disabled{% endif %}
+              >
+                Refresh companies
+              </button>
+            </div>
+          </div>
+        </header>
+        <div class="panel__body">
+          <div class="table-wrapper">
+            <table class="data-table" data-role="sortable-table" data-syncro-company-table="true">
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <label class="visually-hidden" for="syncro-company-select-all">Select all companies</label>
+                    <input
+                      id="syncro-company-select-all"
+                      type="checkbox"
+                      data-role="syncro-select-all"
+                      data-syncro-lock="true"
+                      {% if not module.enabled %}disabled{% endif %}
+                    />
+                  </th>
+                  <th scope="col" data-sort-key="name">Company</th>
+                  <th scope="col" data-sort-key="external_id">Syncro ID</th>
+                  <th scope="col" data-sort-key="contact">Primary contact</th>
+                </tr>
+              </thead>
+              <tbody data-role="syncro-company-tbody">
+                <tr data-role="syncro-empty-row">
+                  <td colspan="4">Enable the integration to load Syncro companies.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <footer class="panel__footer">
+          Tactical Desk monitors outbound webhook deliveries and retries failed Syncro calls automatically.
+        </footer>
+      </div>
     </div>
   </div>
   {% else %}

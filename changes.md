@@ -101,3 +101,5 @@
 - 2025-10-20T00:48:04Z Fix: Normalized Syncro subdomain handling so API calls target https://<subdomain>.syncromsp.com/api/v1 for company imports and ticket sync.
 - 2025-10-20T00:58:15Z Fix: Defaulted Syncro ticket imports to the /tickets endpoint when mode values are malformed, ensuring ticket sync no longer stops at customer lookups.
 - 2025-10-20T01:02:02Z Fix: Switched Syncro API authentication to Bearer Authorization headers so requests align with the published API security scheme.
+- 2025-10-20T01:15:00Z Fix: Removed Syncro webhook URL field and repositioned the credentials panel above the company selection table.
+- 2025-10-20T01:42:00Z Fix: Relocated Syncro company refresh tools beside the table header and expanded the credentials panel to full width below the import status.
