@@ -268,15 +268,36 @@
                     </td>
                     <td data-column="value">
                       <div class="ticket-action__value-wrapper">
-                        <textarea
-                          class="ticket-action__value"
-                          data-role="ticket-action-value"
-                          rows="3"
-                          maxlength="4096"
-                          placeholder="Enter action details"
-                          aria-label="Action details"
-                          required
-                        ></textarea>
+                        <div class="ticket-action__inputs">
+                          <textarea
+                            class="ticket-action__value"
+                            data-role="ticket-action-value"
+                            rows="3"
+                            maxlength="4096"
+                            placeholder="Enter action details"
+                            aria-label="Action details"
+                            required
+                          ></textarea>
+                          <div
+                            class="ticket-action__topic-field is-hidden"
+                            data-role="ticket-action-topic-field"
+                          >
+                            <label class="ticket-action__topic-label">
+                              Topic override (optional)
+                              <input
+                                type="text"
+                                class="ticket-action__topic-input"
+                                data-role="ticket-action-topic"
+                                maxlength="255"
+                                placeholder="Override topic (optional)"
+                                aria-label="Topic override"
+                              />
+                            </label>
+                            <p class="form-help ticket-action__topic-help">
+                              Leave blank to use the integration default topic.
+                            </p>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           class="icon-button ticket-action__remove"

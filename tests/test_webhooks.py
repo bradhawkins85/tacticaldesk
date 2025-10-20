@@ -52,6 +52,7 @@ async def _create_https_post_automation() -> None:
                 {
                     "action": "send-ntfy-notification",
                     "value": "Webhook summary: {{ webhook.summary }}",
+                    "topic": "{{ webhook.severity }}-alerts",
                 }
             ],
         )
@@ -194,3 +195,4 @@ def test_https_post_webhook_triggers_automation(monkeypatch):
     assert captured["automation_name"] == "Webhook responder"
     assert captured["event_type"] == "HTTP POST Webhook Received"
     assert captured["ticket_identifier"] == "unknown"
+    assert captured["topic_override"] == "critical-alerts"

@@ -376,6 +376,13 @@ class AutomationTicketAction(BaseModel):
         max_length=4096,
         description="Action payload such as comment text or status update.",
     )
+    topic: str | None = Field(
+        default=None,
+        max_length=255,
+        description=(
+            "Optional topic override used by notification-style ticket actions."
+        ),
+    )
 
     @root_validator(pre=True)
     def _coerce_aliases(cls, values: dict[str, object]) -> dict[str, object]:
@@ -422,6 +429,16 @@ class AutomationTicketAction(BaseModel):
         if not cleaned:
             raise ValueError("Action value is required.")
         return cleaned
+
+    @validator("topic", pre=True)
+    def _normalize_topic(cls, raw_topic):
+        if raw_topic is None:
+            return None
+        if isinstance(raw_topic, str):
+            cleaned = raw_topic.strip()
+            return cleaned or None
+        cleaned = str(raw_topic).strip()
+        return cleaned or None
 
     def dict(self, *args, **kwargs):  # type: ignore[override]
         kwargs.setdefault("exclude_none", True)

@@ -349,6 +349,7 @@ def test_event_automation_accepts_ntfy_notification_action():
                 {
                     "action": "send-ntfy-notification",
                     "value": "Ticket {{ ticket.id }} assigned to {{ ticket.assignment }}.",
+                    "topic": "alerts-{{ ticket.id }}",
                 }
             ]
         }
@@ -358,12 +359,14 @@ def test_event_automation_accepts_ntfy_notification_action():
         body = response.json()
         assert body["ticket_actions"][0]["action"] == "send-ntfy-notification"
         assert body["ticket_actions"][0]["value"].startswith("Ticket {{ ticket.id }}")
+        assert body["ticket_actions"][0]["topic"] == "alerts-{{ ticket.id }}"
 
         html = client.get(f"/automation/event/{automation_id}")
         assert html.status_code == 200
         content = html.text
         assert "send-ntfy-notification" in content
         assert "Ticket {{ ticket.id }}" in content
+        assert "alerts-{{ ticket.id }}" in content
 
 
 def test_event_automation_rejects_invalid_ticket_actions():
