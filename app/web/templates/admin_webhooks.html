@@ -63,13 +63,9 @@
                 {{ event.next_retry or "Paused" }}
               </td>
               <td data-cell="result" data-sort-value="{{ event.error_message or event.response_payload or '' }}">
-                {% if event.error_message %}
-                  <span class="result-error">{{ event.error_message }}</span>
-                {% elif event.response_payload %}
-                  <pre class="result-payload">{{ event.response_payload | tojson(indent=2) }}</pre>
-                {% else %}
-                  <span>—</span>
-                {% endif %}
+                <a class="secondary-button" href="{{ event.result_url }}" target="_blank" rel="noopener">
+                  View result
+                </a>
               </td>
               <td class="table-actions__cell">
                 <div class="table-actions__group">

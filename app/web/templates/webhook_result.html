@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Webhook Result</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 2rem;
+      line-height: 1.5;
+    }
+
+    h1 {
+      margin-bottom: 1.5rem;
+    }
+
+    dl {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.5rem 1rem;
+      margin-bottom: 2rem;
+    }
+
+    dt {
+      font-weight: 600;
+    }
+
+    pre {
+      background: #f5f5f5;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow: auto;
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section h2 {
+      margin-bottom: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Webhook result for {{ webhook.id }}</h1>
+
+  <dl>
+    <dt>Module</dt>
+    <dd>{{ webhook.module_slug or "—" }}</dd>
+    <dt>Request method</dt>
+    <dd>{{ webhook.request_method }}</dd>
+    <dt>Request URL</dt>
+    <dd>{{ webhook.request_url }}</dd>
+    <dt>Status</dt>
+    <dd>{{ webhook.status_label }}</dd>
+    <dt>HTTP status</dt>
+    <dd>{{ webhook.response_status_code or "—" }}</dd>
+    <dt>Last attempt</dt>
+    <dd data-utc="{{ webhook.last_attempt or '' }}">{{ webhook.last_attempt or "—" }}</dd>
+    <dt>Next retry</dt>
+    <dd data-utc="{{ webhook.next_retry or '' }}">{{ webhook.next_retry or "Paused" }}</dd>
+  </dl>
+
+  <div class="section">
+    <h2>Request payload</h2>
+    {% if webhook.request_payload %}
+    <pre>{{ webhook.request_payload | tojson(indent=2) }}</pre>
+    {% else %}
+    <p>—</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>Result</h2>
+    {% if webhook.error_message %}
+      <p><strong>Error:</strong> {{ webhook.error_message }}</p>
+    {% elif webhook.response_payload %}
+      <pre>{{ webhook.response_payload | tojson(indent=2) }}</pre>
+    {% else %}
+      <p>—</p>
+    {% endif %}
+  </div>
+
+  <script>
+    (function convertUtcCellsToLocal() {
+      const fields = document.querySelectorAll('[data-utc]');
+      fields.forEach((field) => {
+        const rawValue = field.getAttribute('data-utc');
+        if (!rawValue) {
+          return;
+        }
+        const parsed = new Date(rawValue);
+        if (Number.isNaN(parsed.getTime())) {
+          return;
+        }
+        field.textContent = parsed.toLocaleString();
+      });
+    }());
+  </script>
+</body>
+</html>
