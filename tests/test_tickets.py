@@ -57,6 +57,15 @@ def test_ticket_create_dispatches_automation_event():
         )
 
 
+def test_ticket_new_route_renders_modal_open():
+    with TestClient(app) as client:
+        response = client.get("/tickets/new")
+        assert response.status_code == 200
+        html = response.text
+        assert "data-role=\"ticket-create-modal\"" in html
+        assert "data-open=\"true\"" in html
+
+
 def test_api_ticket_creation_endpoint():
     with TestClient(app) as client:
         payload = {
