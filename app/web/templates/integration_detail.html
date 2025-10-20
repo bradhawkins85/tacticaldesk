@@ -215,11 +215,11 @@
           <button
             class="primary-button"
             type="submit"
-            data-action="syncro-run-import"
+            data-action="syncro-import-tickets"
             data-syncro-lock="true"
             {% if not module.enabled %}disabled{% endif %}
           >
-            Run Syncro import
+            Import tickets
           </button>
         </div>
         <div class="form-message" data-role="syncro-import-form-message" aria-live="polite"></div>
@@ -278,6 +278,15 @@
                 selected
               </span>
               <button
+                class="primary-button"
+                type="button"
+                data-action="syncro-import-companies"
+                data-syncro-lock="true"
+                {% if not module.enabled %}disabled{% endif %}
+              >
+                Import companies
+              </button>
+              <button
                 class="secondary-button"
                 type="button"
                 data-action="syncro-refresh-companies"
@@ -290,6 +299,11 @@
           </div>
         </header>
         <div class="panel__body">
+          <div
+            class="form-message"
+            data-role="syncro-companies-message"
+            aria-live="polite"
+          ></div>
           <div class="table-wrapper">
             <table class="data-table" data-role="sortable-table" data-syncro-company-table="true">
               <thead>
@@ -315,6 +329,43 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+          <div class="table-pagination" data-role="syncro-pagination" hidden>
+            <div class="table-pagination__controls">
+              <button
+                class="secondary-button"
+                type="button"
+                data-role="syncro-page-prev"
+                data-syncro-lock="true"
+                {% if not module.enabled %}disabled{% endif %}
+              >
+                Previous
+              </button>
+              <span class="table-pagination__status" data-role="syncro-page-status">
+                Showing 0 of 0
+              </span>
+              <button
+                class="secondary-button"
+                type="button"
+                data-role="syncro-page-next"
+                data-syncro-lock="true"
+                {% if not module.enabled %}disabled{% endif %}
+              >
+                Next
+              </button>
+            </div>
+            <label class="form-field form-field--inline table-pagination__page-size">
+              <span class="form-field__label">Rows per page</span>
+              <select
+                data-role="syncro-page-size"
+                data-syncro-lock="true"
+                {% if not module.enabled %}disabled{% endif %}
+              >
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+              </select>
+            </label>
           </div>
         </div>
         <footer class="panel__footer">

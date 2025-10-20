@@ -103,3 +103,4 @@
 - 2025-10-20T01:02:02Z Fix: Switched Syncro API authentication to Bearer Authorization headers so requests align with the published API security scheme.
 - 2025-10-20T01:15:00Z Fix: Removed Syncro webhook URL field and repositioned the credentials panel above the company selection table.
 - 2025-10-20T01:42:00Z Fix: Relocated Syncro company refresh tools beside the table header and expanded the credentials panel to full width below the import status.
+- 2025-10-20T02:30:00Z Feature: Added discrete Syncro company import endpoint, UI pagination with 5-row default, and separated company/ticket import buttons.

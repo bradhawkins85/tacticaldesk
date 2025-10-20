@@ -1561,6 +1561,31 @@ body.sidebar-open .app-sidebar-overlay {
   overflow: auto;
 }
 
+.table-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.table-pagination__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-pagination__status {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.table-pagination__page-size {
+  margin: 0;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
