@@ -348,8 +348,10 @@ def _normalize_ticket_comments(
     customer_name: str,
     technician_name: str,
     default_timestamp: datetime,
+    comments: Sequence[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, object]], datetime]:
-    comments = _extract_comment_collections(record)
+    if comments is None:
+        comments = _extract_comment_collections(record)
     if not comments:
         return [], default_timestamp
 
@@ -439,6 +441,16 @@ def _normalize_ticket(record: dict[str, Any], *, now: datetime) -> StoredTicketR
         customer_email = customer_email or _clean_email(
             customer.get("email") or customer.get("primary_contact_email")
         )
+    contact = record.get("contact")
+    if isinstance(contact, dict):
+        contact_email = _clean_email(
+            contact.get("email")
+            or contact.get("email_address")
+            or contact.get("primary_email")
+            or contact.get("contact_email")
+        )
+        if contact_email:
+            customer_email = contact_email
     customer_name = customer_name or _clean_text(record.get("customer_name"))
     if not customer_name:
         customer_name = "Syncro Customer"
@@ -474,22 +486,69 @@ def _normalize_ticket(record: dict[str, Any], *, now: datetime) -> StoredTicketR
         tags = [tag.strip() for tag in raw_tags.split(",") if tag.strip()]
     labels = [str(tag) for tag in tags][:10]
 
+    comments = _extract_comment_collections(record)
+
     cc_emails = record.get("cc_emails") or record.get("cc")
     watchers: list[str] = []
+    excluded_watchers = {"support@hawkinsitsolutions.com.au"}
+    if customer_email:
+        excluded_watchers.add(customer_email.lower())
+
+    comment_destinations: list[str] = []
+    comment_senders: set[str] = set()
+    for comment in comments:
+        if not isinstance(comment, dict):
+            continue
+        sender_email = _clean_email(
+            comment.get("email_sender")
+            or comment.get("from")
+            or comment.get("from_email")
+            or comment.get("sender")
+        )
+        if sender_email:
+            comment_senders.add(sender_email.lower())
+
+        destinations = (
+            comment.get("destination_emails")
+            or comment.get("destinationEmails")
+            or comment.get("to")
+        )
+        if isinstance(destinations, list):
+            destination_iterable = destinations
+        elif isinstance(destinations, str):
+            destination_iterable = [
+                part.strip() for part in destinations.split(",") if part.strip()
+            ]
+        else:
+            destination_iterable = []
+        for candidate in destination_iterable:
+            cleaned = _clean_email(candidate)
+            if cleaned:
+                comment_destinations.append(cleaned)
+
+    excluded_watchers.update(comment_senders)
+
+    seen_watchers: set[str] = set()
+
+    def _add_watcher(email_value: Any) -> None:
+        cleaned_email = _clean_email(email_value)
+        if not cleaned_email:
+            return
+        normalized = cleaned_email.lower()
+        if normalized in excluded_watchers or normalized in seen_watchers:
+            return
+        seen_watchers.add(normalized)
+        watchers.append(cleaned_email)
+
     if isinstance(cc_emails, list):
         for email in cc_emails:
-            cleaned_email = _clean_email(email)
-            if cleaned_email:
-                watchers.append(cleaned_email)
-    if watchers:
-        seen = set()
-        unique_watchers: list[str] = []
-        for email in watchers:
-            if email in seen:
-                continue
-            seen.add(email)
-            unique_watchers.append(email)
-        watchers = unique_watchers
+            _add_watcher(email)
+    elif isinstance(cc_emails, str):
+        for part in cc_emails.split(","):
+            _add_watcher(part.strip())
+
+    for email in comment_destinations:
+        _add_watcher(email)
 
     note_body = summary
     public = bool(record.get("is_public", True))
@@ -510,6 +569,7 @@ def _normalize_ticket(record: dict[str, Any], *, now: datetime) -> StoredTicketR
         customer_name=customer_name,
         technician_name=assignment,
         default_timestamp=last_reply,
+        comments=comments,
     )
     history_entries.extend(comment_entries)
     history_entries.sort(key=lambda entry: entry.get("timestamp_dt", now))
