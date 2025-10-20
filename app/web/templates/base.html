@@ -314,38 +314,6 @@
                   {% endif %}
                 </div>
               </div>
-              {% set admin_maintenance_actions = has_actions and actions_parent == 'admin:maintenance' %}
-              {% set admin_maintenance_open = admin_maintenance_actions and current_admin == 'maintenance' %}
-              <div class="nav-item nav-item--nested" data-nav-item>
-                <div class="nav-item__main">
-                  <a
-                    class="nav-sublink{% if current_admin == 'maintenance' %} is-active{% endif %}"
-                    href="{{ url_for('maintenance') }}"
-                    {% if current_admin == 'maintenance' %}aria-current="page"{% endif %}
-                  >
-                    <span class="nav-icon" aria-hidden="true">🛠️</span>
-                    <span>Maintenance</span>
-                  </a>
-                  {% if admin_maintenance_actions %}
-                  <button
-                    class="nav-item__toggle{% if admin_maintenance_open %} is-active{% endif %}"
-                    type="button"
-                    data-action="toggle-nav"
-                    data-target="#nav-maintenance-actions"
-                    aria-controls="nav-maintenance-actions"
-                    aria-expanded="{{ 'true' if admin_maintenance_open else 'false' }}"
-                  >
-                    <span class="visually-hidden">Toggle maintenance actions</span>
-                    <span aria-hidden="true" class="nav-toggle-icon"></span>
-                  </button>
-                  {% endif %}
-                </div>
-                {% if admin_maintenance_actions %}
-                <div id="nav-maintenance-actions" class="nav-submenu nav-submenu--nested" {% if not admin_maintenance_open %}hidden{% endif %}>
-                  {{ actions_content | safe }}
-                </div>
-                {% endif %}
-              </div>
             </div>
           </div>
           {% set docs_group_open = current_nav == 'docs' %}
