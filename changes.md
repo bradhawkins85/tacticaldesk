@@ -117,3 +117,4 @@
 - 2025-10-20T14:20:00Z Fix: Restored webhook monitor table and moved per-event results to plain standalone pages opened from each row.
 - 2025-10-20T15:50:00Z Fix: Removed runbook launch, log viewing, refresh, and maintenance sidebar controls to declutter navigation.
 - 2025-10-20T02:52:33Z Fix: Configured .gitattributes to merge changes.md entries using the union strategy.
+- 2025-10-20T16:10:00Z Fix: Ensured Syncro ticket history summaries pair subjects with actors so technician replies no longer duplicate in summaries and bodies.

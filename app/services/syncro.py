@@ -362,9 +362,10 @@ def _normalize_ticket_comments(
 
         direction = "internal"
         if not hidden:
-            if subject.lower() == "contact":
+            subject_lower = subject.lower() if subject else ""
+            if subject_lower == "contact":
                 direction = "inbound"
-            elif subject.lower() == "update":
+            elif subject_lower == "update":
                 direction = "outbound"
         actor = _determine_comment_actor(
             comment,
@@ -377,8 +378,14 @@ def _normalize_ticket_comments(
         timestamp = _parse_datetime(timestamp_raw, default=default_timestamp)
 
         body = _extract_comment_body(comment)
-        summary_source = body or subject or "Syncro comment"
-        summary = summary_source.splitlines()[0][:240]
+        summary_subject = subject or {
+            "inbound": "Customer Reply",
+            "outbound": "Technician Update",
+            "internal": "Internal Note",
+        }.get(direction, "Syncro comment")
+        summary_actor = actor or (technician_name or "Syncro Technician")
+        summary_parts = [part for part in (summary_subject, summary_actor) if part]
+        summary = " — ".join(summary_parts) if summary_parts else summary_subject
 
         entry = {
             "actor": actor,
@@ -494,13 +501,17 @@ def _normalize_ticket(record: dict[str, Any], *, now: datetime) -> StoredTicketR
     note_body = summary
     public = bool(record.get("is_public", True))
     base_entry_timestamp = created_at
+    summary_subject = subject or f"Ticket {ticket_identifier}"
+    summary_actor = assignment or "Syncro Technician"
+    summary_parts = [part for part in (summary_subject, summary_actor) if part]
+    entry_summary = " — ".join(summary_parts) if summary_parts else summary_subject
     history_entries = [
         {
             "actor": assignment if assignment else "Syncro Technician",
             "direction": "inbound" if public else "internal",
             "channel": "Syncro",
-            "summary": summary,
-            "body": note_body or summary,
+            "summary": entry_summary,
+            "body": note_body or summary_subject,
             "timestamp_dt": base_entry_timestamp,
         }
     ]
