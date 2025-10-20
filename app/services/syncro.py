@@ -51,6 +51,7 @@ class SyncroTicketImportOptions:
 _DEFAULT_PAGE_SIZE = 100
 _MAX_PAGES = 20
 _DEFAULT_THROTTLE_SECONDS = 0.25
+_SYNCRO_DOMAIN_SUFFIX = ".syncromsp.com"
 
 
 def _slugify(value: str) -> str:
@@ -69,6 +70,25 @@ def _clean_email(value: Any) -> str | None:
     if not candidate or "@" not in candidate:
         return None
     return candidate
+
+
+def _normalize_syncro_subdomain(value: Any) -> str | None:
+    text = _clean_text(value)
+    if not text:
+        return None
+
+    text = text.lower()
+    if text.startswith("http://") or text.startswith("https://"):
+        text = text.split("//", 1)[-1]
+    text = text.split("/", 1)[0]
+    if text.endswith(_SYNCRO_DOMAIN_SUFFIX):
+        text = text[: -len(_SYNCRO_DOMAIN_SUFFIX)]
+
+    cleaned = "".join(char for char in text if char.isalnum() or char == "-")
+    cleaned = cleaned.strip("-")
+    if not cleaned:
+        return None
+    return cleaned
 
 
 def _parse_datetime(value: Any, *, default: datetime) -> datetime:
@@ -419,15 +439,38 @@ async def _load_syncro_client_config(session: AsyncSession) -> tuple[str, dict[s
         )
 
     settings = dict(module.settings or {})
-    base_url = _clean_text(settings.get("base_url"))
     api_key = _clean_text(settings.get("api_key"))
-    if not base_url or not api_key:
+    if not api_key:
         raise SyncroConfigurationError(
-            "Syncro integration requires a base URL and API key before running an import."
+            "Syncro integration requires an API key before running an import."
         )
 
-    if base_url.endswith("/"):
-        base_url = base_url[:-1]
+    configured_subdomain = _normalize_syncro_subdomain(
+        settings.get("subdomain") or settings.get("sub_domain")
+    )
+    configured_base_url = _clean_text(settings.get("base_url"))
+
+    base_host = None
+    if configured_subdomain:
+        base_host = f"https://{configured_subdomain}{_SYNCRO_DOMAIN_SUFFIX}"
+    elif configured_base_url:
+        if configured_base_url.startswith("http://") or configured_base_url.startswith("https://"):
+            base_host = configured_base_url
+        else:
+            normalized = _normalize_syncro_subdomain(configured_base_url)
+            if normalized:
+                base_host = f"https://{normalized}{_SYNCRO_DOMAIN_SUFFIX}"
+
+    if not base_host:
+        raise SyncroConfigurationError(
+            "Syncro integration requires a subdomain or base URL before running an import."
+        )
+
+    base_host = base_host.rstrip("/")
+    if not base_host.endswith("/api/v1"):
+        base_url = f"{base_host}/api/v1"
+    else:
+        base_url = base_host
 
     headers = {
         "Accept": "application/json",
@@ -472,7 +515,7 @@ async def _collect_tickets(
     if mode == "all":
         return await _fetch_paginated(
             client,
-            "/api/v1/tickets",
+            "/tickets",
             collection_key="tickets",
             throttle=throttle,
         )
@@ -480,7 +523,7 @@ async def _collect_tickets(
     tickets: list[dict[str, Any]] = []
     seen_identifiers: set[str] = set()
     for ticket_number in _determine_ticket_numbers(options):
-        endpoint = f"/api/v1/tickets/{ticket_number}"
+        endpoint = f"/tickets/{ticket_number}"
         response = await _throttled_get(client, endpoint, throttle=throttle)
         if response.status_code == 404:
             continue
@@ -531,7 +574,7 @@ async def fetch_syncro_companies(
     ) as client:
         payload = await _fetch_paginated(
             client,
-            "/api/v1/customers",
+            "/customers",
             collection_key="customers",
             throttle=throttle,
         )
@@ -569,7 +612,7 @@ async def import_syncro_data(
     ) as client:
         companies_payload = await _fetch_paginated(
             client,
-            "/api/v1/customers",
+            "/customers",
             collection_key="customers",
             throttle=throttle,
         )

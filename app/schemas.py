@@ -4,6 +4,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 
+import re
+
 from pydantic import BaseModel, EmailStr, Field, constr, root_validator, validator
 
 from app.core.automations import (
@@ -41,6 +43,7 @@ class LoginRequest(BaseModel):
 
 
 class IntegrationSettings(BaseModel):
+    subdomain: Optional[str] = Field(default=None, max_length=255)
     base_url: Optional[str] = Field(default=None, max_length=2048)
     api_key: Optional[str] = Field(default=None, max_length=512)
     webhook_url: Optional[str] = Field(default=None, max_length=2048)
@@ -52,6 +55,20 @@ class IntegrationSettings(BaseModel):
 
     class Config:
         extra = "allow"
+
+    @validator("subdomain")
+    def _normalize_subdomain(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        text = value.strip().lower()
+        if not text:
+            return None
+        text = re.sub(r"^https?://", "", text)
+        text = text.split("/", 1)[0]
+        if text.endswith(".syncromsp.com"):
+            text = text[: -len(".syncromsp.com")]
+        cleaned = re.sub(r"[^a-z0-9-]", "", text).strip("-")
+        return cleaned or None
 
 
 class IntegrationModuleBase(BaseModel):

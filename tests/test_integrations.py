@@ -47,7 +47,7 @@ def test_update_integration_settings_reflected_in_detail():
     with TestClient(app) as client:
         payload = {
             "settings": {
-                "base_url": "https://syncro.example/api",
+                "subdomain": "syncro-example",
                 "api_key": "SecureKey123",
             }
         }
@@ -55,11 +55,13 @@ def test_update_integration_settings_reflected_in_detail():
         assert response.status_code == 200
         data = response.json()
         assert data["settings"]["api_key"] == "SecureKey123"
+        assert data["settings"]["subdomain"] == "syncro-example"
 
         detail_response = client.get("/integrations/syncro-rmm")
         assert detail_response.status_code == 200
         detail_html = detail_response.text
-        assert "https://syncro.example/api" in detail_html
+        assert "Syncro subdomain" in detail_html
+        assert "syncro-example" in detail_html
         assert "SecureKey123" in detail_html
 
 
