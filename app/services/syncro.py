@@ -475,7 +475,7 @@ async def _load_syncro_client_config(session: AsyncSession) -> tuple[str, dict[s
 
     headers = {
         "Accept": "application/json",
-        "X-API-Key": api_key,
+        "Authorization": f"Bearer {api_key}",
     }
 
     timeout = httpx.Timeout(30.0, connect=10.0)
