@@ -361,19 +361,6 @@ async def _build_ticket_listing_context(
         },
     ]
 
-    ticket_sort_options = [
-        {"value": "last-replied", "label": "Last replied"},
-        {"value": "newest", "label": "Newest"},
-        {"value": "oldest", "label": "Oldest"},
-        {"value": "priority", "label": "Priority"},
-    ]
-
-    asset_view_options = [
-        {"value": "workspace", "label": "Workspace assets"},
-        {"value": "related", "label": "Related assets"},
-        {"value": "all", "label": "All assets"},
-    ]
-
     status_options = sorted({str(ticket.get("status")) for ticket in tickets_raw if ticket.get("status")})
     priority_options = sorted({str(ticket.get("priority")) for ticket in tickets_raw if ticket.get("priority")})
     team_options = sorted({str(ticket.get("team")) for ticket in tickets_raw if ticket.get("team")})
@@ -400,8 +387,6 @@ async def _build_ticket_listing_context(
         page_subtitle="Track queues, escalations, and SLA risk across every service channel.",
         tickets=enriched_tickets,
         ticket_filter_groups=ticket_filter_groups,
-        ticket_sort_options=ticket_sort_options,
-        asset_view_options=asset_view_options,
         ticket_status_options=status_options,
         ticket_priority_options=priority_options,
         ticket_team_options=team_options,
