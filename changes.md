@@ -117,7 +117,15 @@
 - 2025-10-20T14:20:00Z Fix: Restored webhook monitor table and moved per-event results to plain standalone pages opened from each row.
 - 2025-10-20T15:50:00Z Fix: Removed runbook launch, log viewing, refresh, and maintenance sidebar controls to declutter navigation.
 - 2025-10-20T02:52:33Z Fix: Configured .gitattributes to merge changes.md entries using the union strategy.
+- 2025-10-20T03:14:03Z Fix: Synced Syncro ticket imports to prefer contact emails for customers and subscribe destination email watchers while filtering restricted recipients.
 - 2025-10-20T16:20:00Z Fix: Removed redundant "Back to workspace" and "Back to tickets" links from the ticket sidebar actions to streamline navigation.
 - 2025-10-20T16:10:00Z Fix: Ensured Syncro ticket history summaries pair subjects with actors so technician replies no longer duplicate in summaries and bodies.
 - 2025-10-20T17:00:00Z Feature: Added SMTP email integration module with configurable settings, automation delivery helper, migrations, and regression coverage.
 - 2025-10-20T18:45:00Z Fix: Shifted SMTP recipient targeting to automation actions and removed legacy module-level To/CC options.
+- 2025-10-20T18:45:00Z Fix: Routed ticket creation through the automation event dispatcher, preserved ticket created event logging, and added regression coverage for event-triggered automations.
+- 2025-10-20T03:19:02Z Feature: Replaced webhook retry monitor action labels with icon-based controls for consistent visual affordances.
+- 2025-10-20T03:27:00Z Fix: Deferred Syncro company loading until manual refresh and enforced five-row pagination in the Syncro module.
+- 2025-10-20T03:40:00Z Fix: Increased Syncro company pagination to 25 rows per page to improve list review efficiency.
+- 2025-10-20T03:45:39Z Fix: Removed redundant integration navigation buttons to streamline the admin integration workspace.
+- 2025-10-20T19:30:00Z Feature: Linked ticket customer inputs to the organisation directory with typeahead suggestions on create and update forms.
+- 2025-10-20T03:56:41Z Fix: Realigned Automation Control Tower action buttons within table cells to keep row dividers consistent.

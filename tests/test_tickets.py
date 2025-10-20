@@ -1,11 +1,28 @@
 import asyncio
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.automation_dispatcher import automation_dispatcher
+from app.core.config import get_settings
+from app.core.db import dispose_engine, get_engine
 from app.core.tickets import ticket_store
 from app.main import app
+from app.models import Automation
+
+
+@pytest.fixture(autouse=True)
+def configure_database(tmp_path, monkeypatch):
+    db_path = tmp_path / "tickets.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{db_path}")
+    monkeypatch.setenv("TACTICAL_DESK_ENABLE_INSTALLERS", "0")
+    get_settings.cache_clear()
+    asyncio.run(dispose_engine())
+    yield
+    asyncio.run(dispose_engine())
+    get_settings.cache_clear()
 
 
 @pytest.fixture(autouse=True)
@@ -55,6 +72,63 @@ def test_ticket_create_dispatches_automation_event():
             event.event_type == "Ticket Created" and event.ticket_id == data["ticket_id"]
             for event in events
         )
+
+
+def test_ticket_create_triggers_event_automations():
+    async def _seed_automation() -> int:
+        engine = await get_engine()
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            automation = Automation(
+                name="Notify on creation",
+                description="Dispatch actions when tickets are created.",
+                playbook="Support operations",
+                kind="event",
+                trigger="Ticket Created",
+                status="Active",
+                ticket_actions=[
+                    {"action": "send-ntfy-notification", "value": "Ticket {{ ticket.id }} created."}
+                ],
+            )
+            session.add(automation)
+            await session.commit()
+            return automation.id
+
+    automation_id = asyncio.run(_seed_automation())
+
+    with TestClient(app) as client:
+        payload = {
+            "subject": "Network edge outage",
+            "customer": "Quest Logistics",
+            "customer_email": "noc@quest-logistics.example",
+            "status": "Open",
+            "priority": "Critical",
+            "team": "Tier 2",
+            "assignment": "On-call engineer",
+            "queue": "Incident response",
+            "category": "Incident",
+            "summary": "Core edge routers unreachable from multiple sites.",
+        }
+
+        response = client.post("/tickets", json=payload)
+        assert response.status_code == 201
+
+    events = asyncio.run(automation_dispatcher.list_events())
+    triggered = [
+        event
+        for event in events
+        if event.event_type == "Automation Triggered"
+        and event.payload.get("automation_id") == automation_id
+    ]
+    assert triggered
+
+    async def _fetch_last_trigger() -> datetime | None:
+        engine = await get_engine()
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            record = await session.get(Automation, automation_id)
+            return record.last_trigger_at if record else None
+
+    last_trigger = asyncio.run(_fetch_last_trigger())
+    assert last_trigger is not None
 
 
 def test_ticket_new_route_renders_creation_page():

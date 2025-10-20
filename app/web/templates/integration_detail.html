@@ -1,10 +1,5 @@
 {% extends "base.html" %}
 {% set sidebar_actions_parent = 'admin:integrations' %}
-{% set sidebar_actions %}
-<div class="nav-actions">
-  <a class="secondary-button" href="{{ url_for('integrations_index') }}">All integrations</a>
-</div>
-{% endset %}
 {% block content %}
 <section class="content-section integration-header">
   <header class="section-header">
@@ -361,9 +356,7 @@
                 data-syncro-lock="true"
                 {% if not module.enabled %}disabled{% endif %}
               >
-                <option value="5" selected>5</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
+                <option value="25" selected>25</option>
               </select>
             </label>
           </div>

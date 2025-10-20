@@ -63,37 +63,47 @@
                 {{ event.next_retry or "Paused" }}
               </td>
               <td data-cell="result" data-sort-value="{{ event.error_message or event.response_payload or '' }}">
-                <a class="secondary-button" href="{{ event.result_url }}" target="_blank" rel="noopener">
-                  View result
+                <a
+                  class="icon-button"
+                  href="{{ event.result_url }}"
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="View result"
+                >
+                  <span aria-hidden="true">🔍</span>
+                  <span class="visually-hidden">View result</span>
                 </a>
               </td>
               <td class="table-actions__cell">
                 <div class="table-actions__group">
                   <button
-                    class="secondary-button"
+                    class="icon-button"
                     type="button"
                     data-action="webhook-pause"
                     data-webhook-id="{{ event.id }}"
                     {% if event.status == 'paused' %}hidden{% endif %}
                   >
-                    Pause
+                    <span aria-hidden="true">⏸️</span>
+                    <span class="visually-hidden">Pause</span>
                   </button>
                   <button
-                    class="secondary-button"
+                    class="icon-button icon-button--play"
                     type="button"
                     data-action="webhook-resume"
                     data-webhook-id="{{ event.id }}"
                     {% if event.status != 'paused' %}hidden{% endif %}
                   >
-                    Resume
+                    <span aria-hidden="true">▶️</span>
+                    <span class="visually-hidden">Resume</span>
                   </button>
                   <button
-                    class="secondary-button danger"
+                    class="icon-button icon-button--danger"
                     type="button"
                     data-action="webhook-delete"
                     data-webhook-id="{{ event.id }}"
                   >
-                    Delete
+                    <span aria-hidden="true">🗑️</span>
+                    <span class="visually-hidden">Delete</span>
                   </button>
                 </div>
               </td>
