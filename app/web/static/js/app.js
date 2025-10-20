@@ -813,6 +813,12 @@
           }
 
           syncIntegrationNav(payload);
+
+          document.dispatchEvent(
+            new CustomEvent("integration:state-changed", {
+              detail: payload,
+            })
+          );
         } catch (error) {
           toggle.checked = !desiredState;
           setStatusMessage(
@@ -867,6 +873,539 @@
           error.message || "Unable to save settings",
           "error"
         );
+      }
+    });
+  }
+
+  const syncroImportContainer = document.querySelector("[data-role='syncro-import']");
+  if (syncroImportContainer) {
+    const messageTarget = syncroImportContainer.querySelector(
+      "[data-role='syncro-import-message']"
+    );
+    const formMessageTarget = syncroImportContainer.querySelector(
+      "[data-role='syncro-import-form-message']"
+    );
+    const refreshButton = syncroImportContainer.querySelector(
+      "[data-action='syncro-refresh-companies']"
+    );
+    const runButton = syncroImportContainer.querySelector(
+      "[data-action='syncro-run-import']"
+    );
+    const tableBody = syncroImportContainer.querySelector(
+      "[data-role='syncro-company-tbody']"
+    );
+    const selectAllCheckbox = syncroImportContainer.querySelector(
+      "[data-role='syncro-select-all']"
+    );
+    const selectionCount = syncroImportContainer.querySelector(
+      "[data-role='syncro-selection-count']"
+    );
+    const summarySection = syncroImportContainer.querySelector(
+      "[data-role='syncro-import-summary']"
+    );
+    const modeSelect = syncroImportContainer.querySelector(
+      "[data-role='syncro-ticket-mode']"
+    );
+    const singleField = syncroImportContainer.querySelector(
+      "[data-role='syncro-ticket-single']"
+    );
+    const rangeField = syncroImportContainer.querySelector(
+      "[data-role='syncro-ticket-range']"
+    );
+    const ticketNumberInput = syncroImportContainer.querySelector(
+      "[data-role='syncro-ticket-number']"
+    );
+    const rangeStartInput = syncroImportContainer.querySelector(
+      "[data-role='syncro-range-start']"
+    );
+    const rangeEndInput = syncroImportContainer.querySelector(
+      "[data-role='syncro-range-end']"
+    );
+    const form = syncroImportContainer.querySelector(
+      "[data-role='syncro-import-form']"
+    );
+    let integrationEnabled =
+      syncroImportContainer.dataset.integrationEnabled === "true";
+    const integrationSlug =
+      syncroImportContainer.dataset.integrationSlug || "syncro-rmm";
+
+    function setSyncroControlsEnabled(enabled) {
+      integrationEnabled = Boolean(enabled);
+      syncroImportContainer.dataset.integrationEnabled = integrationEnabled
+        ? "true"
+        : "false";
+      syncroImportContainer.classList.toggle(
+        "is-disabled",
+        !integrationEnabled
+      );
+      const lockable = syncroImportContainer.querySelectorAll(
+        "[data-syncro-lock='true']"
+      );
+      lockable.forEach((element) => {
+        if (element) {
+          element.disabled = !integrationEnabled;
+        }
+      });
+      if (!integrationEnabled) {
+        if (formMessageTarget) {
+          setStatusMessage(formMessageTarget, "");
+        }
+      }
+      updateSelectionCount();
+    }
+
+    function updateSelectionCount() {
+      if (selectionCount) {
+        const selected = syncroImportContainer.querySelectorAll(
+          "[data-role='syncro-company-checkbox']:checked"
+        ).length;
+        selectionCount.textContent = selected.toString();
+      }
+      if (selectAllCheckbox) {
+        const checkboxes = Array.from(
+          syncroImportContainer.querySelectorAll(
+            "[data-role='syncro-company-checkbox']"
+          )
+        );
+        if (!checkboxes.length) {
+          selectAllCheckbox.checked = false;
+          selectAllCheckbox.indeterminate = false;
+          selectAllCheckbox.disabled = true;
+        } else {
+          const checked = checkboxes.filter((input) => input.checked).length;
+          selectAllCheckbox.disabled = !integrationEnabled;
+          selectAllCheckbox.checked = checked === checkboxes.length;
+          selectAllCheckbox.indeterminate =
+            checked > 0 && checked < checkboxes.length;
+        }
+      }
+    }
+
+    function createCompanyRow(record) {
+      const row = document.createElement("tr");
+      row.dataset.companyId = record.external_id ?? "";
+
+      const checkboxCell = document.createElement("td");
+      checkboxCell.dataset.label = "Select";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = record.external_id ?? "";
+      checkbox.dataset.role = "syncro-company-checkbox";
+      checkbox.dataset.syncroLock = "true";
+      checkbox.disabled = !integrationEnabled;
+      checkbox.setAttribute(
+        "aria-label",
+        `Select ${record.name || "Syncro company"}`
+      );
+      checkbox.addEventListener("change", () => {
+        updateSelectionCount();
+      });
+      checkboxCell.appendChild(checkbox);
+
+      const companyCell = document.createElement("td");
+      companyCell.dataset.label = "Company";
+      companyCell.dataset.sortValue = record.name || "";
+      const companyWrapper = document.createElement("div");
+      companyWrapper.className = "syncro-company";
+      const nameEl = document.createElement("span");
+      nameEl.className = "syncro-company__name";
+      nameEl.textContent = record.name || "Syncro customer";
+      companyWrapper.appendChild(nameEl);
+      const meta = document.createElement("p");
+      meta.className = "syncro-company__meta";
+      if (record.slug) {
+        const slugChip = document.createElement("span");
+        slugChip.className = "syncro-company__slug";
+        slugChip.textContent = record.slug;
+        meta.appendChild(slugChip);
+      }
+      if (record.contact_email) {
+        const emailSpan = document.createElement("span");
+        emailSpan.textContent = record.contact_email;
+        meta.appendChild(emailSpan);
+      }
+      if (meta.childNodes.length) {
+        companyWrapper.appendChild(meta);
+      }
+      if (record.description) {
+        const description = document.createElement("p");
+        description.className = "syncro-company__description";
+        description.textContent = record.description;
+        companyWrapper.appendChild(description);
+      }
+      companyCell.appendChild(companyWrapper);
+
+      const idCell = document.createElement("td");
+      idCell.dataset.label = "Syncro ID";
+      const externalId = Number.parseInt(record.external_id, 10);
+      if (Number.isFinite(externalId)) {
+        idCell.dataset.sortValue = externalId.toString();
+        idCell.textContent = externalId.toString();
+      } else {
+        idCell.dataset.sortValue = "";
+        idCell.textContent = "—";
+      }
+
+      const contactCell = document.createElement("td");
+      contactCell.dataset.label = "Primary contact";
+      const contactValue = record.contact_email || "Not provided";
+      contactCell.dataset.sortValue = record.contact_email || "";
+      contactCell.textContent = contactValue;
+
+      row.appendChild(checkboxCell);
+      row.appendChild(companyCell);
+      row.appendChild(idCell);
+      row.appendChild(contactCell);
+
+      ensureVisibilityFlags(row);
+      return row;
+    }
+
+    function renderCompanies(records) {
+      if (!tableBody) {
+        return;
+      }
+      tableBody.innerHTML = "";
+      if (!Array.isArray(records) || records.length === 0) {
+        const row = document.createElement("tr");
+        row.dataset.role = "syncro-empty-row";
+        const cell = document.createElement("td");
+        cell.colSpan = 4;
+        cell.textContent = integrationEnabled
+          ? "No Syncro companies were returned."
+          : "Enable the integration to load Syncro companies.";
+        row.appendChild(cell);
+        tableBody.appendChild(row);
+        updateSelectionCount();
+        return;
+      }
+      const sorted = records
+        .slice()
+        .sort((a, b) => collator.compare(a.name || "", b.name || ""));
+      const fragment = document.createDocumentFragment();
+      sorted.forEach((record) => {
+        const row = createCompanyRow(record);
+        fragment.appendChild(row);
+      });
+      tableBody.appendChild(fragment);
+      updateSelectionCount();
+    }
+
+    async function loadCompanies({ showStatus = true } = {}) {
+      if (!integrationEnabled) {
+        if (showStatus && messageTarget) {
+          setStatusMessage(
+            messageTarget,
+            "Enable the Syncro integration to load companies.",
+            "error"
+          );
+        }
+        return;
+      }
+
+      if (showStatus && messageTarget) {
+        setStatusMessage(messageTarget, "Fetching Syncro companies…");
+      }
+
+      if (refreshButton) {
+        refreshButton.disabled = true;
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      try {
+        const response = await fetch(
+          `/api/integrations/${encodeURIComponent(
+            integrationSlug
+          )}/companies`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+            credentials: "same-origin",
+            signal: controller.signal,
+          }
+        );
+        const data = await response.json().catch(() => []);
+        if (!response.ok) {
+          throw new Error(
+            (data && data.detail) || "Unable to load Syncro companies"
+          );
+        }
+        renderCompanies(Array.isArray(data) ? data : []);
+        if (showStatus && messageTarget) {
+          const count = Array.isArray(data) ? data.length : 0;
+          const label = count === 1 ? "company" : "companies";
+          setStatusMessage(
+            messageTarget,
+            `Loaded ${count} ${label}.`,
+            "success"
+          );
+        }
+      } catch (error) {
+        const detail =
+          error?.name === "AbortError"
+            ? "Request timed out while loading Syncro companies."
+            : error?.message || "Unable to load Syncro companies.";
+        if (messageTarget) {
+          setStatusMessage(messageTarget, detail, "error");
+        }
+      } finally {
+        clearTimeout(timeout);
+        if (refreshButton) {
+          refreshButton.disabled = !integrationEnabled;
+        }
+      }
+    }
+
+    function syncTicketModeFields() {
+      if (!modeSelect) {
+        return;
+      }
+      const mode = modeSelect.value;
+      if (singleField) {
+        singleField.hidden = mode !== "single";
+      }
+      if (rangeField) {
+        rangeField.hidden = mode !== "range";
+      }
+    }
+
+    function updateSummary(summary) {
+      if (!summarySection) {
+        return;
+      }
+      summarySection.hidden = false;
+      const stats = {
+        "companies-created": summary?.companies_created ?? 0,
+        "companies-updated": summary?.companies_updated ?? 0,
+        "tickets-imported": summary?.tickets_imported ?? 0,
+        "tickets-skipped": summary?.tickets_skipped ?? 0,
+        "last-synced": summary?.last_synced_at ?? null,
+      };
+      Object.entries(stats).forEach(([key, value]) => {
+        const target = summarySection.querySelector(
+          `[data-stat='${key}']`
+        );
+        if (!target) {
+          return;
+        }
+        if (key === "last-synced") {
+          if (value) {
+            target.textContent = toLocalDatetime(value);
+          } else {
+            target.textContent = "—";
+          }
+          return;
+        }
+        if (typeof value === "number" && Number.isFinite(value)) {
+          target.textContent = value.toLocaleString();
+        } else {
+          target.textContent = "0";
+        }
+      });
+    }
+
+    setSyncroControlsEnabled(integrationEnabled);
+    syncTicketModeFields();
+
+    if (integrationEnabled) {
+      loadCompanies({ showStatus: false });
+    } else if (messageTarget) {
+      setStatusMessage(
+        messageTarget,
+        "Enable the Syncro integration to load companies."
+      );
+    }
+
+    if (refreshButton) {
+      refreshButton.addEventListener("click", () => {
+        loadCompanies();
+      });
+    }
+
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener("change", () => {
+        const checkboxes = syncroImportContainer.querySelectorAll(
+          "[data-role='syncro-company-checkbox']"
+        );
+        checkboxes.forEach((checkbox) => {
+          checkbox.checked = Boolean(selectAllCheckbox.checked);
+        });
+        updateSelectionCount();
+      });
+    }
+
+    if (modeSelect) {
+      modeSelect.addEventListener("change", () => {
+        syncTicketModeFields();
+      });
+    }
+
+    if (form) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!integrationEnabled) {
+          setStatusMessage(
+            formMessageTarget,
+            "Enable the Syncro integration before running an import.",
+            "error"
+          );
+          return;
+        }
+
+        const ticketMode = modeSelect?.value || "all";
+        const selectedIds = Array.from(
+          syncroImportContainer.querySelectorAll(
+            "[data-role='syncro-company-checkbox']:checked"
+          )
+        )
+          .map((input) => Number.parseInt(input.value, 10))
+          .filter((value) => Number.isFinite(value));
+
+        const ticketOptions = { mode: ticketMode };
+
+        if (ticketMode === "single") {
+          const ticketNumber = Number.parseInt(
+            ticketNumberInput?.value || "",
+            10
+          );
+          if (!Number.isInteger(ticketNumber) || ticketNumber < 1) {
+            setStatusMessage(
+              formMessageTarget,
+              "Enter a valid Syncro ticket number.",
+              "error"
+            );
+            ticketNumberInput?.focus();
+            return;
+          }
+          ticketOptions.ticket_number = ticketNumber;
+        } else if (ticketMode === "range") {
+          const rangeStart = Number.parseInt(rangeStartInput?.value || "", 10);
+          const rangeEnd = Number.parseInt(rangeEndInput?.value || "", 10);
+          if (
+            !Number.isInteger(rangeStart) ||
+            !Number.isInteger(rangeEnd) ||
+            rangeStart < 1 ||
+            rangeEnd < 1
+          ) {
+            setStatusMessage(
+              formMessageTarget,
+              "Enter a valid numeric ticket range.",
+              "error"
+            );
+            if (!Number.isInteger(rangeStart) || rangeStart < 1) {
+              rangeStartInput?.focus();
+            } else {
+              rangeEndInput?.focus();
+            }
+            return;
+          }
+          if (rangeStart > rangeEnd) {
+            setStatusMessage(
+              formMessageTarget,
+              "Range start cannot be greater than range end.",
+              "error"
+            );
+            rangeStartInput?.focus();
+            return;
+          }
+          ticketOptions.range_start = rangeStart;
+          ticketOptions.range_end = rangeEnd;
+        }
+
+        const payload = { tickets: ticketOptions };
+        if (selectedIds.length) {
+          payload.company_ids = selectedIds;
+        }
+
+        setStatusMessage(formMessageTarget, "Running Syncro import…");
+        if (runButton) {
+          runButton.disabled = true;
+        }
+        if (refreshButton) {
+          refreshButton.disabled = true;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        try {
+          const response = await fetch(
+            `/api/integrations/${encodeURIComponent(
+              integrationSlug
+            )}/import`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              credentials: "same-origin",
+              body: JSON.stringify(payload),
+              signal: controller.signal,
+            }
+          );
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data?.detail || "Syncro import failed");
+          }
+          setStatusMessage(
+            formMessageTarget,
+            data?.detail || "Syncro import completed successfully.",
+            "success"
+          );
+          updateSummary(data);
+          if (messageTarget && data?.last_synced_at) {
+            setStatusMessage(
+              messageTarget,
+              `Sync completed at ${toLocalDatetime(data.last_synced_at)}.`,
+              "success"
+            );
+          }
+        } catch (error) {
+          const detail =
+            error?.name === "AbortError"
+              ? "Request timed out while running the Syncro import."
+              : error?.message || "Unable to run the Syncro import.";
+          setStatusMessage(formMessageTarget, detail, "error");
+        } finally {
+          clearTimeout(timeout);
+          if (runButton) {
+            runButton.disabled = !integrationEnabled;
+          }
+          if (refreshButton) {
+            refreshButton.disabled = !integrationEnabled;
+          }
+        }
+      });
+    }
+
+    document.addEventListener("integration:state-changed", (event) => {
+      const detail = event?.detail;
+      if (!detail || detail.slug !== integrationSlug) {
+        return;
+      }
+      const enabled = Boolean(detail.enabled);
+      setSyncroControlsEnabled(enabled);
+      if (enabled) {
+        if (messageTarget) {
+          setStatusMessage(
+            messageTarget,
+            "Syncro integration enabled. Fetching companies…"
+          );
+        }
+        loadCompanies();
+      } else {
+        if (messageTarget) {
+          setStatusMessage(
+            messageTarget,
+            "Enable the Syncro integration to load companies."
+          );
+        }
+        renderCompanies([]);
       }
     });
   }
