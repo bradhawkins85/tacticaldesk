@@ -1098,6 +1098,13 @@ async def ticket_create_view(
     )
     enriched_ticket = enrich_ticket_record(created_ticket, now_utc)
 
+    await dispatch_ticket_event(
+        session,
+        event_type="Ticket Created",
+        ticket_after=enriched_ticket,
+        ticket_payload=payload.dict(),
+    )
+
     await automation_dispatcher.dispatch(
         event_type="Ticket Created",
         ticket_id=enriched_ticket["id"],

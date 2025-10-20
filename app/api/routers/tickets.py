@@ -3,11 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.automation_dispatcher import automation_dispatcher
 from app.core.db import get_session
 from app.core.tickets import ticket_store
 from app.schemas import TicketCreate, TicketCreateResponse
+from app.services import dispatch_ticket_event
 from app.services.ticket_data import enrich_ticket_record, fetch_ticket_records
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
@@ -17,7 +19,7 @@ router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 async def create_ticket(
     payload: TicketCreate,
     request: Request,
-    _session=Depends(get_session),
+    session: AsyncSession = Depends(get_session),
 ) -> TicketCreateResponse:
     now_utc = datetime.now(timezone.utc)
     seed_tickets = await fetch_ticket_records(now_utc)
@@ -28,6 +30,13 @@ async def create_ticket(
         existing_ids=existing_ids,
     )
     enriched_ticket = enrich_ticket_record(created_ticket, now_utc)
+
+    await dispatch_ticket_event(
+        session,
+        event_type="Ticket Created",
+        ticket_after=enriched_ticket,
+        ticket_payload=payload.dict(),
+    )
 
     await automation_dispatcher.dispatch(
         event_type="Ticket Created",
