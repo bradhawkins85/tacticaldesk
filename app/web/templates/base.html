@@ -387,7 +387,12 @@
               aria-expanded="false"
               aria-controls="sidebar-navigation"
             >
-              <span class="icon" aria-hidden="true">☰</span>
+              <span class="hamburger-icon" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </span>
+              <span class="visually-hidden">Toggle navigation</span>
             </button>
             <div class="header-titles">
               <h1>{{ page_title or "" }}</h1>
@@ -432,7 +437,13 @@
             aria-label="Open admin and docs menu"
             aria-expanded="false"
           >
-            <span class="nav-icon" aria-hidden="true">☰</span>
+            <span class="nav-icon" aria-hidden="true">
+              <span class="hamburger-icon hamburger-icon--compact">
+                <span></span>
+                <span></span>
+                <span></span>
+              </span>
+            </span>
             <span>More</span>
           </button>
         </nav>
