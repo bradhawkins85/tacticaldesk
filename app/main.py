@@ -4,6 +4,7 @@ from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Iterable
 from urllib.parse import parse_qs
 import re
 
@@ -351,6 +352,23 @@ def _derive_ticket_form_defaults(
     }
 
 
+def _derive_customer_options(
+    organizations: Iterable[dict[str, object]]
+) -> list[str]:
+    options: set[str] = set()
+    for organization in organizations:
+        name_raw = organization.get("name", "")
+        if not isinstance(name_raw, str):
+            continue
+        name = name_raw.strip()
+        if not name:
+            continue
+        if organization.get("is_archived"):
+            continue
+        options.add(name)
+    return sorted(options, key=str.casefold)
+
+
 async def _build_ticket_listing_context(
     *,
     request: Request,
@@ -432,6 +450,9 @@ async def _build_ticket_create_context(
         form_overrides=form_data,
     )
 
+    organizations = await _list_organizations(session)
+    customer_options = _derive_customer_options(organizations)
+
     context = await _template_context(
         request=request,
         session=session,
@@ -444,6 +465,7 @@ async def _build_ticket_create_context(
         ticket_team_options=form_defaults["ticket_team_options"],
         ticket_assignment_options=form_defaults["ticket_assignment_options"],
         ticket_queue_options=form_defaults["ticket_queue_options"],
+        ticket_customer_options=customer_options,
         ticket_form_errors=form_errors or [],
     )
     return context
@@ -532,6 +554,7 @@ async def _extract_form_data(
 async def _prepare_ticket_detail_context(
     request: Request,
     now_utc: datetime,
+    session: AsyncSession,
     *,
     ticket_id: str,
     form_data: dict[str, str] | None = None,
@@ -632,6 +655,9 @@ async def _prepare_ticket_detail_context(
     if reply_form_data:
         default_reply_form.update(reply_form_data)
 
+    organizations = await _list_organizations(session)
+    customer_options = _derive_customer_options(organizations)
+
     return {
         "request": request,
         "page_title": f"{display_ticket['id']} · {display_ticket['subject']}",
@@ -644,6 +670,7 @@ async def _prepare_ticket_detail_context(
         "ticket_team_options": team_options,
         "ticket_assignment_options": assignment_options,
         "ticket_queue_options": queue_options,
+        "ticket_customer_options": customer_options,
         "active_nav": "tickets",
         "form_errors": form_errors or [],
         "form_saved": saved,
@@ -1165,6 +1192,7 @@ async def ticket_detail_view(
     context = await _prepare_ticket_detail_context(
         request,
         now_utc,
+        session,
         ticket_id=ticket_id,
         saved=request.query_params.get("saved") == "1",
         reply_saved=request.query_params.get("reply") == "1",
@@ -1199,6 +1227,7 @@ async def ticket_update_view(
         context = await _prepare_ticket_detail_context(
             request,
             now_utc,
+            session,
             ticket_id=ticket_id,
             form_data=sanitized_form_data,
             form_errors=error_messages,
@@ -1277,6 +1306,7 @@ async def ticket_reply_view(
         context = await _prepare_ticket_detail_context(
             request,
             now_utc,
+            session,
             ticket_id=ticket_id,
             reply_form_data=view_form_data,
             reply_form_errors=error_messages,
