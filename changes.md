@@ -132,3 +132,4 @@
 - 2025-10-20T03:56:41Z Fix: Realigned Automation Control Tower action buttons within table cells to keep row dividers consistent.
 - 2025-10-20T04:37:33Z Feature: Added Ollama-powered ticket summaries with persistence, refreshed UI section, and regression tests.
 - 2025-10-20T04:13:22Z Feature: Added dedicated organisation contact creation controls with responsive layout buttons in the admin directory.
+- 2025-10-20T04:58:05Z Fix: Relocated ticket summary beneath the reply form with integrated styling for the updated ticket workspace layout.
